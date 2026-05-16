@@ -4,6 +4,7 @@ namespace Runtime.Domain.Enums
     {
         StartScreen,
         Playing,
+        LevelCompleted,
         LevelFailed,
         GameCompleted
     }

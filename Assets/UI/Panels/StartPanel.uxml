@@ -1,0 +1,9 @@
+<UXML xmlns="UnityEngine.UIElements">
+    <VisualElement name="start-root" class="start-root">
+        <Style src="StartPanel.uss" />
+        <VisualElement name="start-content" class="start-content">
+            <Label name="start-title" class="start-title" text="Wait for input" />
+            <Button name="start-button" class="start-button" text="Tap to Start" />
+        </VisualElement>
+    </VisualElement>
+</UXML>

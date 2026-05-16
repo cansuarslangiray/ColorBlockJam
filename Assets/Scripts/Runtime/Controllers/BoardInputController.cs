@@ -22,7 +22,8 @@ namespace Runtime.Controllers
         private Plane _boardPlane = new (Vector3.forward, Vector3.zero);
         private Camera _activePointerCamera;
 
-        private bool IsBoardReadyForInput => boardController != null && boardController.IsInitialized;
+        private bool IsBoardInitialized => boardController != null && boardController.IsInitialized;
+        private bool IsBoardReadyForInput => IsBoardInitialized && StateManager.Instance.CurrentState == GameState.Playing;
 
         private void Awake()
         {
@@ -274,7 +275,7 @@ namespace Runtime.Controllers
 
         private void TryFitInputArea()
         {
-            if (!IsBoardReadyForInput)
+            if (!IsBoardInitialized)
             {
                 return;
             }
@@ -312,7 +313,7 @@ namespace Runtime.Controllers
         
         private bool IsPointInsideBoard(Vector3 boardWorldPoint)
         {
-            if (!IsBoardReadyForInput)
+            if (!IsBoardInitialized)
             {
                 return false;
             }

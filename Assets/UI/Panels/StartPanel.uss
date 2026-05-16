@@ -1,0 +1,71 @@
+.start-root {
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: 56px;
+    padding-bottom: 48px;
+    background-color: rgba(0, 0, 0, 0.55);
+}
+
+.start-content {
+    width: 100%;
+    max-width: 520px;
+    align-items: center;
+    justify-content: center;
+    padding-left: 24px;
+    padding-right: 24px;
+    padding-top: 32px;
+    padding-bottom: 32px;
+    border-radius: 24px;
+    background-color: rgba(0, 0, 0, 0.24);
+}
+
+.start-title {
+    width: 100%;
+    margin-bottom: 24px;
+    color: rgb(255, 255, 255);
+    font-size: 38px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.start-button {
+    width: 100%;
+    min-height: 64px;
+    padding-left: 20px;
+    padding-right: 20px;
+    font-size: 28px;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+
+.compact .start-root {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 44px;
+    padding-bottom: 36px;
+}
+
+.compact .start-content {
+    max-width: 420px;
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 24px;
+    padding-bottom: 24px;
+    border-radius: 18px;
+}
+
+.compact .start-title {
+    margin-bottom: 16px;
+    font-size: 30px;
+}
+
+.compact .start-button {
+    min-height: 56px;
+    font-size: 24px;
+}

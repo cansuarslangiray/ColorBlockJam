@@ -1,10 +1,10 @@
 using System;
+using Runtime.Core;
 using Runtime.Domain.Enums;
-using UnityEngine;
 
 namespace Runtime.Controllers
 {
-    public class StateManager : MonoBehaviour
+    public class StateManager : SingletonMonoBehaviour<StateManager>
     {
         public event Action<GameState, GameState> OnStateChanged;
 

@@ -1,0 +1,9 @@
+<UXML xmlns="UnityEngine.UIElements">
+    <VisualElement name="endgame-root" class="endgame-root">
+        <Style src="EndGamePanel.uss" />
+        <VisualElement name="endgame-content" class="endgame-content">
+            <Label name="endgame-title" class="endgame-title" text="Level Completed" />
+            <Button name="endgame-action" class="endgame-action" text="Continue" />
+        </VisualElement>
+    </VisualElement>
+</UXML>

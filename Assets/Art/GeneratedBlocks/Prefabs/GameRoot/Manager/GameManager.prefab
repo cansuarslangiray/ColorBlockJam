@@ -10,9 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3599574249983179102}
   - component: {fileID: 3441310302227345313}
-  - component: {fileID: 4417233236556189127}
   m_Layer: 0
-  m_Name: GameFlowManager
+  m_Name: GameManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -49,14 +48,6 @@ MonoBehaviour:
   boardController: {fileID: 0}
   blockSceneBuilder: {fileID: 0}
   boardInputController: {fileID: 0}
-  stateManager: {fileID: 0}
-  levelCountdownTimer: {fileID: 4417233236556189127}
-  startScreenRoot: {fileID: 0}
-  gameplayScreenRoot: {fileID: 0}
-  endScreenRoot: {fileID: 0}
-  levelText: {fileID: 0}
-  timerText: {fileID: 0}
-  endMessageText: {fileID: 0}
   gameplayCamera: {fileID: 0}
   forceOrthographicCamera: 0
   resetCameraTilt: 0
@@ -64,17 +55,4 @@ MonoBehaviour:
   minimumOrthographicSize: 5
   minimumPerspectiveDistance: 14
   initializeOnStart: 1
-  levelCompleteDelay: 0.25
---- !u!114 &4417233236556189127
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3062625487821150357}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3be5bd934e974838a84cbd118e640e5a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  tickIntervalSeconds: 1
+  levelCompletePanelDelay: 0.4
