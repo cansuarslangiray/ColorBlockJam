@@ -5,7 +5,9 @@ namespace Runtime.UI.Panels
 {
     public abstract class GamePanel : MonoBehaviour
     {
-        private static readonly Vector2Int PortraitReferenceResolution = new (1080, 1920);
+        private const float CompactShortEdgeThresholdPixels = 280f;
+        private const float LogScaleBase = 2f;
+        private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
         [SerializeField] private UIDocument uiDocument;
 
         protected VisualElement Root { get; private set; }
@@ -61,11 +63,11 @@ namespace Runtime.UI.Panels
             var safeArea = Screen.safeArea;
             var screenWidth = Mathf.Max(1f, Screen.width);
             var screenHeight = Mathf.Max(1f, Screen.height);
-
-            Root.style.paddingLeft = safeArea.xMin;
-            Root.style.paddingRight = screenWidth - safeArea.xMax;
-            Root.style.paddingTop = screenHeight - safeArea.yMax;
-            Root.style.paddingBottom = safeArea.yMin;
+            var panelScale = Mathf.Max(0.0001f, ResolvePanelScale(uiDocument != null ? uiDocument.panelSettings : null));
+            Root.style.paddingLeft = safeArea.xMin / panelScale;
+            Root.style.paddingRight = (screenWidth - safeArea.xMax) / panelScale;
+            Root.style.paddingTop = (screenHeight - safeArea.yMax) / panelScale;
+            Root.style.paddingBottom = safeArea.yMin / panelScale;
         }
 
         private void RefreshResponsiveClasses()
@@ -75,8 +77,8 @@ namespace Runtime.UI.Panels
                 return;
             }
 
-            var shortEdge = Mathf.Min(Screen.width, Screen.height);
-            if (shortEdge <= 720)
+            var shortEdgePixels = Mathf.Min(Screen.width, Screen.height);
+            if (shortEdgePixels <= CompactShortEdgeThresholdPixels)
             {
                 Root.AddToClassList("compact");
             }
@@ -84,6 +86,34 @@ namespace Runtime.UI.Panels
             {
                 Root.RemoveFromClassList("compact");
             }
+        }
+
+        private static float ResolvePanelScale(PanelSettings panelSettings)
+        {
+            if (panelSettings == null)
+            {
+                return 1f;
+            }
+
+            if (panelSettings.scaleMode != PanelScaleMode.ScaleWithScreenSize)
+            {
+                return Mathf.Max(0.0001f, panelSettings.scale);
+            }
+
+            var referenceResolution = panelSettings.referenceResolution;
+            var referenceWidth = Mathf.Max(1f, referenceResolution.x);
+            var referenceHeight = Mathf.Max(1f, referenceResolution.y);
+            var widthScale = Mathf.Max(0.0001f, Screen.width / referenceWidth);
+            var heightScale = Mathf.Max(0.0001f, Screen.height / referenceHeight);
+
+            return panelSettings.screenMatchMode switch
+            {
+                PanelScreenMatchMode.MatchWidthOrHeight => Mathf.Pow(LogScaleBase,
+                    Mathf.Lerp(Mathf.Log(widthScale, LogScaleBase), Mathf.Log(heightScale, LogScaleBase), panelSettings.match)),
+                PanelScreenMatchMode.Expand => Mathf.Min(widthScale, heightScale),
+                PanelScreenMatchMode.Shrink => Mathf.Max(widthScale, heightScale),
+                _ => Mathf.Max(0.0001f, panelSettings.scale)
+            };
         }
 
         public virtual void Show()

@@ -50,7 +50,7 @@ MonoBehaviour:
   boardRoot: {fileID: 0}
   blocksRoot: {fileID: 0}
   gridCellPrefab: {fileID: 8640720651343568273, guid: d719bf6ee45294941a59795768f9f902, type: 3}
-  borderPrefab: {fileID: 6950727987144244198, guid: 84cca90ef9b204e52966625e14cc82db, type: 3}
+  borderPrefab: {fileID: 6295717403206342220, guid: 4febc3e5f60d747d8a2f2168e8580e69, type: 3}
   backdropPrefab: {fileID: 6950727987144244198, guid: 84cca90ef9b204e52966625e14cc82db, type: 3}
   doorPrefab: {fileID: 2012413518598514465, guid: 603380ab311b24c2cb72e212dbb9585e, type: 3}
   materialsByColor:
@@ -71,18 +71,19 @@ MonoBehaviour:
   doorNamePrefix: Door
   blockRootNamePrefix: BlockRoot
   blockCellNamePrefix: BlockCell
-  boardCellGap: 0.08
-  boardCellDepthInCells: 0.05
-  boardCellsZOffset: 0.75
-  boardBackdropPaddingInCells: 0.4
+  boardCellGap: 0.03
+  boardCellDepthInCells: 0.03
+  boardCellsZOffset: 0.72
+  boardBackdropPaddingInCells: 0.2
   boardBackdropZOffset: 0.95
-  edgeFrameThicknessInCells: 0.48
-  edgeFramePaddingInCells: 0.03
-  edgeFrameDepthInCells: 0.14
-  doorInsetInCells: 0.02
+  boardVisualTiltDegrees: 0
+  edgeFrameThicknessInCells: 0.46
+  edgeFramePaddingInCells: 0
+  edgeFrameDepthInCells: 0.17
+  doorInsetInCells: 0.005
   doorDepthBiasFromFrame: 0.02
-  blockCellVisualScale: 0.92
-  blockLayerForwardOffsetFromGrid: 0.24
+  blockCellVisualScale: 0.94
+  blockLayerForwardOffsetFromGrid: 0.22
   blockMoveSmoothingSpeed: 18
   doorExitDuration: 0.32
   doorExitTravelInCells: 1.15

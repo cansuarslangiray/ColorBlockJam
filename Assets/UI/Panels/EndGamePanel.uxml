@@ -2,7 +2,8 @@
     <VisualElement name="endgame-root" class="endgame-root">
         <Style src="EndGamePanel.uss" />
         <VisualElement name="endgame-content" class="endgame-content">
-            <Label name="endgame-title" class="endgame-title" text="Level Completed" />
+            <Label name="endgame-title" class="endgame-title" text="Level Complete!" />
+            <Label name="endgame-subtitle" class="endgame-subtitle" text="Nice move. Keep the streak going." />
             <Button name="endgame-action" class="endgame-action" text="Continue" />
         </VisualElement>
     </VisualElement>

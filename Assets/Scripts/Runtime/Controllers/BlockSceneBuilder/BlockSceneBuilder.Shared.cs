@@ -69,6 +69,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private static void ApplyWorldTransform(Transform target, Vector3 position, Vector3 scale)
         {
+            ApplyWorldTransform(target, position, Quaternion.identity, scale);
+        }
+
+        private static void ApplyWorldTransform(Transform target, Vector3 position, Quaternion rotation, Vector3 scale)
+        {
             if (!target)
             {
                 return;
@@ -79,9 +84,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 target.position = position;
             }
 
-            if (target.rotation != Quaternion.identity)
+            if (target.rotation != rotation)
             {
-                target.rotation = Quaternion.identity;
+                target.rotation = rotation;
             }
 
             if (target.localScale != scale)

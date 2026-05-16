@@ -51,8 +51,11 @@ MonoBehaviour:
   gameplayCamera: {fileID: 0}
   forceOrthographicCamera: 0
   resetCameraTilt: 0
-  cameraPaddingInCells: 1.1
+  cameraPaddingInCells: 0.9
+  cameraCenterOffsetInCells: {x: 0, y: 1.2}
+  perspectiveCameraTiltDegrees: 8.5
   minimumOrthographicSize: 5
   minimumPerspectiveDistance: 14
+  cameraFitDistanceMultiplier: 1.15
   initializeOnStart: 1
   levelCompletePanelDelay: 0.4

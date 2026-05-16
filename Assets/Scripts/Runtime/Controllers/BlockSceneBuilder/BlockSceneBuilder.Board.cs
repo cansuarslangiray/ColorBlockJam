@@ -133,8 +133,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
             var framePadding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
             var doorOffset = (0.5f * cellSize) + framePadding + (frameThickness * 0.5f) - (doorInsetInCells * cellSize);
-            var doorDepth = frameDepth;
-            var doorZ = Mathf.Abs((float)boardCellsZOffset) - Mathf.Max(0.001f, doorDepthBiasFromFrame);
+            var borderZ = Mathf.Abs((float)boardCellsZOffset) - 0.01f;
+            var doorDepth = frameDepth * 1.08f;
+            var doorZ = borderZ - Mathf.Max(0.005f, doorDepthBiasFromFrame);
 
             for (var i = 0; i < _doorPool.Count; i++)
             {

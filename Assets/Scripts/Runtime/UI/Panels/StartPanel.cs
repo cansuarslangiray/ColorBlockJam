@@ -8,21 +8,24 @@ namespace Runtime.UI.Panels
     public class StartPanel : GamePanel
     {
         private Label _titleLabel;
+        private Label _subtitleLabel;
         private Button _startButton;
         private Action _startAction = delegate { };
 
         protected override void CacheElements()
         {
             _titleLabel = Root.Q<Label>("start-title");
+            _subtitleLabel = Root.Q<Label>("start-subtitle");
             _startButton = Root.Q<Button>("start-button");
-            if (_titleLabel == null || _startButton == null)
+            if (_titleLabel == null || _subtitleLabel == null || _startButton == null)
             {
-                Debug.LogError("StartPanel could not find required elements: start-title or start-button.", this);
+                Debug.LogError("StartPanel could not find required elements: start-title, start-subtitle, or start-button.", this);
                 return;
             }
 
-            _titleLabel.text = "Wait for input";
-            _startButton.text = "Tap to Start";
+            _titleLabel.text = "Ready to Solve?";
+            _subtitleLabel.text = "Slide each block to its matching door before the timer runs out.";
+            _startButton.text = "Start Level";
             _startButton.clicked += HandleStartClicked;
             Show();
         }

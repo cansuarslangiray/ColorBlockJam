@@ -23,18 +23,26 @@ namespace Runtime.Flow
 
         [SerializeField] private bool forceOrthographicCamera;
         [SerializeField] private bool resetCameraTilt;
-        [SerializeField, Min(0f)] private float cameraPaddingInCells = 1.1f;
+        [SerializeField, Min(0f)] private float cameraPaddingInCells = 0.9f;
+        [SerializeField] private Vector2 cameraCenterOffsetInCells = new(0f, 1.2f);
+        [SerializeField, Range(0f, 30f)] private float perspectiveCameraTiltDegrees = 8.5f;
         [SerializeField, Min(0.01f)] private float minimumOrthographicSize = 5f;
         [SerializeField, Min(0.01f)] private float minimumPerspectiveDistance = 14f;
+        [SerializeField, Range(0.55f, 1.25f)] private float cameraFitDistanceMultiplier = 1.15f;
 
         [Header("Flow Settings")] [SerializeField]
         private bool initializeOnStart = true;
+
         [SerializeField] private bool lockToPortraitOrientation = true;
 
         [SerializeField] private float levelCompletePanelDelay = 0.4f;
 
         private int _currentLevelIndex;
         private bool _transitionInProgress;
+        private bool _eventsRegistered;
+        private bool _uiActionsBound;
+        private bool _startupInitialized;
+        private Coroutine _bootstrapRoutine;
 
         protected override void Awake()
         {
@@ -44,22 +52,21 @@ namespace Runtime.Flow
 
         private void OnEnable()
         {
-            RegisterEvents();
+            if (_bootstrapRoutine == null)
+            {
+                _bootstrapRoutine = StartCoroutine(BootstrapWhenReady());
+            }
         }
 
         private void OnDisable()
         {
-            UnregisterEvents();
-        }
-
-        private void Start()
-        {
-            BindUiActions();
-
-            if (initializeOnStart)
+            if (_bootstrapRoutine != null)
             {
-                InitializeRun();
+                StopCoroutine(_bootstrapRoutine);
+                _bootstrapRoutine = null;
             }
+
+            UnregisterEvents();
         }
 
         private void ApplyDisplaySettings()
@@ -78,24 +85,70 @@ namespace Runtime.Flow
 
         private void RegisterEvents()
         {
+            if (_eventsRegistered || !HasRequiredRuntimeReferences())
+            {
+                return;
+            }
+
             boardController.LevelCompleted += OnLevelCompleted;
             StateManager.Instance.OnStateChanged += HandleStateChanged;
             UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
+            _eventsRegistered = true;
         }
 
         private void UnregisterEvents()
         {
+            if (!_eventsRegistered)
+            {
+                return;
+            }
+
             boardController.LevelCompleted -= OnLevelCompleted;
             StateManager.Instance.OnStateChanged -= HandleStateChanged;
             UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
+            _eventsRegistered = false;
         }
 
         private void BindUiActions()
         {
+            if (_uiActionsBound)
+            {
+                return;
+            }
             UIManager.Instance.BindStartAction(HandleStartPanelInput);
             UIManager.Instance.BindContinueAction(HandleContinueInput);
             UIManager.Instance.BindRetryAction(HandleRetryInput);
             UIManager.Instance.BindRestartAction(HandleRestartInput);
+            UIManager.Instance.BindReloadAction(HandleReloadInput);
+            _uiActionsBound = true;
+        }
+
+        private IEnumerator BootstrapWhenReady()
+        {
+            while (enabled && !HasRequiredRuntimeReferences())
+            {
+                yield return null;
+            }
+
+            _bootstrapRoutine = null;
+            if (!enabled || !HasRequiredRuntimeReferences())
+            {
+                yield break;
+            }
+
+            RegisterEvents();
+            BindUiActions();
+
+            if (initializeOnStart && !_startupInitialized)
+            {
+                InitializeRun();
+                _startupInitialized = true;
+            }
+        }
+
+        private bool HasRequiredRuntimeReferences()
+        {
+            return boardController != null && StateManager.HasInstance && UIManager.HasInstance;
         }
 
         private void InitializeRun()
@@ -268,6 +321,16 @@ namespace Runtime.Flow
             InitializeRun();
         }
 
+        private void HandleReloadInput()
+        {
+            if (StateManager.Instance.CurrentState != GameState.Playing || _transitionInProgress)
+            {
+                return;
+            }
+
+            RetryCurrentLevel();
+        }
+
         private bool FitCameraToLevel(LevelData levelData)
         {
             if (levelData == null)
@@ -281,8 +344,10 @@ namespace Runtime.Flow
             var padding = Mathf.Max(0f, cameraPaddingInCells * cellSize);
             var contentWidth = width + (padding * 2f);
             var contentHeight = height + (padding * 2f);
+            var centerOffset = cameraCenterOffsetInCells * cellSize;
 
-            var center = boardController.BoardOrigin + new Vector2(width * 0.5f, height * 0.5f);
+            var center = boardController.BoardOrigin +
+                         new Vector2((width * 0.5f) + centerOffset.x, (height * 0.5f) + centerOffset.y);
             var cameraTransform = gameplayCamera.transform;
             cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
 
@@ -303,12 +368,19 @@ namespace Runtime.Flow
             }
 
             gameplayCamera.orthographic = false;
+            if (!resetCameraTilt)
+            {
+                var currentEuler = cameraTransform.eulerAngles;
+                cameraTransform.rotation = Quaternion.Euler(-Mathf.Abs(perspectiveCameraTiltDegrees), currentEuler.y,
+                    currentEuler.z);
+            }
 
             var halfFovY = Mathf.Max(0.01f, gameplayCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
             var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, gameplayCamera.aspect));
             var distanceByHeight = (contentHeight * 0.5f) / Mathf.Tan(halfFovY);
             var distanceByWidth = (contentWidth * 0.5f) / Mathf.Tan(halfFovX);
             var requiredDistance = Mathf.Max(minimumPerspectiveDistance, distanceByHeight, distanceByWidth);
+            requiredDistance *= Mathf.Clamp(cameraFitDistanceMultiplier, 0.55f, 1.25f);
             var forward = cameraTransform.forward.normalized;
             cameraTransform.position = new Vector3(center.x, center.y, 0f) - (forward * requiredDistance);
             return true;

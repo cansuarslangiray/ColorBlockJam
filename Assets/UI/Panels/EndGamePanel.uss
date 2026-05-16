@@ -4,68 +4,95 @@
     height: 100%;
     align-items: center;
     justify-content: center;
-    padding-left: 24px;
-    padding-right: 24px;
-    padding-top: 56px;
-    padding-bottom: 48px;
-    background-color: rgba(0, 0, 0, 0.65);
+    padding: 94px 34px 68px;
+    background-color: rgba(8, 19, 38, 0.56);
 }
 
 .endgame-content {
     width: 100%;
-    max-width: 520px;
+    max-width: 760px;
     align-items: center;
     justify-content: center;
-    padding-left: 24px;
-    padding-right: 24px;
-    padding-top: 32px;
-    padding-bottom: 32px;
-    border-radius: 24px;
-    background-color: rgba(0, 0, 0, 0.24);
+    padding: 36px 40px 34px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(255, 255, 255, 0.18);
+    border-right-color: rgba(255, 255, 255, 0.18);
+    border-top-color: rgba(255, 255, 255, 0.18);
+    border-bottom-color: rgba(255, 255, 255, 0.18);
+    border-radius: 34px;
+    background-color: rgba(19, 50, 93, 0.92);
 }
 
 .endgame-title {
     width: 100%;
-    margin-bottom: 24px;
+    margin-bottom: 14px;
     color: rgb(255, 255, 255);
-    font-size: 36px;
+    font-size: 58px;
     -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: normal;
+}
+
+.endgame-subtitle {
+    width: 100%;
+    margin-bottom: 30px;
+    color: rgba(234, 244, 255, 0.9);
+    font-size: 31px;
     -unity-text-align: middle-center;
     white-space: normal;
 }
 
 .endgame-action {
     width: 100%;
-    min-height: 64px;
-    padding-left: 20px;
-    padding-right: 20px;
-    font-size: 28px;
+    min-height: 94px;
+    padding-left: 24px;
+    padding-right: 24px;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-radius: 22px;
+    background-color: rgb(255, 209, 92);
+    color: rgb(40, 46, 67);
+    font-size: 40px;
     -unity-font-style: bold;
+    -unity-text-align: middle-center;
     white-space: normal;
 }
 
+.endgame-action:hover {
+    background-color: rgb(255, 222, 126);
+}
+
+.endgame-action:active {
+    background-color: rgb(242, 186, 56);
+}
+
 .compact .endgame-root {
-    padding-left: 16px;
-    padding-right: 16px;
-    padding-top: 44px;
-    padding-bottom: 36px;
+    padding: 66px 18px 42px;
 }
 
 .compact .endgame-content {
-    max-width: 420px;
-    padding-left: 18px;
-    padding-right: 18px;
-    padding-top: 24px;
-    padding-bottom: 24px;
-    border-radius: 18px;
+    max-width: 560px;
+    padding: 22px 24px;
+    border-radius: 24px;
 }
 
 .compact .endgame-title {
-    margin-bottom: 16px;
-    font-size: 28px;
+    margin-bottom: 8px;
+    font-size: 44px;
+}
+
+.compact .endgame-subtitle {
+    margin-bottom: 18px;
+    font-size: 24px;
 }
 
 .compact .endgame-action {
-    min-height: 56px;
-    font-size: 24px;
+    min-height: 72px;
+    border-radius: 16px;
+    font-size: 30px;
 }

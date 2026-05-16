@@ -10,10 +10,16 @@ namespace Runtime.UI.Panels
     public class TopBarPanel : GamePanel
     {
         [SerializeField, Min(0.2f)] private float tickIntervalSeconds = 1f;
+        [SerializeField, Min(1)] private int warningThresholdSeconds = 30;
+        [SerializeField, Min(1)] private int criticalThresholdSeconds = 10;
         private Label _levelLabel;
         private Label _timerLabel;
+        private VisualElement _timerChip;
+        private Button _reloadButton;
         private int _remainingSeconds;
         private Coroutine _tickRoutine;
+        private bool _isTimerRunning;
+        private Action _reloadAction = delegate { };
 
         public event Action TimerExpired = delegate { };
 
@@ -21,12 +27,15 @@ namespace Runtime.UI.Panels
         {
             _levelLabel = Root.Q<Label>("topbar-level");
             _timerLabel = Root.Q<Label>("topbar-timer");
-            if (_levelLabel == null || _timerLabel == null)
+            _timerChip = Root.Q<VisualElement>("topbar-timer-chip");
+            _reloadButton = Root.Q<Button>("topbar-reload");
+            if (_levelLabel == null || _timerLabel == null || _timerChip == null || _reloadButton == null)
             {
-                Debug.LogError("TopBarPanel could not find required elements: topbar-level or topbar-timer.", this);
+                Debug.LogError("TopBarPanel could not find required elements: topbar-level, topbar-timer, topbar-timer-chip, or topbar-reload.", this);
                 return;
             }
 
+            _reloadButton.clicked += HandleReloadClicked;
             SetTimer(0);
             Hide();
         }
@@ -41,15 +50,22 @@ namespace Runtime.UI.Panels
             uiManager.GameStateChanged -= HandleGameStateChanged;
         }
 
+        public void BindReloadAction(Action onReloadRequested)
+        {
+            _reloadAction = onReloadRequested;
+        }
+
         public void StartTimer(float durationSeconds)
         {
             StopTimer();
 
             _remainingSeconds = Mathf.Max(0, Mathf.CeilToInt(durationSeconds));
+            _isTimerRunning = _remainingSeconds > 0;
             SetTimer(_remainingSeconds);
 
             if (_remainingSeconds <= 0)
             {
+                _isTimerRunning = false;
                 TimerExpired();
                 return;
             }
@@ -59,13 +75,14 @@ namespace Runtime.UI.Panels
 
         public void StopTimer()
         {
-            if (_tickRoutine == null)
+            if (_tickRoutine != null)
             {
-                return;
+                StopCoroutine(_tickRoutine);
+                _tickRoutine = null;
             }
 
-            StopCoroutine(_tickRoutine);
-            _tickRoutine = null;
+            _isTimerRunning = false;
+            SetTimerState(_remainingSeconds);
         }
 
         public void SetLevel(int levelNumber, int levelIndex, int totalLevels)
@@ -76,7 +93,7 @@ namespace Runtime.UI.Panels
             }
 
             var displayLevel = levelNumber > 0 ? levelNumber : levelIndex + 1;
-            _levelLabel.text = totalLevels > 0 ? $"Level {displayLevel}/{totalLevels}" : $"Level {displayLevel}";
+            _levelLabel.text = displayLevel.ToString();
         }
 
         public void SetTimer(int remainingSeconds)
@@ -90,6 +107,7 @@ namespace Runtime.UI.Panels
             var minutes = totalSeconds / 60;
             var seconds = totalSeconds % 60;
             _timerLabel.text = $"{minutes:00}:{seconds:00}";
+            SetTimerState(totalSeconds);
         }
 
         private IEnumerator TickRoutine()
@@ -103,6 +121,8 @@ namespace Runtime.UI.Panels
             }
 
             _tickRoutine = null;
+            _isTimerRunning = false;
+            SetTimerState(0);
             TimerExpired();
         }
 
@@ -123,9 +143,39 @@ namespace Runtime.UI.Panels
             }
         }
 
+        private void SetTimerState(int totalSeconds)
+        {
+            if (_timerChip == null)
+            {
+                return;
+            }
+
+            var warningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
+            var isCritical = _isTimerRunning && totalSeconds > 0 && totalSeconds <= criticalThresholdSeconds;
+            var isWarning = _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= warningThreshold;
+            var shouldPulse = isCritical && totalSeconds % 2 == 0;
+
+            _timerChip.EnableInClassList("timer-warning", isWarning);
+            _timerChip.EnableInClassList("timer-critical", isCritical);
+            _timerChip.EnableInClassList("timer-pulse", shouldPulse);
+        }
+
+        private void HandleReloadClicked()
+        {
+            _reloadAction();
+        }
+
         private void OnDisable()
         {
             StopTimer();
+        }
+
+        private void OnDestroy()
+        {
+            if (_reloadButton != null)
+            {
+                _reloadButton.clicked -= HandleReloadClicked;
+            }
         }
     }
 }

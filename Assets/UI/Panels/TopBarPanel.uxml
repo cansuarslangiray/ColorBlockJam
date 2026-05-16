@@ -1,7 +1,22 @@
 <UXML xmlns="UnityEngine.UIElements">
     <VisualElement name="topbar-root" class="topbar-root">
         <Style src="TopBarPanel.uss" />
-        <Label name="topbar-level" class="topbar-level" text="Level 1/1" />
-        <Label name="topbar-timer" class="topbar-timer" text="00:00" />
+        <VisualElement name="topbar-shell" class="topbar-shell">
+            <VisualElement name="topbar-main-bar" class="topbar-main-bar">
+                <VisualElement name="topbar-level-badge" class="topbar-level-badge">
+                    <Label class="topbar-level-caption" text="Level" />
+                    <Label name="topbar-level" class="topbar-level" text="1" />
+                </VisualElement>
+                <VisualElement name="topbar-time-group" class="topbar-time-group">
+                    <VisualElement class="topbar-time-heading">
+                        <Label class="topbar-time-title" text="Time" />
+                    </VisualElement>
+                    <VisualElement name="topbar-timer-chip" class="topbar-timer-chip">
+                        <Label name="topbar-timer" class="topbar-timer" text="00:00" />
+                    </VisualElement>
+                </VisualElement>
+                <Button name="topbar-reload" class="topbar-reload" text="↻" />
+            </VisualElement>
+        </VisualElement>
     </VisualElement>
 </UXML>

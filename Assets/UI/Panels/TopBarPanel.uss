@@ -2,62 +2,263 @@
     position: absolute;
     left: 0;
     right: 0;
-    top: 0;
-    min-height: 88px;
+    top: 100px;
+    min-height: 180px;
     padding-left: 18px;
     padding-right: 18px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    flex-direction: row;
+    padding-top: 14px;
+    padding-bottom: 0;
     align-items: center;
-    justify-content: space-between;
-    background-color: rgba(0, 0, 0, 0.45);
+    justify-content: flex-start;
 }
 
-.topbar-level {
-    flex-grow: 1;
-    flex-shrink: 1;
-    min-width: 0;
-    margin-right: 12px;
-    color: rgb(255, 255, 255);
+.topbar-shell {
+    width: 100%;
+    max-width: 940px;
+    min-height: 128px;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-main-bar {
+    position: relative;
+    width: 88%;
+    max-width: 780px;
+    min-height: 86px;
+    margin-left: 44px;
+    padding-left: 102px;
+    padding-right: 92px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(69, 87, 165);
+    border-right-color: rgb(69, 87, 165);
+    border-top-color: rgb(69, 87, 165);
+    border-bottom-color: rgb(69, 87, 165);
+    border-radius: 34px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(42, 176, 240);
+}
+
+.topbar-level-badge {
+    position: absolute;
+    left: -65px;
+    top: -10px;
+    width: 189px;
+    height: 189px;
+    padding-top: 10px;
+    padding-bottom: 8px;
+    border-left-width: 4px;
+    border-right-width: 4px;
+    border-top-width: 4px;
+    border-bottom-width: 4px;
+    border-left-color: rgb(69, 87, 165);
+    border-right-color: rgb(69, 87, 165);
+    border-top-color: rgb(69, 87, 165);
+    border-bottom-color: rgb(69, 87, 165);
+    border-radius: 999px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(63, 188, 249);
+}
+
+.topbar-level-caption {
+    margin-bottom: -2px;
+    color: rgb(237, 244, 255);
     font-size: 28px;
-    -unity-font-style: bold;
-    -unity-text-align: middle-left;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    -unity-text-overflow-position: end;
-}
-
-.topbar-timer {
-    flex-shrink: 0;
-    min-width: 120px;
-    min-height: 46px;
-    padding-left: 12px;
-    padding-right: 12px;
-    border-radius: 12px;
-    background-color: rgba(0, 0, 0, 0.35);
-    color: rgb(255, 255, 255);
-    font-size: 32px;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
 }
 
+.topbar-level {
+    color: rgb(255, 255, 255);
+    font-size: 52px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
+
+.topbar-time-group {
+    min-width: 210px;
+    align-items: center;
+    justify-content: center;
+}
+
+.topbar-time-heading {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+}
+
+
+.topbar-time-title {
+    color: rgb(236, 245, 255);
+    font-size: 44px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.topbar-timer-chip {
+    width: 100%;
+    max-width: 236px;
+    min-height: 52px;
+    padding-left: 14px;
+    padding-right: 14px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(78, 124, 238);
+    border-right-color: rgb(78, 124, 238);
+    border-top-color: rgb(78, 124, 238);
+    border-bottom-color: rgb(78, 124, 238);
+    border-radius: 24px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgb(49, 70, 198);
+}
+
+.topbar-timer {
+    color: rgb(244, 247, 255);
+    font-size: 48px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+}
+
+.topbar-reload {
+    position: absolute;
+    right: 19px;
+    top: 40px;
+    width: 90px;
+    min-height: 68px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-left-color: rgb(183, 112, 22);
+    border-right-color: rgb(183, 112, 22);
+    border-top-color: rgb(183, 112, 22);
+    border-bottom-color: rgb(183, 112, 22);
+    border-radius: 20px;
+    background-color: rgb(255, 193, 57);
+    color: rgb(141, 76, 18);
+    font-size: 44px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.topbar-reload:hover {
+    background-color: rgb(255, 210, 92);
+}
+
+.topbar-reload:active {
+    background-color: rgb(245, 174, 22);
+}
+
+.topbar-timer-chip.timer-warning {
+    background-color: rgb(206, 131, 20);
+    border-left-color: rgb(255, 229, 162);
+    border-right-color: rgb(255, 229, 162);
+    border-top-color: rgb(255, 229, 162);
+    border-bottom-color: rgb(255, 229, 162);
+}
+
+.topbar-timer-chip.timer-critical {
+    background-color: rgb(195, 49, 58);
+    border-left-color: rgb(255, 187, 193);
+    border-right-color: rgb(255, 187, 193);
+    border-top-color: rgb(255, 187, 193);
+    border-bottom-color: rgb(255, 187, 193);
+}
+
+.topbar-timer-chip.timer-pulse {
+    border-left-color: rgb(255, 255, 255);
+    border-right-color: rgb(255, 255, 255);
+    border-top-color: rgb(255, 255, 255);
+    border-bottom-color: rgb(255, 255, 255);
+}
+
 .compact .topbar-root {
-    min-height: 74px;
-    padding-left: 12px;
-    padding-right: 12px;
+    min-height: 140px;
+    padding-left: 10px;
+    padding-right: 10px;
     padding-top: 8px;
-    padding-bottom: 8px;
+}
+
+.compact .topbar-shell {
+    max-width: 620px;
+    min-height: 96px;
+}
+
+.compact .topbar-main-bar {
+    width: 90%;
+    min-height: 68px;
+    margin-left: 30px;
+    padding-left: 74px;
+    padding-right: 62px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    border-radius: 22px;
+}
+
+.compact .topbar-level-badge {
+    left: -52px;
+    top: -11px;
+    width: 86px;
+    height: 86px;
+    padding-top: 8px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+}
+
+.compact .topbar-level-caption {
+    font-size: 20px;
 }
 
 .compact .topbar-level {
-    margin-right: 8px;
-    font-size: 22px;
+    font-size: 36px;
+}
+
+.compact .topbar-time-group {
+    min-width: 150px;
+}
+
+.compact .topbar-time-icon {
+    margin-right: 4px;
+    font-size: 13px;
+}
+
+.compact .topbar-time-title {
+    font-size: 28px;
+}
+
+.compact .topbar-timer-chip {
+    max-width: 160px;
+    min-height: 40px;
+    border-radius: 16px;
 }
 
 .compact .topbar-timer {
-    min-width: 100px;
-    min-height: 40px;
-    font-size: 26px;
+    font-size: 32px;
+}
+
+.compact .topbar-reload {
+    right: 8px;
+    top: 7px;
+    width: 46px;
+    min-height: 45px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-radius: 14px;
+    font-size: 30px;
 }

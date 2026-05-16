@@ -78,6 +78,11 @@ namespace Runtime.UI
             endGamePanel.BindRestartAction(onRestartRequested);
         }
 
+        public void BindReloadAction(Action onReloadRequested)
+        {
+            topBarPanel.BindReloadAction(onReloadRequested);
+        }
+
         public void PublishState(GameState state)
         {
             GameStateChanged(state);
