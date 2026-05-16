@@ -58,9 +58,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private float blockMoveDuration = 0.14f;
 
         [SerializeField] private AnimationCurve blockMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-        [SerializeField, Min(0.03f)] private float landingSquashDuration = 0.1f;
-        [SerializeField, Range(0f, 0.35f)] private float landingSquashAmount = 0.14f;
-        [SerializeField] private AnimationCurve landingSquashCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         [SerializeField, Min(0.05f)] private float doorExitDuration = 0.32f;
         [SerializeField, Min(0.2f)] private float doorExitTravelInCells = 1.15f;
@@ -82,14 +79,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private PooledVisual _backdropObject;
         private bool _baseGridInitialized;
         private Vector2Int _baseGridSize;
+        private bool _loggedMissingBlockCellPrefab;
+        private bool _loggedPrimitiveFallback;
 
-        private Transform BoardRoot => boardRoot != null ? boardRoot : transform;
-        private Transform BlocksRoot => blocksRoot != null ? blocksRoot : transform;
-        private Vector2 BoardOrigin => boardController != null ? boardController.BoardOrigin : Vector2.zero;
-        private float CellSize => Mathf.Max(0.01f, boardController != null ? boardController.CellSize : 1f);
+        private Transform BoardRoot => boardRoot;
+        private Transform BlocksRoot => blocksRoot;
+        private Vector2 BoardOrigin => boardController.BoardOrigin;
+        private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
 
         private BoardGameplayConfig ResolvedGameplayConfig => gameplayConfig ? gameplayConfig :
-            boardController != null ? boardController.GameplayConfig : null;
+            boardController.GameplayConfig;
 
         private float MoveDuration => Mathf.Max(0.05f,
             ResolvedGameplayConfig ? ResolvedGameplayConfig.blockMoveDuration : blockMoveDuration);
@@ -97,19 +96,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private AnimationCurve MoveCurve => ResolvedGameplayConfig && ResolvedGameplayConfig.blockMoveCurve != null
             ? ResolvedGameplayConfig.blockMoveCurve
             : blockMoveCurve;
-
-        private float LandingDuration => Mathf.Max(0.03f,
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.landingSquashDuration : landingSquashDuration);
-
-        private float LandingAmount => Mathf.Clamp(
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.landingSquashAmount : landingSquashAmount,
-            0f,
-            0.35f);
-
-        private AnimationCurve LandingCurve =>
-            ResolvedGameplayConfig && ResolvedGameplayConfig.landingSquashCurve != null
-                ? ResolvedGameplayConfig.landingSquashCurve
-                : landingSquashCurve;
 
         private float ExitDuration => Mathf.Max(0.05f,
             ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitDuration : doorExitDuration);

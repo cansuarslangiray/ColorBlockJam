@@ -15,16 +15,29 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private PooledVisual CreateBlockCellObject(Transform parent)
         {
-            var prefab = visualProfile ? visualProfile.defaultBlockPrefab : null;
+            var prefab = ResolveBlockCellPrefab();
             return CreateVisualObject(parent, GetRuntimeName(blockCellNamePrefix), prefab, true);
         }
 
         private PooledVisual CreateVisualObject(Transform parent, string objectName, GameObject prefab, bool cacheRenderer)
         {
             var visualParent = parent ? parent : transform;
-            var visualObject = prefab ? Instantiate(prefab, visualParent) : GameObject.CreatePrimitive(PrimitiveType.Cube);
-            if (!prefab)
+            GameObject visualObject;
+            if (prefab)
             {
+                visualObject = Instantiate(prefab, visualParent);
+            }
+            else
+            {
+                if (!_loggedPrimitiveFallback)
+                {
+                    Debug.LogError(
+                        "BlockSceneBuilder could not resolve a prefab and is creating a primitive fallback. Reassign missing prefab references.",
+                        this);
+                    _loggedPrimitiveFallback = true;
+                }
+
+                visualObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 visualObject.transform.SetParent(visualParent, false);
             }
 
@@ -34,6 +47,29 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             var renderer = cacheRenderer ? ResolveRenderer(visualObject) : null;
             return new PooledVisual(visualObject, renderer);
+        }
+
+        private GameObject ResolveBlockCellPrefab()
+        {
+            if (visualProfile && visualProfile.defaultBlockPrefab)
+            {
+                return visualProfile.defaultBlockPrefab;
+            }
+
+            if (gridCellPrefab)
+            {
+                if (!_loggedMissingBlockCellPrefab)
+                {
+                    Debug.LogWarning(
+                        "BlockVisualProfile.defaultBlockPrefab is missing. BlockSceneBuilder is using gridCellPrefab as fallback.",
+                        this);
+                    _loggedMissingBlockCellPrefab = true;
+                }
+
+                return gridCellPrefab;
+            }
+
+            return null;
         }
 
         private static Renderer ResolveRenderer(GameObject target)

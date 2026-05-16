@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ca8ff72f4b99429e983dbbdd33a11f3, type: 3}
   m_Name: BlockVisualProfile
   m_EditorClassIdentifier: 
-  defaultBlockPrefab: {fileID: 7024398555362570237, guid: 44c06e88a2761492db97040635a4adfa, type: 3}
+  defaultBlockPrefab: {fileID: 8640720651343568273, guid: d719bf6ee45294941a59795768f9f902, type: 3}
   materialsByColor:
   - colorType: 0
     material: {fileID: 2100000, guid: a20ede5f74e784798bf1722925690043, type: 2}

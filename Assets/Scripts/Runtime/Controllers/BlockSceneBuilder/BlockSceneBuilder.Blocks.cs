@@ -252,33 +252,30 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor, Vector2Int fallbackDirection)
         {
-            if (boardController)
+            var gridSize = boardController.GridDimensions;
+            if (gridSize.x > 0 && gridSize.y > 0)
             {
-                var gridSize = boardController.GridDimensions;
-                if (gridSize.x > 0 && gridSize.y > 0)
+                var maxX = gridSize.x - 1;
+                var maxY = gridSize.y - 1;
+
+                if (matchedDoor.MinCell.x <= 0)
                 {
-                    var maxX = gridSize.x - 1;
-                    var maxY = gridSize.y - 1;
+                    return Vector2Int.left;
+                }
 
-                    if (matchedDoor.MinCell.x <= 0)
-                    {
-                        return Vector2Int.left;
-                    }
+                if (matchedDoor.MaxCell.x >= maxX)
+                {
+                    return Vector2Int.right;
+                }
 
-                    if (matchedDoor.MaxCell.x >= maxX)
-                    {
-                        return Vector2Int.right;
-                    }
+                if (matchedDoor.MinCell.y <= 0)
+                {
+                    return Vector2Int.down;
+                }
 
-                    if (matchedDoor.MinCell.y <= 0)
-                    {
-                        return Vector2Int.down;
-                    }
-
-                    if (matchedDoor.MaxCell.y >= maxY)
-                    {
-                        return Vector2Int.up;
-                    }
+                if (matchedDoor.MaxCell.y >= maxY)
+                {
+                    return Vector2Int.up;
                 }
             }
 
@@ -311,31 +308,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             blockTransform.position = targetPosition;
-        }
-
-        private IEnumerator PlayLandingSquash(Transform blockTransform)
-        {
-            if (LandingAmount <= 0f)
-            {
-                blockTransform.localScale = Vector3.one;
-                yield break;
-            }
-
-            var startScale = Vector3.one;
-            var squashScale = new Vector3(1f + LandingAmount, 1f - LandingAmount, 1f);
-            var elapsed = 0f;
-
-            while (elapsed < LandingDuration)
-            {
-                elapsed += Time.deltaTime;
-                var normalized = Mathf.Clamp01(elapsed / LandingDuration);
-                var curveT = LandingCurve != null ? Mathf.Clamp01(LandingCurve.Evaluate(normalized)) : normalized;
-                var wave = Mathf.Sin(curveT * Mathf.PI);
-                blockTransform.localScale = Vector3.LerpUnclamped(startScale, squashScale, wave);
-                yield return null;
-            }
-
-            blockTransform.localScale = Vector3.one;
         }
 
         private void StopBlockExit(int blockId)

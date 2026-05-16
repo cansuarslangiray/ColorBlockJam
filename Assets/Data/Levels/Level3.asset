@@ -19,9 +19,7 @@ MonoBehaviour:
   availableColors: 000000000100000003000000
   availableShapes:
   - {fileID: 11400000, guid: ca1f90966e8d249078ffae98cfc9c103, type: 2}
-  - {fileID: 11400000, guid: 657facc7991f24a77abb313ee4d46afd, type: 2}
   - {fileID: 11400000, guid: e45e7d40800b04417b0420376ee8632a, type: 2}
-  - {fileID: 0}
   - {fileID: 11400000, guid: 33625d4dc76de4c8b8077feae12631aa, type: 2}
   doors:
   - position: {x: 5, y: 0}

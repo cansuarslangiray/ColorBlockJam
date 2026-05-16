@@ -118,6 +118,7 @@ namespace Runtime.Flow
             UIManager.Instance.BindContinueAction(HandleContinueInput);
             UIManager.Instance.BindRetryAction(HandleRetryInput);
             UIManager.Instance.BindRestartAction(HandleRestartInput);
+            UIManager.Instance.BindReloadAction(HandleReloadInput);
             _uiActionsBound = true;
         }
 
@@ -295,6 +296,16 @@ namespace Runtime.Flow
             }
 
             InitializeRun();
+        }
+
+        private void HandleReloadInput()
+        {
+            if (StateManager.Instance.CurrentState != GameState.Playing || _transitionInProgress)
+            {
+                return;
+            }
+
+            StartCurrentLevel();
         }
 
         private bool FitCameraToLevel(LevelData levelData)

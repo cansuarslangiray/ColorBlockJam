@@ -63,10 +63,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 6414927431985220870}
   uiTextProfile: {fileID: 11400000, guid: 12f7cd0fc0b3143e7ad2c2b30b3bef78, type: 2}
-  fallbackText:
-    title: Ready to Solve?
-    subtitle: Slide each block to its matching door before the timer runs out.
-    actionLabel: Start Level
 --- !u!1 &2151674028153536640
 GameObject:
   m_ObjectHideFlags: 0
@@ -229,15 +225,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 5848248257493579649}
   uiTextProfile: {fileID: 11400000, guid: 12f7cd0fc0b3143e7ad2c2b30b3bef78, type: 2}
-  levelCompletedFallback:
-    title: Level Complete!
-    subtitle: Nice move. Keep the streak going.
-    actionLabel: Continue
-  levelFailedFallback:
-    title: Time's Up
-    subtitle: You were close. Try that route once more.
-    actionLabel: Retry
-  gameCompletedFallback:
-    title: You Cleared All Levels!
-    subtitle: Great run. Ready for another full clear?
-    actionLabel: Restart

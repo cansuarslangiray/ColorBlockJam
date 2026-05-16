@@ -16,13 +16,6 @@ namespace Runtime.UI.Panels
 
         protected virtual void Awake()
         {
-            if (uiDocument == null)
-            {
-                Debug.LogError($"{GetType().Name} requires a UIDocument reference.", this);
-                enabled = false;
-                return;
-            }
-
             Root = uiDocument.rootVisualElement;
             if (Root == null)
             {
@@ -74,7 +67,7 @@ namespace Runtime.UI.Panels
             var safeArea = Screen.safeArea;
             var screenWidth = Mathf.Max(1f, Screen.width);
             var screenHeight = Mathf.Max(1f, Screen.height);
-            var panelScale = Mathf.Max(0.0001f, ResolvePanelScale(uiDocument != null ? uiDocument.panelSettings : null));
+            var panelScale = Mathf.Max(0.0001f, ResolvePanelScale(uiDocument.panelSettings));
             Root.style.paddingLeft = safeArea.xMin / panelScale;
             Root.style.paddingRight = (screenWidth - safeArea.xMax) / panelScale;
             Root.style.paddingTop = (screenHeight - safeArea.yMax) / panelScale;

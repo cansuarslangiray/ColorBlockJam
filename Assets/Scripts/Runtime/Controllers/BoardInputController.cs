@@ -92,7 +92,7 @@ namespace Runtime.Controllers
                 ? _pointerPositionAction.ReadValue<Vector2>()
                 : Vector2.zero;
 
-            if (_gestureActive || !boardController || ShouldIgnorePointer(pointerPosition))
+            if (_gestureActive || ShouldIgnorePointer(pointerPosition))
             {
                 return;
             }
@@ -101,7 +101,7 @@ namespace Runtime.Controllers
 
         private void OnPointerPositionPerformed(InputAction.CallbackContext context)
         {
-            if (!_gestureActive || !boardController)
+            if (!_gestureActive)
             {
                 return;
             }
@@ -123,7 +123,7 @@ namespace Runtime.Controllers
 
         private void EndActiveGesture()
         {
-            if (_gestureActive && boardController)
+            if (_gestureActive)
             {
                 boardController.EndPointerGesture();
             }
