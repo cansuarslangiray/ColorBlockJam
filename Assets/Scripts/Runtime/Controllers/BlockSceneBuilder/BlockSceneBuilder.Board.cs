@@ -118,6 +118,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ApplyDoors(LevelData levelData, Vector2 boardOrigin, float cellSize)
         {
             var openings = levelData.GetDoorOpenings();
+            CacheActiveDoorOpenings(openings);
             var requiredCount = openings?.Count ?? 0;
             var doorContentRoot = BoardRoot;
 

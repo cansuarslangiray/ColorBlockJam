@@ -12,6 +12,7 @@ namespace Runtime.Controllers
     public class BoardController : MonoBehaviour
     {
         private const float DragActivationInCells = 0.35f;
+        private const float DirectionDeadZone = 0.0001f;
 
         [SerializeField] private float cellSize = 1f;
         [SerializeField] private Vector2 boardOrigin;
@@ -21,14 +22,10 @@ namespace Runtime.Controllers
 
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
-        public event Action<int, Vector2Int, Vector2Int> BlockCleared;
+        public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
 
-        private LevelData CurrentLevel { get; set; }
         public bool IsInitialized { get; private set; }
-        private int RuntimeBlockCount { get; set; }
-        private bool _levelCompletedRaised;
-
-        public Vector2Int GridDimensions => CurrentLevel ? CurrentLevel.gridDimensions : Vector2Int.zero;
+        public Vector2Int GridDimensions => _gridDimensions;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => boardOrigin;
         public BoardGameplayConfig GameplayConfig => gameplayConfig;
@@ -36,11 +33,27 @@ namespace Runtime.Controllers
         private readonly Dictionary<int, RuntimeBlockState> _runtimeBlocks = new();
         private readonly List<DoorOpeningData> _doorOpenings = new();
         private readonly BoardOccupancyMap _occupancyMap = new();
+        private Vector2Int _gridDimensions;
+        private float _boardWidthWorld;
+        private float _boardHeightWorld;
+        private float _dragActivationDistanceSqr;
+        private float _resolvedCellSize = 1f;
+        private float _inverseCellSize = 1f;
+        private bool _levelCompletedRaised;
 
         private Plane _boardPlane = new(Vector3.forward, Vector3.zero);
-        private int _activeDragBlockId = -1;
-        private Vector2 _activeDragBoardPoint;
-        private Camera _activeDragCamera;
+        private int _activeGestureBlockId = -1;
+        private Vector2 _activeGestureStartBoardPoint;
+        private GestureAxis _activeGestureAxis;
+        private int _activeGestureAppliedStepCount;
+        private Camera _activeGestureCamera;
+
+        private enum GestureAxis : byte
+        {
+            None = 0,
+            Horizontal = 1,
+            Vertical = 2
+        }
 
         private bool IsBoardReadyForInput => IsInitialized && StateManager.HasInstance &&
                                              StateManager.Instance.CurrentState == GameState.Playing;
@@ -48,11 +61,13 @@ namespace Runtime.Controllers
         private void Awake()
         {
             RefreshInputPlane();
+            RefreshCachedBoardMetrics();
         }
 
         private void OnValidate()
         {
             RefreshInputPlane();
+            RefreshCachedBoardMetrics();
         }
 
         public void Setup(LevelData levelData)
@@ -60,50 +75,19 @@ namespace Runtime.Controllers
             IsInitialized = false;
             _runtimeBlocks.Clear();
             _doorOpenings.Clear();
-            RuntimeBlockCount = 0;
             _levelCompletedRaised = false;
             EndPointerGesture();
 
             if (!levelData)
             {
-                CurrentLevel = null;
+                _gridDimensions = Vector2Int.zero;
+                RefreshCachedBoardMetrics();
                 return;
             }
 
-            CurrentLevel = levelData;
-            _occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
-
-            if (levelData.blockedCells != null && levelData.blockedCells.Count > 0)
-            {
-                _occupancyMap.MarkBlockedCells(levelData.blockedCells);
-            }
-
-            var openings = levelData.GetDoorOpenings();
-            for (var i = 0; i < openings.Count; i++)
-            {
-                _doorOpenings.Add(openings[i]);
-            }
-
-            if (levelData.blocks != null)
-            {
-                for (var i = 0; i < levelData.blocks.Count; i++)
-                {
-                    var blockData = levelData.blocks[i];
-                    var blockLocalCells = blockData.GetLocalCells();
-                    var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockLocalCells,
-                        blockData.movementConstraint, blockData.colorType);
-
-                    if (!_occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
-                    {
-                        continue;
-                    }
-
-                    _runtimeBlocks.Add(runtimeBlock.Id, runtimeBlock);
-                    _occupancyMap.FillBlock(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells);
-                }
-            }
-
-            RuntimeBlockCount = _runtimeBlocks.Count;
+            _gridDimensions = levelData.gridDimensions;
+            RefreshCachedBoardMetrics();
+            RuntimeBoardSetupBuilder.Populate(levelData, _occupancyMap, _runtimeBlocks, _doorOpenings);
             IsInitialized = true;
 
             RefreshInputPlane();
@@ -133,20 +117,27 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            _activeDragBlockId = blockId;
-            _activeDragBoardPoint = boardWorldPoint;
-            _activeDragCamera = resolvedCamera;
+            _activeGestureBlockId = blockId;
+            _activeGestureStartBoardPoint = boardWorldPoint;
+            _activeGestureAxis = GestureAxis.None;
+            _activeGestureAppliedStepCount = 0;
+            _activeGestureCamera = resolvedCamera;
             return true;
         }
 
         public bool TryUpdatePointerGesture(Vector2 pointerPosition, Camera pointerCamera)
         {
-            if (!IsBoardReadyForInput || _activeDragBlockId < 0)
+            if (!IsBoardReadyForInput || _activeGestureBlockId < 0)
             {
                 return false;
             }
 
-            var resolvedCamera = pointerCamera ? pointerCamera : _activeDragCamera ? _activeDragCamera : inputCamera;
+            var resolvedCamera = pointerCamera ? pointerCamera : _activeGestureCamera;
+            if (!resolvedCamera)
+            {
+                resolvedCamera = inputCamera;
+            }
+
             if (!resolvedCamera)
             {
                 return false;
@@ -157,39 +148,117 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            var delta = boardWorldPoint - _activeDragBoardPoint;
-            var threshold = cellSize * DragActivationInCells;
-            if (delta.sqrMagnitude < threshold * threshold)
+            if (!TryGetRuntimeBlock(_activeGestureBlockId, out var activeBlock))
+            {
+                EndPointerGesture();
+                return false;
+            }
+
+            if (activeBlock.MovementConstraint == BlockMovementConstraint.Free)
+            {
+                return TryUpdateFreePointerGesture(boardWorldPoint);
+            }
+
+            var deltaFromGestureStart = boardWorldPoint - _activeGestureStartBoardPoint;
+            if (_activeGestureAxis == GestureAxis.None)
+            {
+                if (deltaFromGestureStart.sqrMagnitude < _dragActivationDistanceSqr ||
+                    !TryResolveDragAxis(deltaFromGestureStart, activeBlock.MovementConstraint,
+                        out _activeGestureAxis))
+                {
+                    return false;
+                }
+            }
+
+            var axisDelta = _activeGestureAxis == GestureAxis.Horizontal ? deltaFromGestureStart.x : deltaFromGestureStart.y;
+            var desiredStepCount = Mathf.RoundToInt(axisDelta * _inverseCellSize);
+            var stepDelta = desiredStepCount - _activeGestureAppliedStepCount;
+            if (stepDelta == 0)
             {
                 return false;
             }
 
-            _activeDragBoardPoint = boardWorldPoint;
-            if (!TryResolveDragDirection(delta, out var direction))
+            var stepSign = stepDelta > 0 ? 1 : -1;
+            var direction = ResolveDirectionForAxis(_activeGestureAxis, stepSign);
+            var requestedCellCount = Mathf.Abs(stepDelta);
+            if (requestedCellCount == 0)
             {
                 return false;
             }
 
-            return TrySlideBlock(_activeDragBlockId, direction);
+            var moved = TrySlideBlock(_activeGestureBlockId, direction, requestedCellCount, out var movedCellCount);
+            if (movedCellCount > 0)
+            {
+                _activeGestureAppliedStepCount += movedCellCount * stepSign;
+            }
+
+            return moved;
+        }
+
+        private bool TryUpdateFreePointerGesture(Vector2 boardWorldPoint)
+        {
+            var deltaFromAnchor = boardWorldPoint - _activeGestureStartBoardPoint;
+            if (deltaFromAnchor.sqrMagnitude < _dragActivationDistanceSqr)
+            {
+                return false;
+            }
+
+            var movedAny = false;
+            while (TryResolveDominantDirection(deltaFromAnchor, out var direction))
+            {
+                var axisDelta = direction.IsHorizontal() ? deltaFromAnchor.x : deltaFromAnchor.y;
+                var requestedCellCount = Mathf.FloorToInt(Mathf.Abs(axisDelta) * _inverseCellSize);
+                if (requestedCellCount <= 0)
+                {
+                    break;
+                }
+
+                var moved = TrySlideBlock(_activeGestureBlockId, direction, requestedCellCount, out var movedCellCount);
+                if (movedCellCount <= 0)
+                {
+                    break;
+                }
+
+                movedAny |= moved;
+                var consumedDistance = movedCellCount * _resolvedCellSize;
+                if (direction.IsHorizontal())
+                {
+                    _activeGestureStartBoardPoint.x += axisDelta >= 0f ? consumedDistance : -consumedDistance;
+                }
+                else
+                {
+                    _activeGestureStartBoardPoint.y += axisDelta >= 0f ? consumedDistance : -consumedDistance;
+                }
+
+                deltaFromAnchor = boardWorldPoint - _activeGestureStartBoardPoint;
+                if (deltaFromAnchor.sqrMagnitude < _dragActivationDistanceSqr)
+                {
+                    break;
+                }
+            }
+
+            return movedAny;
         }
 
         public void EndPointerGesture()
         {
-            _activeDragBlockId = -1;
-            _activeDragCamera = null;
-            _activeDragBoardPoint = default;
+            _activeGestureBlockId = -1;
+            _activeGestureCamera = null;
+            _activeGestureStartBoardPoint = default;
+            _activeGestureAxis = GestureAxis.None;
+            _activeGestureAppliedStepCount = 0;
         }
 
         private bool TryWorldToCell(Vector2 worldPosition, out Vector2Int cell)
         {
             cell = default;
-            if (!IsInitialized || cellSize <= 0f)
+            if (!IsInitialized || _resolvedCellSize <= 0f)
             {
                 return false;
             }
 
-            var cellX = Mathf.FloorToInt((worldPosition.x - boardOrigin.x) / cellSize);
-            var cellY = Mathf.FloorToInt((worldPosition.y - boardOrigin.y) / cellSize);
+            var cellX = Mathf.FloorToInt((worldPosition.x - boardOrigin.x) * _inverseCellSize);
+            var cellY = Mathf.FloorToInt((worldPosition.y - boardOrigin.y) * _inverseCellSize);
             if (!_occupancyMap.IsInside(cellX, cellY))
             {
                 return false;
@@ -211,8 +280,9 @@ namespace Runtime.Controllers
             return IsInitialized && _runtimeBlocks.TryGetValue(blockId, out block);
         }
 
-        private bool TrySlideBlock(int blockId, Direction direction)
+        private bool TrySlideBlock(int blockId, Direction direction, int maxCellsToMove, out int movedCellCount)
         {
+            movedCellCount = 0;
             if (!TryGetRuntimeBlock(blockId, out var block))
             {
                 return false;
@@ -225,41 +295,144 @@ namespace Runtime.Controllers
 
             var startPosition = block.Position;
             var directionVector = direction.ToVector();
-            var nextPosition = startPosition + directionVector;
-            if (!_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
+            var requestedCells = Mathf.Max(1, maxCellsToMove);
+
+            var currentPosition = startPosition;
+            var hasMoved = false;
+            var reachedDoor = false;
+            var matchedDoor = default(DoorOpeningData);
+
+            while (requestedCells > 0)
+            {
+                requestedCells--;
+                var nextPosition = currentPosition + directionVector;
+                if (!_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
+                {
+                    break;
+                }
+
+                currentPosition = nextPosition;
+                hasMoved = true;
+                movedCellCount++;
+
+                if (!DoorExitEvaluator.TryResolveDoorExit(block, currentPosition, direction, _doorOpenings,
+                        out var resolvedDoor))
+                {
+                    continue;
+                }
+
+                matchedDoor = resolvedDoor;
+                reachedDoor = true;
+                break;
+            }
+
+            if (hasMoved && !reachedDoor &&
+                DoorExitEvaluator.TryResolveDoorPullExit(block, currentPosition, _doorOpenings, out var pulledDoor))
+            {
+                matchedDoor = pulledDoor;
+                reachedDoor = true;
+            }
+
+            if (!hasMoved)
             {
                 return false;
             }
 
             _occupancyMap.ClearBlock(blockId, startPosition, block.LocalCells);
-            block.Position = nextPosition;
+            block.Position = currentPosition;
 
-            if (TryGetDoorExit(block, nextPosition, direction, out _))
+            if (reachedDoor)
             {
                 _runtimeBlocks.Remove(blockId);
-                BlockCleared?.Invoke(blockId, block.Position, directionVector);
-                if (_activeDragBlockId == blockId)
+                var exitDirection = ResolveExitDirectionForDoor(matchedDoor);
+                BlockCleared?.Invoke(blockId, block.Position, exitDirection, matchedDoor);
+                if (_activeGestureBlockId == blockId)
                 {
-                    _activeDragBlockId = -1;
+                    _activeGestureBlockId = -1;
                 }
 
-                RuntimeBlockCount = _runtimeBlocks.Count;
                 EvaluateCompletionState();
                 return true;
             }
 
             _runtimeBlocks[blockId] = block;
-            _occupancyMap.FillBlock(blockId, nextPosition, block.LocalCells);
-            BlockMoved?.Invoke(blockId, startPosition, nextPosition);
+            _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
+            BlockMoved?.Invoke(blockId, startPosition, currentPosition);
             return true;
         }
 
-        private static bool TryResolveDragDirection(Vector2 delta, out Direction direction)
+        private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor)
+        {
+            var maxX = _gridDimensions.x - 1;
+            var maxY = _gridDimensions.y - 1;
+            if (_gridDimensions.x > 0 && _gridDimensions.y > 0)
+            {
+                if (matchedDoor.MinCell.x <= 0)
+                {
+                    return Vector2Int.left;
+                }
+
+                if (matchedDoor.MaxCell.x >= maxX)
+                {
+                    return Vector2Int.right;
+                }
+
+                if (matchedDoor.MinCell.y <= 0)
+                {
+                    return Vector2Int.down;
+                }
+
+                if (matchedDoor.MaxCell.y >= maxY)
+                {
+                    return Vector2Int.up;
+                }
+            }
+
+            return matchedDoor.EdgeDirection.ToVector();
+        }
+
+        private static bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,
+            out GestureAxis axis)
+        {
+            axis = movementConstraint switch
+            {
+                BlockMovementConstraint.HorizontalOnly => GestureAxis.Horizontal,
+                BlockMovementConstraint.VerticalOnly => GestureAxis.Vertical,
+                _ => GestureAxis.None
+            };
+
+            if (axis != GestureAxis.None)
+            {
+                return true;
+            }
+
+            var absX = Mathf.Abs(delta.x);
+            var absY = Mathf.Abs(delta.y);
+            if (absX < DirectionDeadZone && absY < DirectionDeadZone)
+            {
+                return false;
+            }
+
+            axis = absX >= absY ? GestureAxis.Horizontal : GestureAxis.Vertical;
+            return true;
+        }
+
+        private static Direction ResolveDirectionForAxis(GestureAxis axis, int sign)
+        {
+            if (axis == GestureAxis.Horizontal)
+            {
+                return sign >= 0 ? Direction.Right : Direction.Left;
+            }
+
+            return sign >= 0 ? Direction.Up : Direction.Down;
+        }
+
+        private static bool TryResolveDominantDirection(Vector2 delta, out Direction direction)
         {
             direction = default;
             var absX = Mathf.Abs(delta.x);
             var absY = Mathf.Abs(delta.y);
-            if (absX < 0.0001f && absY < 0.0001f)
+            if (absX < DirectionDeadZone && absY < DirectionDeadZone)
             {
                 return false;
             }
@@ -294,7 +467,7 @@ namespace Runtime.Controllers
                 return;
             }
 
-            if (RuntimeBlockCount == 0)
+            if (_runtimeBlocks.Count == 0)
             {
                 _levelCompletedRaised = true;
                 LevelCompleted?.Invoke();
@@ -333,16 +506,14 @@ namespace Runtime.Controllers
             }
 
             var gridDimensions = GridDimensions;
-            if (gridDimensions.x <= 0 || gridDimensions.y <= 0 || cellSize <= 0f)
+            if (gridDimensions.x <= 0 || gridDimensions.y <= 0)
             {
                 return false;
             }
 
-            var width = gridDimensions.x * cellSize;
-            var height = gridDimensions.y * cellSize;
             var relativeX = boardWorldPoint.x - boardOrigin.x;
             var relativeY = boardWorldPoint.y - boardOrigin.y;
-            return relativeX >= 0f && relativeX < width && relativeY >= 0f && relativeY < height;
+            return relativeX >= 0f && relativeX < _boardWidthWorld && relativeY >= 0f && relativeY < _boardHeightWorld;
         }
 
         private void RefreshInputPlane()
@@ -350,96 +521,15 @@ namespace Runtime.Controllers
             _boardPlane = new Plane(Vector3.forward, new Vector3(0f, 0f, transform.position.z));
         }
 
-        private bool TryGetDoorExit(RuntimeBlockState block, Vector2Int blockPosition, Direction moveDirection,
-            out DoorOpeningData doorExit)
+        private void RefreshCachedBoardMetrics()
         {
-            doorExit = default;
-
-            var localCells = block.LocalCells;
-            if (localCells == null || localCells.Length == 0 || _doorOpenings.Count == 0)
-            {
-                return false;
-            }
-
-            GetBlockBounds(localCells, blockPosition, out var minX, out var maxX, out var minY, out var maxY);
-
-            for (var i = 0; i < _doorOpenings.Count; i++)
-            {
-                var opening = _doorOpenings[i];
-                if (opening.ColorType != block.ColorType || opening.EdgeDirection != moveDirection)
-                {
-                    continue;
-                }
-
-                if (!IsBlockTouchingDoorEdge(opening, moveDirection, minX, maxX, minY, maxY))
-                {
-                    continue;
-                }
-
-                if (!IsBlockInsideDoorSpan(opening, moveDirection, minX, maxX, minY, maxY))
-                {
-                    continue;
-                }
-
-                if (!FitsInsideDoor(opening, moveDirection, minX, maxX, minY, maxY))
-                {
-                    continue;
-                }
-
-                doorExit = opening;
-                return true;
-            }
-
-            return false;
+            var resolvedCellSize = Mathf.Max(0.01f, cellSize);
+            _resolvedCellSize = resolvedCellSize;
+            _inverseCellSize = 1f / resolvedCellSize;
+            _boardWidthWorld = Mathf.Max(0, _gridDimensions.x) * resolvedCellSize;
+            _boardHeightWorld = Mathf.Max(0, _gridDimensions.y) * resolvedCellSize;
+            var dragActivationDistance = resolvedCellSize * DragActivationInCells;
+            _dragActivationDistanceSqr = dragActivationDistance * dragActivationDistance;
         }
-
-        private static bool FitsInsideDoor(DoorOpeningData opening, Direction moveDirection, int minX, int maxX,
-            int minY, int maxY)
-        {
-            var widthOnDoorAxis = moveDirection.IsHorizontal() ? (maxY - minY) + 1 : (maxX - minX) + 1;
-            return widthOnDoorAxis <= opening.OpeningWidth;
-        }
-
-        private static void GetBlockBounds(Vector2Int[] localCells, Vector2Int blockPosition, out int minX,
-            out int maxX, out int minY, out int maxY)
-        {
-            minX = int.MaxValue;
-            maxX = int.MinValue;
-            minY = int.MaxValue;
-            maxY = int.MinValue;
-
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var worldCell = blockPosition + localCells[i];
-                if (worldCell.x < minX) minX = worldCell.x;
-                if (worldCell.x > maxX) maxX = worldCell.x;
-                if (worldCell.y < minY) minY = worldCell.y;
-                if (worldCell.y > maxY) maxY = worldCell.y;
-            }
-        }
-
-        private static bool IsBlockTouchingDoorEdge(DoorOpeningData opening, Direction moveDirection, int minX,
-            int maxX, int minY, int maxY)
-        {
-            return moveDirection switch
-            {
-                Direction.Left => minX == opening.MinCell.x,
-                Direction.Right => maxX == opening.MaxCell.x,
-                Direction.Down => minY == opening.MinCell.y,
-                Direction.Up => maxY == opening.MaxCell.y,
-                _ => false
-            };
-        }
-
-        private static bool IsBlockInsideDoorSpan(DoorOpeningData opening, Direction moveDirection, int minX,
-            int maxX, int minY, int maxY)
-        {
-            if (moveDirection.IsHorizontal())
-            {
-                return minY >= opening.MinCell.y && maxY <= opening.MaxCell.y;
-            }
-            return minX >= opening.MinCell.x && maxX <= opening.MaxCell.x;
-        }
-
     }
 }

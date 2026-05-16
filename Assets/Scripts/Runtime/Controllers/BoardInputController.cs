@@ -96,9 +96,7 @@ namespace Runtime.Controllers
             {
                 return;
             }
-
-            var pointerCamera = ResolveInputCamera();
-            _gestureActive = boardController.TryBeginPointerGesture(pointerPosition, pointerCamera);
+            _gestureActive = boardController.TryBeginPointerGesture(pointerPosition, inputCamera);
         }
 
         private void OnPointerPositionPerformed(InputAction.CallbackContext context)
@@ -114,9 +112,8 @@ namespace Runtime.Controllers
                 return;
             }
 
-            var pointerCamera = ResolveInputCamera();
             var pointerPosition = context.ReadValue<Vector2>();
-            boardController.TryUpdatePointerGesture(pointerPosition, pointerCamera);
+            boardController.TryUpdatePointerGesture(pointerPosition, inputCamera);
         }
 
         private void OnPointerPressCanceled(InputAction.CallbackContext context)
@@ -161,11 +158,6 @@ namespace Runtime.Controllers
             _uiRaycastResults.Clear();
             eventSystem.RaycastAll(_pointerEventData, _uiRaycastResults);
             return _uiRaycastResults.Count > 0;
-        }
-
-        private Camera ResolveInputCamera()
-        {
-            return inputCamera;
         }
     }
 }
