@@ -12,6 +12,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [SerializeField] private LevelData sourceLevel;
         [SerializeField] private BlockVisualProfile visualProfile;
+        [SerializeField] private BoardGameplayConfig gameplayConfig;
         [SerializeField] private Transform boardRoot;
         [SerializeField] private Transform blocksRoot;
 
@@ -53,7 +54,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
 
-        [SerializeField, Min(0f)] private float blockMoveSmoothingSpeed = 18f;
+        [Header("Animation Fallback")] [SerializeField, Min(0.05f)]
+        private float blockMoveDuration = 0.14f;
+
+        [SerializeField] private AnimationCurve blockMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+        [SerializeField, Min(0.03f)] private float landingSquashDuration = 0.1f;
+        [SerializeField, Range(0f, 0.35f)] private float landingSquashAmount = 0.14f;
+        [SerializeField] private AnimationCurve landingSquashCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
         [SerializeField, Min(0.05f)] private float doorExitDuration = 0.32f;
         [SerializeField, Min(0.2f)] private float doorExitTravelInCells = 1.15f;
         [SerializeField] private AnimationCurve doorExitMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
@@ -66,9 +74,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly List<BlockRootView> _blockRootPool = new();
 
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
-        private readonly Dictionary<int, Vector3> _blockTargetPositionById = new();
+        private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
-        private readonly List<int> _reachedTargetIds = new();
         private readonly Dictionary<BlockColor, Material> _fallbackDoorMaterialByColor = new();
         private readonly Dictionary<BlockColor, Material> _fallbackBlockMaterialByColor = new();
 
@@ -80,6 +87,48 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private Transform BlocksRoot => blocksRoot != null ? blocksRoot : transform;
         private Vector2 BoardOrigin => boardController != null ? boardController.BoardOrigin : Vector2.zero;
         private float CellSize => Mathf.Max(0.01f, boardController != null ? boardController.CellSize : 1f);
+
+        private BoardGameplayConfig ResolvedGameplayConfig => gameplayConfig ? gameplayConfig :
+            boardController != null ? boardController.GameplayConfig : null;
+
+        private float MoveDuration => Mathf.Max(0.05f,
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.blockMoveDuration : blockMoveDuration);
+
+        private AnimationCurve MoveCurve => ResolvedGameplayConfig && ResolvedGameplayConfig.blockMoveCurve != null
+            ? ResolvedGameplayConfig.blockMoveCurve
+            : blockMoveCurve;
+
+        private float LandingDuration => Mathf.Max(0.03f,
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.landingSquashDuration : landingSquashDuration);
+
+        private float LandingAmount => Mathf.Clamp(
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.landingSquashAmount : landingSquashAmount,
+            0f,
+            0.35f);
+
+        private AnimationCurve LandingCurve =>
+            ResolvedGameplayConfig && ResolvedGameplayConfig.landingSquashCurve != null
+                ? ResolvedGameplayConfig.landingSquashCurve
+                : landingSquashCurve;
+
+        private float ExitDuration => Mathf.Max(0.05f,
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitDuration : doorExitDuration);
+
+        private float ExitTravelInCells => Mathf.Max(0.2f,
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitTravelInCells : doorExitTravelInCells);
+
+        private AnimationCurve ExitMoveCurve =>
+            ResolvedGameplayConfig && ResolvedGameplayConfig.doorExitMoveCurve != null
+                ? ResolvedGameplayConfig.doorExitMoveCurve
+                : doorExitMoveCurve;
+
+        private AnimationCurve ExitScaleCurve =>
+            ResolvedGameplayConfig && ResolvedGameplayConfig.doorExitScaleCurve != null
+                ? ResolvedGameplayConfig.doorExitScaleCurve
+                : doorExitScaleCurve;
+
+        private float ExitMinScaleMultiplier => Mathf.Clamp01(
+            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitMinScaleMultiplier : doorExitMinScaleMultiplier);
 
         private void OnEnable()
         {
@@ -102,7 +151,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             sourceLevel = levelData;
             StopAllBlockRoutines();
             _activeBlockRootById.Clear();
-            _blockTargetPositionById.Clear();
             UnsubscribeBoardEvents();
 
             EnsureBaseGridSize(levelData.gridDimensions);
@@ -131,7 +179,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            _baseGridSize = new Vector2Int(Mathf.Max(_baseGridSize.x, levelGridSize.x), Mathf.Max(_baseGridSize.y, levelGridSize.y));
+            _baseGridSize = new Vector2Int(Mathf.Max(_baseGridSize.x, levelGridSize.x),
+                Mathf.Max(_baseGridSize.y, levelGridSize.y));
         }
 
         private static int GetSourceBlockCount(LevelData levelData)
@@ -144,6 +193,5 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _fallbackDoorMaterialByColor.Clear();
             _fallbackBlockMaterialByColor.Clear();
         }
-
     }
 }

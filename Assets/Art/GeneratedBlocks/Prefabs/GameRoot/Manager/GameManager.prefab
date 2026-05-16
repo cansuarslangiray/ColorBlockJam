@@ -47,15 +47,7 @@ MonoBehaviour:
   levelCollection: {fileID: 11400000, guid: 5d7574c21d132407c8a8714fdc7787a5, type: 2}
   boardController: {fileID: 0}
   blockSceneBuilder: {fileID: 0}
-  boardInputController: {fileID: 0}
   gameplayCamera: {fileID: 0}
-  forceOrthographicCamera: 0
-  resetCameraTilt: 0
-  cameraPaddingInCells: 0.9
-  cameraCenterOffsetInCells: {x: 0, y: 1.2}
-  perspectiveCameraTiltDegrees: 8.5
-  minimumOrthographicSize: 5
-  minimumPerspectiveDistance: 14
-  cameraFitDistanceMultiplier: 1.15
   initializeOnStart: 1
+  lockToPortraitOrientation: 1
   levelCompletePanelDelay: 0.4

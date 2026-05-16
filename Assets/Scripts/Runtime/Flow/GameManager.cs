@@ -16,12 +16,12 @@ namespace Runtime.Flow
 
         [SerializeField] private BoardController boardController;
         [SerializeField] private BlockSceneBuilder blockSceneBuilder;
-        [SerializeField] private BoardInputController boardInputController;
 
         [Header("Camera Framing")] [SerializeField]
         private Camera gameplayCamera;
 
-        [SerializeField] private BoardCameraFramingSettings boardCameraFramingSettings = BoardCameraFramingSettings.CreateDefault();
+        [SerializeField]
+        private BoardCameraFramingSettings boardCameraFramingSettings = BoardCameraFramingSettings.CreateDefault();
 
         [Header("Flow Settings")] [SerializeField]
         private bool initializeOnStart = true;
@@ -113,11 +113,11 @@ namespace Runtime.Flow
             {
                 return;
             }
+
             UIManager.Instance.BindStartAction(HandleStartPanelInput);
             UIManager.Instance.BindContinueAction(HandleContinueInput);
             UIManager.Instance.BindRetryAction(HandleRetryInput);
             UIManager.Instance.BindRestartAction(HandleRestartInput);
-            UIManager.Instance.BindReloadAction(HandleReloadInput);
             _uiActionsBound = true;
         }
 
@@ -167,7 +167,6 @@ namespace Runtime.Flow
 
             boardController.Setup(levelData);
             blockSceneBuilder.BuildForLevel(levelData);
-            boardInputController.ForceFitInputArea();
 
             if (!FitCameraToLevel(levelData))
             {
@@ -298,16 +297,6 @@ namespace Runtime.Flow
             InitializeRun();
         }
 
-        private void HandleReloadInput()
-        {
-            if (StateManager.Instance.CurrentState != GameState.Playing || _transitionInProgress)
-            {
-                return;
-            }
-
-            StartCurrentLevel();
-        }
-
         private bool FitCameraToLevel(LevelData levelData)
         {
             return BoardCameraFramer.TryFrame(gameplayCamera, levelData, boardController.BoardOrigin,
@@ -322,7 +311,8 @@ namespace Runtime.Flow
             }
 
             _cachedLevelCompleteDelay = levelCompletePanelDelay;
-            _levelCompletedDelayWait = levelCompletePanelDelay > 0f ? new WaitForSeconds(levelCompletePanelDelay) : null;
+            _levelCompletedDelayWait =
+                levelCompletePanelDelay > 0f ? new WaitForSeconds(levelCompletePanelDelay) : null;
         }
     }
 }

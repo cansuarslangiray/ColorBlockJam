@@ -568,6 +568,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cellSize: 1
   boardOrigin: {x: 0, y: 0}
+  gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
 --- !u!4 &1197575869
 Transform:
   m_ObjectHideFlags: 0
@@ -881,26 +882,6 @@ PrefabInstance:
       value: GameManager
       objectReference: {fileID: 0}
     - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: levelText
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: timerText
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: stateManager
-      value: 
-      objectReference: {fileID: 257060061}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: endScreenRoot
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: endMessageText
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
       propertyPath: gameplayCamera
       value: 
       objectReference: {fileID: 963194227}
@@ -909,21 +890,9 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1197575868}
     - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: startScreenRoot
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
       propertyPath: blockSceneBuilder
       value: 
       objectReference: {fileID: 1433787314}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: gameplayScreenRoot
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 3441310302227345313, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
-      propertyPath: boardInputController
-      value: 
-      objectReference: {fileID: 1087099744}
     - target: {fileID: 3599574249983179102, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -964,8 +933,7 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 4417233236556189127, guid: 0f3c883540dc54d5fae388e8e6b1becc, type: 3}
+    m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

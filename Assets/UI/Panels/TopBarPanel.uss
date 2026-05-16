@@ -3,7 +3,7 @@
     left: 0;
     right: 0;
     top: 100px;
-    min-height: 180px;
+    min-height: 136px;
     padding-left: 18px;
     padding-right: 18px;
     padding-top: 14px;
@@ -15,7 +15,7 @@
 .topbar-shell {
     width: 100%;
     max-width: 940px;
-    min-height: 128px;
+    min-height: 92px;
     align-items: center;
     justify-content: center;
 }
@@ -27,7 +27,7 @@
     min-height: 86px;
     margin-left: 44px;
     padding-left: 102px;
-    padding-right: 92px;
+    padding-right: 40px;
     padding-top: 8px;
     padding-bottom: 8px;
     border-left-width: 3px;
@@ -229,11 +229,6 @@
 
 .compact .topbar-time-group {
     min-width: 150px;
-}
-
-.compact .topbar-time-icon {
-    margin-right: 4px;
-    font-size: 13px;
 }
 
 .compact .topbar-time-title {

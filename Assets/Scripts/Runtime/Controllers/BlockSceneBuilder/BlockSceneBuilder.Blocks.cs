@@ -7,42 +7,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private void LateUpdate()
-        {
-            if (_blockTargetPositionById.Count == 0 || blockMoveSmoothingSpeed <= 0f)
-            {
-                return;
-            }
-
-            _reachedTargetIds.Clear();
-            var interpolationFactor = 1f - Mathf.Exp(-blockMoveSmoothingSpeed * Time.deltaTime);
-
-            foreach (var pair in _blockTargetPositionById)
-            {
-                if (!_activeBlockRootById.TryGetValue(pair.Key, out var blockView) || blockView == null || !blockView.RootObject.activeSelf)
-                {
-                    _reachedTargetIds.Add(pair.Key);
-                    continue;
-                }
-
-                var targetPosition = pair.Value;
-                var currentPosition = blockView.RootTransform.position;
-                if ((currentPosition - targetPosition).sqrMagnitude <= 0.0001f)
-                {
-                    blockView.RootTransform.position = targetPosition;
-                    _reachedTargetIds.Add(pair.Key);
-                    continue;
-                }
-
-                blockView.RootTransform.position = Vector3.Lerp(currentPosition, targetPosition, interpolationFactor);
-            }
-
-            foreach (var blockId in _reachedTargetIds)
-            {
-                _blockTargetPositionById.Remove(blockId);
-            }
-        }
-
         private void EnsureBlockPool(int requiredBlockCount)
         {
             var blockParent = BlocksRoot;
@@ -62,11 +26,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ApplyBlockVisuals(LevelData levelData)
         {
             _activeBlockRootById.Clear();
-            _blockTargetPositionById.Clear();
 
             foreach (var blockView in _blockRootPool)
             {
-                StopBlockMovement(blockView.BlockId);
+                StopBlockMove(blockView.BlockId);
                 StopBlockExit(blockView.BlockId);
                 SetActiveIfChanged(blockView.RootObject, false);
             }
@@ -94,7 +57,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 _activeBlockRootById[i] = blockView;
-                _blockTargetPositionById[i] = worldPosition;
                 SetActiveIfChanged(blockView.RootObject, true);
             }
         }
@@ -103,7 +65,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockMoved += HandleBlockMoved;
-
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockCleared += HandleBlockCleared;
         }
@@ -114,24 +75,17 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockCleared -= HandleBlockCleared;
         }
 
-        private void HandleBlockMoved(int blockId, Vector2Int newPosition)
+        private void HandleBlockMoved(int blockId, Vector2Int fromPosition, Vector2Int toPosition)
         {
             if (!_activeBlockRootById.TryGetValue(blockId, out var blockView) || blockView == null)
             {
                 return;
             }
 
-            StopBlockExit(blockId);
-
-            var targetPosition = ToWorldPosition(newPosition);
-            if (blockMoveSmoothingSpeed <= 0f)
-            {
-                StopBlockMovement(blockId);
-                blockView.RootTransform.position = targetPosition;
-                return;
-            }
-
-            _blockTargetPositionById[blockId] = targetPosition;
+            StopBlockMove(blockId);
+            var distanceInCells = Mathf.Abs(toPosition.x - fromPosition.x) + Mathf.Abs(toPosition.y - fromPosition.y);
+            _blockMoveRoutineById[blockId] =
+                StartCoroutine(MoveBlockRoutine(blockId, blockView, toPosition, distanceInCells));
         }
 
         private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection)
@@ -141,54 +95,118 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            StopBlockMovement(blockId);
+            StopBlockMove(blockId);
             StopBlockExit(blockId);
-            blockView.RootTransform.position = ToWorldPosition(clearedPosition);
+            _blockExitRoutineById[blockId] =
+                StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection));
+        }
+
+        private IEnumerator MoveBlockRoutine(int blockId, BlockRootView blockView, Vector2Int targetGridPosition,
+            int distanceInCells)
+        {
+            var targetWorldPosition = ToWorldPosition(targetGridPosition);
+            var duration = MoveDuration * Mathf.Max(1, distanceInCells);
+            yield return TweenBlockMove(blockView.RootTransform, targetWorldPosition, duration, MoveCurve);
+            _blockMoveRoutineById.Remove(blockId);
+        }
+
+        private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
+            Vector2Int exitDirection)
+        {
+            var blockTransform = blockView.RootTransform;
+            var targetGridPosition = ToWorldPosition(clearedPosition);
+            if ((blockTransform.position - targetGridPosition).sqrMagnitude > 0.0001f)
+            {
+                yield return TweenBlockMove(blockTransform, targetGridPosition, MoveDuration, MoveCurve);
+            }
+
+            yield return PlayLandingSquash(blockTransform);
 
             if (exitDirection == Vector2Int.zero)
             {
+                blockTransform.localScale = Vector3.one;
                 SetActiveIfChanged(blockView.RootObject, false);
                 _activeBlockRootById.Remove(blockId);
-                return;
+                _blockExitRoutineById.Remove(blockId);
+                yield break;
             }
 
-            _blockExitRoutineById[blockId] = StartCoroutine(ExitBlockRoutine(blockId, blockView, exitDirection));
-        }
-
-        private IEnumerator ExitBlockRoutine(int blockId, BlockRootView blockView, Vector2Int exitDirection)
-        {
-            var blockTransform = blockView.RootTransform;
             var startPosition = blockTransform.position;
             var startScale = blockTransform.localScale;
-            var distance = Mathf.Max(0.2f, doorExitTravelInCells) * CellSize;
+            var distance = ExitTravelInCells * CellSize;
             var targetPosition = startPosition + new Vector3(exitDirection.x, exitDirection.y, 0f) * distance;
-            var duration = Mathf.Max(0.05f, doorExitDuration);
+            var duration = ExitDuration;
             var elapsed = 0f;
-            var minScale = startScale * Mathf.Clamp01(doorExitMinScaleMultiplier);
+            var minScale = startScale * ExitMinScaleMultiplier;
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
                 var normalized = Mathf.Clamp01(elapsed / duration);
-                var moveLerp = doorExitMoveCurve != null ? Mathf.Clamp01(doorExitMoveCurve.Evaluate(normalized)) : normalized;
-                var scaleLerp = doorExitScaleCurve != null ? Mathf.Clamp01(doorExitScaleCurve.Evaluate(normalized)) : 1f - normalized;
+                var moveT = ExitMoveCurve != null ? Mathf.Clamp01(ExitMoveCurve.Evaluate(normalized)) : normalized;
+                var scaleT = ExitScaleCurve != null
+                    ? Mathf.Clamp01(ExitScaleCurve.Evaluate(normalized))
+                    : 1f - normalized;
 
-                blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, moveLerp);
-                blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleLerp);
+                blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, moveT);
+                blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleT);
                 yield return null;
             }
 
             blockTransform.position = targetPosition;
-            blockTransform.localScale = startScale;
+            blockTransform.localScale = Vector3.one;
             SetActiveIfChanged(blockView.RootObject, false);
 
             _activeBlockRootById.Remove(blockId);
             _blockExitRoutineById.Remove(blockId);
         }
 
-        private void StopBlockMovement(int blockId)
+        private IEnumerator TweenBlockMove(Transform blockTransform, Vector3 targetPosition, float duration,
+            AnimationCurve easingCurve)
         {
-            _blockTargetPositionById.Remove(blockId);
+            var startPosition = blockTransform.position;
+            if ((startPosition - targetPosition).sqrMagnitude <= 0.0001f)
+            {
+                blockTransform.position = targetPosition;
+                yield break;
+            }
+
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                var normalized = Mathf.Clamp01(elapsed / duration);
+                var eased = easingCurve != null ? easingCurve.Evaluate(normalized) : normalized;
+                blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, eased);
+                yield return null;
+            }
+
+            blockTransform.position = targetPosition;
+        }
+
+        private IEnumerator PlayLandingSquash(Transform blockTransform)
+        {
+            if (LandingAmount <= 0f)
+            {
+                blockTransform.localScale = Vector3.one;
+                yield break;
+            }
+
+            var startScale = Vector3.one;
+            var squashScale = new Vector3(1f + LandingAmount, 1f - LandingAmount, 1f);
+            var elapsed = 0f;
+
+            while (elapsed < LandingDuration)
+            {
+                elapsed += Time.deltaTime;
+                var normalized = Mathf.Clamp01(elapsed / LandingDuration);
+                var curveT = LandingCurve != null ? Mathf.Clamp01(LandingCurve.Evaluate(normalized)) : normalized;
+                var wave = Mathf.Sin(curveT * Mathf.PI);
+                blockTransform.localScale = Vector3.LerpUnclamped(startScale, squashScale, wave);
+                yield return null;
+            }
+
+            blockTransform.localScale = Vector3.one;
         }
 
         private void StopBlockExit(int blockId)
@@ -202,8 +220,29 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _blockExitRoutineById.Remove(blockId);
         }
 
+        private void StopBlockMove(int blockId)
+        {
+            if (!_blockMoveRoutineById.TryGetValue(blockId, out var routine) || routine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(routine);
+            _blockMoveRoutineById.Remove(blockId);
+        }
+
         private void StopAllBlockRoutines()
         {
+            foreach (var pair in _blockMoveRoutineById)
+            {
+                if (pair.Value != null)
+                {
+                    StopCoroutine(pair.Value);
+                }
+            }
+
+            _blockMoveRoutineById.Clear();
+
             foreach (var pair in _blockExitRoutineById)
             {
                 if (pair.Value != null)
@@ -212,7 +251,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
-            _blockTargetPositionById.Clear();
             _blockExitRoutineById.Clear();
         }
 
@@ -222,7 +260,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var boardOrigin = BoardOrigin;
             var gridZ = Mathf.Abs((float)boardCellsZOffset);
             var blockZ = gridZ - Mathf.Max(0.01f, blockLayerForwardOffsetFromGrid);
-            return new Vector3(boardOrigin.x + (gridPosition.x * cellSize), boardOrigin.y + (gridPosition.y * cellSize), blockZ);
+            return new Vector3(boardOrigin.x + (gridPosition.x * cellSize), boardOrigin.y + (gridPosition.y * cellSize),
+                blockZ);
         }
 
         private void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState)

@@ -125,7 +125,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return existingMaterial;
             }
 
-            var doorColor = BlockColorUtility.GetColor(colorType);
+            var doorColor = ResolveColor(colorType);
             var material = CreateColorMaterial(doorColor, "MAT_Runtime_Door_" + colorType);
             _fallbackDoorMaterialByColor[colorType] = material;
             return material;
@@ -150,9 +150,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return existingMaterial;
             }
 
-            var material = CreateColorMaterial(BlockColorUtility.GetColor(colorType), "MAT_Runtime_Block_" + colorType);
+            var material = CreateColorMaterial(ResolveColor(colorType), "MAT_Runtime_Block_" + colorType);
             _fallbackBlockMaterialByColor[colorType] = material;
             return material;
+        }
+
+        private Color ResolveColor(BlockColor colorType)
+        {
+            return BlockColorUtility.GetColor(colorType);
         }
 
         private static Material GetConfiguredMaterial(IReadOnlyList<BlockColorMaterialEntry> entries, BlockColor colorType)

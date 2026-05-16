@@ -47,6 +47,7 @@ MonoBehaviour:
   boardController: {fileID: 0}
   sourceLevel: {fileID: 11400000, guid: 9d69042542cee42e39d654834b4cdabd, type: 2}
   visualProfile: {fileID: 11400000, guid: 276d87f5a66da4299b19a5cb94e75e29, type: 2}
+  gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
   boardRoot: {fileID: 0}
   blocksRoot: {fileID: 0}
   gridCellPrefab: {fileID: 8640720651343568273, guid: d719bf6ee45294941a59795768f9f902, type: 3}
@@ -76,7 +77,6 @@ MonoBehaviour:
   boardCellsZOffset: 0.72
   boardBackdropPaddingInCells: 0.2
   boardBackdropZOffset: 0.95
-  boardVisualTiltDegrees: 0
   edgeFrameThicknessInCells: 0.46
   edgeFramePaddingInCells: 0
   edgeFrameDepthInCells: 0.17
@@ -84,7 +84,6 @@ MonoBehaviour:
   doorDepthBiasFromFrame: 0.02
   blockCellVisualScale: 0.94
   blockLayerForwardOffsetFromGrid: 0.22
-  blockMoveSmoothingSpeed: 18
   doorExitDuration: 0.32
   doorExitTravelInCells: 1.15
   doorExitMoveCurve:
