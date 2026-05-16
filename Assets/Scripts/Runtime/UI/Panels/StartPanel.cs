@@ -11,6 +11,7 @@ namespace Runtime.UI.Panels
         private Label _subtitleLabel;
         private Button _startButton;
         private Action _startAction = delegate { };
+        protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
         {

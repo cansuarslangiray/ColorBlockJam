@@ -8,9 +8,11 @@ namespace Runtime.UI.Panels
         private const float CompactShortEdgeThresholdPixels = 280f;
         private const float LogScaleBase = 2f;
         private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
+       
         [SerializeField] private UIDocument uiDocument;
 
         protected VisualElement Root { get; private set; }
+        protected virtual bool UseSafeAreaPadding => true;
 
         protected virtual void Awake()
         {
@@ -57,6 +59,15 @@ namespace Runtime.UI.Panels
         {
             if (Root == null)
             {
+                return;
+            }
+
+            if (!UseSafeAreaPadding)
+            {
+                Root.style.paddingLeft = 0f;
+                Root.style.paddingRight = 0f;
+                Root.style.paddingTop = 0f;
+                Root.style.paddingBottom = 0f;
                 return;
             }
 

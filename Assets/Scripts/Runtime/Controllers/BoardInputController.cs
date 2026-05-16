@@ -383,12 +383,7 @@ namespace Runtime.Controllers
                 return eventData.pressEventCamera;
             }
 
-            if (eventData.enterEventCamera)
-            {
-                return eventData.enterEventCamera;
-            }
-
-            return inputCamera;
+            return eventData.enterEventCamera ? eventData.enterEventCamera : inputCamera;
         }
     }
 }

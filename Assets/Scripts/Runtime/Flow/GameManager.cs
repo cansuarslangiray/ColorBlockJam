@@ -52,10 +52,7 @@ namespace Runtime.Flow
 
         private void OnEnable()
         {
-            if (_bootstrapRoutine == null)
-            {
-                _bootstrapRoutine = StartCoroutine(BootstrapWhenReady());
-            }
+            _bootstrapRoutine ??= StartCoroutine(BootstrapWhenReady());
         }
 
         private void OnDisable()
@@ -139,11 +136,9 @@ namespace Runtime.Flow
             RegisterEvents();
             BindUiActions();
 
-            if (initializeOnStart && !_startupInitialized)
-            {
-                InitializeRun();
-                _startupInitialized = true;
-            }
+            if (!initializeOnStart || _startupInitialized) yield break;
+            InitializeRun();
+            _startupInitialized = true;
         }
 
         private bool HasRequiredRuntimeReferences()
@@ -346,8 +341,7 @@ namespace Runtime.Flow
             var contentHeight = height + (padding * 2f);
             var centerOffset = cameraCenterOffsetInCells * cellSize;
 
-            var center = boardController.BoardOrigin +
-                         new Vector2((width * 0.5f) + centerOffset.x, (height * 0.5f) + centerOffset.y);
+            var center = boardController.BoardOrigin + new Vector2((width * 0.5f) + centerOffset.x, (height * 0.5f) + centerOffset.y);
             var cameraTransform = gameplayCamera.transform;
             cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
 

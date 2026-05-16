@@ -19,12 +19,6 @@ namespace Runtime.UI
         protected override void Awake()
         {
             base.Awake();
-            if (startPanel == null || endGamePanel == null || topBarPanel == null)
-            {
-                Debug.LogError("UIManager requires StartPanel, EndGamePanel, and TopBarPanel references.", this);
-                enabled = false;
-                return;
-            }
 
             startPanel.SubscribeToState(this);
             endGamePanel.SubscribeToState(this);
@@ -39,22 +33,12 @@ namespace Runtime.UI
 
         protected override void OnDestroy()
         {
-            if (topBarPanel != null)
-            {
-                topBarPanel.TimerExpired -= HandleTimerExpired;
-                topBarPanel.UnsubscribeFromState(this);
-            }
 
-            if (endGamePanel != null)
-            {
-                endGamePanel.UnsubscribeFromState(this);
-            }
-
-            if (startPanel != null)
-            {
-                startPanel.UnsubscribeFromState(this);
-            }
-
+            topBarPanel.TimerExpired -= HandleTimerExpired;
+            topBarPanel.UnsubscribeFromState(this);
+            endGamePanel.UnsubscribeFromState(this);
+            startPanel.UnsubscribeFromState(this);
+            
             base.OnDestroy();
         }
 

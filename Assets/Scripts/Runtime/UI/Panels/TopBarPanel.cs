@@ -12,6 +12,7 @@ namespace Runtime.UI.Panels
         [SerializeField, Min(0.2f)] private float tickIntervalSeconds = 1f;
         [SerializeField, Min(1)] private int warningThresholdSeconds = 30;
         [SerializeField, Min(1)] private int criticalThresholdSeconds = 10;
+        
         private Label _levelLabel;
         private Label _timerLabel;
         private VisualElement _timerChip;

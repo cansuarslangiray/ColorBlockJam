@@ -13,6 +13,8 @@ namespace Runtime.UI.Panels
         private Action _continueAction = delegate { };
         private Action _retryAction = delegate { };
         private Action _restartAction = delegate { };
+        protected override bool UseSafeAreaPadding => false;
+
         protected override void CacheElements()
         {
             _titleLabel = Root.Q<Label>("endgame-title");
