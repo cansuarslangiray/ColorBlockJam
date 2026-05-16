@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
@@ -55,11 +56,12 @@ namespace Runtime.Controllers
         private readonly List<GameObject> _borderPool = new();
         private readonly List<GameObject> _doorPool = new();
         private readonly List<GameObject> _blockRootPool = new();
+        private readonly List<Renderer> _doorRenderers = new();
+        private readonly List<List<Renderer>> _blockCellRenderersByRoot = new();
 
         private readonly Dictionary<BlockColor, Material> _fallbackDoorMaterialByColor = new();
         private readonly Dictionary<BlockColor, Material> _fallbackBlockMaterialByColor = new();
 
-        private readonly DoorOpeningMap _openingMap = new();
         private readonly Dictionary<int, GameObject> _activeBlockRootById = new();
         private readonly Dictionary<int, Vector3> _blockTargetPositionById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
@@ -269,8 +271,7 @@ namespace Runtime.Controllers
 
         private void ApplyDoors(LevelData levelData, Vector2 boardOrigin, float cellSize)
         {
-            _openingMap.Build(levelData.doors, levelData.gridDimensions);
-            var openings = _openingMap.Openings;
+            var openings = levelData ? levelData.GetDoorOpenings() : Array.Empty<DoorOpeningData>();
             var requiredCount = openings.Count;
 
             while (_doorPool.Count < requiredCount)
@@ -278,6 +279,11 @@ namespace Runtime.Controllers
                 var doorObject = CreateVisualObject(boardRoot == null ? transform : boardRoot,
                     $"Door_{_doorPool.Count}", doorPrefab);
                 _doorPool.Add(doorObject);
+                _doorRenderers.Add(doorObject.GetComponent<Renderer>());
+            }
+            while (_doorRenderers.Count < _doorPool.Count)
+            {
+                _doorRenderers.Add(_doorPool[_doorRenderers.Count].GetComponent<Renderer>());
             }
 
             var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
@@ -298,16 +304,12 @@ namespace Runtime.Controllers
                 }
 
                 var opening = openings[i];
-                if (!opening.edgeSide.TryGetNormal(out var normal))
-                {
-                    doorObject.SetActive(false);
-                    continue;
-                }
+                var normal = opening.EdgeDirection.ToVector();
 
                 var openingWidth = Mathf.Max(1, opening.OpeningWidth);
                 var span = Mathf.Max(0.01f, (openingWidth * cellSize) - boardCellGap);
-                var centerX = (opening.minCell.x + opening.maxCell.x + 1) * 0.5f;
-                var centerY = (opening.minCell.y + opening.maxCell.y + 1) * 0.5f;
+                var centerX = (opening.MinCell.x + opening.MaxCell.x + 1) * 0.5f;
+                var centerY = (opening.MinCell.y + opening.MaxCell.y + 1) * 0.5f;
 
                 var cellCenter = new Vector2(
                     boardOrigin.x + (centerX * cellSize),
@@ -318,7 +320,7 @@ namespace Runtime.Controllers
                     cellCenter.y + (normal.y * doorOffset),
                     doorZ);
 
-                var isHorizontal = opening.edgeSide.IsHorizontal();
+                var isHorizontal = opening.EdgeDirection.IsVertical();
                 var scale = isHorizontal
                     ? new Vector3(span, frameThickness, doorDepth)
                     : new Vector3(frameThickness, span, doorDepth);
@@ -327,11 +329,7 @@ namespace Runtime.Controllers
                 doorObject.transform.rotation = Quaternion.identity;
                 doorObject.transform.localScale = scale;
 
-                var renderer = doorObject.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    renderer.sharedMaterial = GetDoorMaterial(opening.colorType);
-                }
+                _doorRenderers[i].sharedMaterial = GetDoorMaterial(opening.ColorType);
             }
         }
 
@@ -345,6 +343,7 @@ namespace Runtime.Controllers
                 rootObject.transform.SetParent(blockParent, false);
                 rootObject.transform.localRotation = Quaternion.identity;
                 _blockRootPool.Add(rootObject);
+                _blockCellRenderersByRoot.Add(new List<Renderer>());
             }
         }
 
@@ -366,7 +365,7 @@ namespace Runtime.Controllers
 
                 var blockData = levelData.blocks[i];
 
-                ApplyBlockCells(rootObject.transform, blockData);
+                ApplyBlockCells(rootObject.transform, i, blockData);
                 rootObject.transform.position = ToWorldPosition(blockData.position);
                 rootObject.transform.localScale = Vector3.one;
                 _activeBlockRootById[i] = rootObject;
@@ -386,6 +385,9 @@ namespace Runtime.Controllers
 
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockCleared += HandleBlockCleared;
+
+            boardController.BlockExitedThroughDoor -= HandleBlockExitedThroughDoor;
+            boardController.BlockExitedThroughDoor += HandleBlockExitedThroughDoor;
         }
 
         private void UnsubscribeBoardEvents()
@@ -397,6 +399,8 @@ namespace Runtime.Controllers
 
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
+
+            boardController.BlockExitedThroughDoor -= HandleBlockExitedThroughDoor;
         }
 
         private void HandleBlockMoved(int blockId, Vector2Int newPosition)
@@ -439,6 +443,15 @@ namespace Runtime.Controllers
 
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ExitBlockRoutine(blockId, blockRoot.transform, exitDirection));
+        }
+
+        private void HandleBlockExitedThroughDoor(
+            int blockId,
+            Vector2Int clearedPosition,
+            Vector2Int exitDirection,
+            DoorOpeningData _)
+        {
+            HandleBlockCleared(blockId, clearedPosition, exitDirection);
         }
 
         private IEnumerator ExitBlockRoutine(int blockId, Transform blockTransform, Vector2Int exitDirection)
@@ -517,13 +530,14 @@ namespace Runtime.Controllers
                 blockZ);
         }
 
-        private void ApplyBlockCells(Transform root, BlockData blockData)
+        private void ApplyBlockCells(Transform root, int blockRootIndex, BlockData blockData)
         {
             var localCells = blockData.GetLocalCells();
             var cellSize = boardController.CellSize;
             var scaledCellSize = Mathf.Max(0.01f, cellSize * blockCellVisualScale);
-
-            EnsureBlockCellCount(root, localCells.Length);
+            var material = visualProfile ? visualProfile.GetMaterial(blockData.colorType) : null;
+            var resolvedMaterial = material ?? GetBlockFallbackMaterial(blockData.colorType);
+            var cellRenderers = EnsureBlockCellRenderers(blockRootIndex, root, localCells.Length);
 
             for (var i = 0; i < root.childCount; i++)
             {
@@ -544,22 +558,22 @@ namespace Runtime.Controllers
                 cellObject.transform.localRotation = Quaternion.identity;
                 cellObject.transform.localScale = Vector3.one * scaledCellSize;
 
-                var renderer = cellObject.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    var material = visualProfile != null ? visualProfile.GetMaterial(blockData.colorType) : null;
-                    renderer.sharedMaterial = material ?? GetBlockFallbackMaterial(blockData.colorType);
-                }
+                var renderer = cellRenderers[i];
+                renderer.sharedMaterial = resolvedMaterial;
             }
         }
 
-        private void EnsureBlockCellCount(Transform blockRoot, int requiredCellCount)
+        private List<Renderer> EnsureBlockCellRenderers(int blockRootIndex, Transform blockRoot, int requiredCellCount)
         {
-            while (blockRoot.childCount < requiredCellCount)
+            var cellRenderers = _blockCellRenderersByRoot[blockRootIndex];
+            while (blockRoot.childCount < requiredCellCount || cellRenderers.Count < requiredCellCount)
             {
                 var cellObject = CreateBlockCellObject(blockRoot);
                 cellObject.SetActive(true);
+                cellRenderers.Add(cellObject.GetComponent<Renderer>());
             }
+
+            return cellRenderers;
         }
 
         private GameObject CreateBlockCellObject(Transform parent)
@@ -654,10 +668,6 @@ namespace Runtime.Controllers
         private static void RemoveCollider(GameObject target)
         {
             var collider = target.GetComponent<Collider>();
-            if (collider == null)
-            {
-                return;
-            }
 
 #if UNITY_EDITOR
             if (!Application.isPlaying)

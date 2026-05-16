@@ -10,50 +10,56 @@ namespace Runtime.Controllers
 {
     public class BoardController : MonoBehaviour
     {
-        [SerializeField] private bool slideUntilBlocked = true;
         [SerializeField] private float cellSize = 1f;
         [SerializeField] private Vector2 boardOrigin;
 
         public event Action LevelCompleted;
         public event Action<int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int> BlockCleared;
+        public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockExitedThroughDoor;
 
         public LevelData CurrentLevel { get; private set; }
         public bool IsInitialized { get; private set; }
+        public int RuntimeBlockCount { get; private set; }
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => boardOrigin;
 
         private readonly Dictionary<int, RuntimeBlockState> _runtimeBlocks = new();
-        private readonly DoorOpeningMap _doorOpeningMap = new();
+        private readonly List<DoorOpeningData> _doorOpenings = new();
         private readonly BoardOccupancyMap _occupancyMap = new();
 
         public void Setup(LevelData levelData)
         {
-            CurrentLevel = levelData;
             IsInitialized = false;
-
             _runtimeBlocks.Clear();
-            _doorOpeningMap.Clear();
+            _doorOpenings.Clear();
 
-            _occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y, levelData.blockedCells);
+            if (!levelData)
+            {
+                CurrentLevel = null;
+                SetRuntimeBlockCount(0);
+                return;
+            }
 
-            _doorOpeningMap.Build(levelData.doors, levelData.gridDimensions);
+            CurrentLevel = levelData;
+
+            _occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
+            var openings = levelData.GetDoorOpenings();
+            foreach (var openingData in openings)
+            {
+                _doorOpenings.Add(openingData);
+            }
 
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
                 var blockLocalCells = blockData.GetLocalCells();
 
-                var runtimeBlock = new RuntimeBlockState(
-                    i,
-                    blockData.position,
-                    blockLocalCells,
-                    blockData.movementConstraint,
-                    blockData.colorType);
+                var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockLocalCells,
+                    blockData.movementConstraint, blockData.colorType);
 
                 if (!_occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
                 {
-                    Debug.LogError($"Invalid block placement in level {levelData.levelNumber}, block index: {i}");
                     continue;
                 }
 
@@ -62,7 +68,7 @@ namespace Runtime.Controllers
             }
 
             IsInitialized = true;
-            CheckLevelCompletion();
+            SetRuntimeBlockCount(_runtimeBlocks.Count);
         }
 
 
@@ -96,9 +102,21 @@ namespace Runtime.Controllers
             return _occupancyMap.TryGetBlockAt(cell.x, cell.y, out blockId);
         }
 
-        public bool TryMoveBlock(int blockId, Direction direction)
+        public bool TryGetBlockMovementConstraint(int blockId, out BlockMovementConstraint movementConstraint)
         {
-            if (!IsInitialized || !_runtimeBlocks.TryGetValue(blockId, out var block))
+            movementConstraint = default;
+            if (!TryGetRuntimeBlock(blockId, out var block))
+            {
+                return false;
+            }
+
+            movementConstraint = block.MovementConstraint;
+            return true;
+        }
+
+        public bool TryMoveBlockByStep(int blockId, Direction direction)
+        {
+            if (!TryGetRuntimeBlock(blockId, out var block))
             {
                 return false;
             }
@@ -109,28 +127,11 @@ namespace Runtime.Controllers
             }
 
             _occupancyMap.ClearBlock(blockId, block.Position, block.LocalCells);
-            var targetPosition = block.Position;
-            var clearingOpening = default(DoorOpeningData);
-            var isCleared = false;
-            var stepCount = 0;
 
-            if (slideUntilBlocked)
-            {
-                stepCount = GetSlideTravelSteps(
-                    block,
-                    direction,
-                    out targetPosition,
-                    out isCleared,
-                    out clearingOpening);
-            }
-            else if (CanMoveByOneStep(block, direction))
-            {
-                targetPosition += direction.ToVector();
-                stepCount = 1;
-                isCleared = TryGetClearingOpening(block, targetPosition, out clearingOpening);
-            }
+            var targetPosition = block.Position + direction.ToVector();
+            var canClear = TryGetDoorExit(block, targetPosition, direction, out var exitDoor);
 
-            if (stepCount <= 0)
+            if (!canClear && !CanMoveByOneStep(block, direction))
             {
                 _occupancyMap.FillBlock(blockId, block.Position, block.LocalCells);
                 return false;
@@ -138,21 +139,20 @@ namespace Runtime.Controllers
 
             block.Position = targetPosition;
 
-            if (isCleared)
+            if (canClear)
             {
                 _runtimeBlocks.Remove(blockId);
-                var hasExitDirection = TryGetExitDirection(direction, clearingOpening.edgeSide, out var exitDirection);
-                BlockCleared?.Invoke(blockId, block.Position, hasExitDirection ? exitDirection : Vector2Int.zero);
+                BlockCleared?.Invoke(blockId, block.Position, direction.ToVector());
+                BlockExitedThroughDoor?.Invoke(blockId, block.Position, direction.ToVector(), exitDoor);
+                SetRuntimeBlockCount(_runtimeBlocks.Count);
             }
             else
             {
                 _runtimeBlocks[blockId] = block;
                 _occupancyMap.FillBlock(blockId, block.Position, block.LocalCells);
-
                 BlockMoved?.Invoke(blockId, block.Position);
             }
 
-            CheckLevelCompletion();
             return true;
         }
 
@@ -166,134 +166,121 @@ namespace Runtime.Controllers
             };
         }
 
-        private int GetSlideTravelSteps(
-            RuntimeBlockState block,
-            Direction direction,
-            out Vector2Int targetPosition,
-            out bool isCleared,
-            out DoorOpeningData clearingOpening)
-        {
-            var delta = direction.ToVector();
-            var currentPosition = block.Position;
-            var steps = 0;
-
-            while (_occupancyMap.CanPlace(block.Id, currentPosition + delta, block.LocalCells))
-            {
-                currentPosition += delta;
-                steps++;
-
-                if (TryGetClearingOpening(block, currentPosition, out var opening))
-                {
-                    targetPosition = currentPosition;
-                    isCleared = true;
-                    clearingOpening = opening;
-                    return steps;
-                }
-            }
-
-            targetPosition = currentPosition;
-            isCleared = false;
-            clearingOpening = default;
-            return steps;
-        }
-
         private bool CanMoveByOneStep(RuntimeBlockState block, Direction direction)
         {
             var nextPosition = block.Position + direction.ToVector();
             return _occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells);
         }
 
-        private bool TryGetClearingOpening(
-            RuntimeBlockState block,
-            Vector2Int blockPosition,
-            out DoorOpeningData openingData)
+        private bool TryGetDoorExit(RuntimeBlockState block, Vector2Int blockPosition, Direction moveDirection,
+            out DoorOpeningData doorExit)
         {
-            if (block.LocalCells == null || block.LocalCells.Length == 0)
+            doorExit = default;
+
+            var localCells = block.LocalCells;
+            if (localCells == null || localCells.Length == 0 || _doorOpenings.Count == 0)
             {
-                openingData = default;
                 return false;
             }
 
-            for (var i = 0; i < block.LocalCells.Length; i++)
+            GetBlockBounds(localCells, blockPosition, out var minX, out var maxX, out var minY, out var maxY);
+
+            foreach (var opening in _doorOpenings)
             {
-                var worldCell = blockPosition + block.LocalCells[i];
-                if (!_doorOpeningMap.TryGetOpening(worldCell, out var opening))
+                if (opening.ColorType != block.ColorType || opening.EdgeDirection != moveDirection)
                 {
                     continue;
                 }
 
-                if (opening.colorType != block.ColorType)
+                if (!IsBlockTouchingDoorEdge(opening, moveDirection, minX, maxX, minY, maxY))
                 {
                     continue;
                 }
 
-                if (!CanBlockPassOpening(block, blockPosition, opening))
+                if (!IsBlockInsideDoorSpan(opening, moveDirection, minX, maxX, minY, maxY))
                 {
                     continue;
                 }
 
-                openingData = opening;
+                if (!FitsInsideDoor(opening, moveDirection, minX, maxX, minY, maxY))
+                {
+                    continue;
+                }
+
+                doorExit = opening;
                 return true;
             }
 
-            openingData = default;
             return false;
         }
 
-        private static bool CanBlockPassOpening(RuntimeBlockState block, Vector2Int blockPosition,
-            DoorOpeningData opening)
+        private static bool FitsInsideDoor(DoorOpeningData opening, Direction moveDirection, int minX, int maxX,
+            int minY, int maxY)
         {
-            if (block.LocalCells == null || block.LocalCells.Length == 0)
-            {
-                return false;
-            }
-
-            var verticalAxis = opening.edgeSide.IsVertical();
-            var minAxis = int.MaxValue;
-            var maxAxis = int.MinValue;
-
-            foreach (var cell in block.LocalCells)
-            {
-                var worldCell = blockPosition + cell;
-                var axisValue = verticalAxis ? worldCell.y : worldCell.x;
-                if (axisValue < minAxis)
-                {
-                    minAxis = axisValue;
-                }
-
-                if (axisValue > maxAxis)
-                {
-                    maxAxis = axisValue;
-                }
-            }
-
-            if (minAxis == int.MaxValue)
-            {
-                return false;
-            }
-
-            var blockWidthOnDoorAxis = (maxAxis - minAxis) + 1;
-            return blockWidthOnDoorAxis <= opening.OpeningWidth;
+            var widthOnDoorAxis = moveDirection.IsHorizontal() ? (maxY - minY) + 1 : (maxX - minX) + 1;
+            return widthOnDoorAxis <= opening.OpeningWidth;
         }
 
-        private void CheckLevelCompletion()
+        private static void GetBlockBounds(Vector2Int[] localCells, Vector2Int blockPosition, out int minX,
+            out int maxX, out int minY, out int maxY)
         {
-            if (_runtimeBlocks.Count == 0)
+            minX = int.MaxValue;
+            maxX = int.MinValue;
+            minY = int.MaxValue;
+            maxY = int.MinValue;
+
+            foreach (var cell in localCells)
+            {
+                var worldCell = blockPosition + cell;
+                if (worldCell.x < minX) minX = worldCell.x;
+                if (worldCell.x > maxX) maxX = worldCell.x;
+                if (worldCell.y < minY) minY = worldCell.y;
+                if (worldCell.y > maxY) maxY = worldCell.y;
+            }
+        }
+
+        private static bool IsBlockTouchingDoorEdge(DoorOpeningData opening, Direction moveDirection, int minX,
+            int maxX, int minY, int maxY)
+        {
+            return moveDirection switch
+            {
+                Direction.Left => minX == opening.MinCell.x,
+                Direction.Right => maxX == opening.MaxCell.x,
+                Direction.Down => minY == opening.MinCell.y,
+                Direction.Up => maxY == opening.MaxCell.y,
+                _ => false
+            };
+        }
+
+        private static bool IsBlockInsideDoorSpan(DoorOpeningData opening, Direction moveDirection, int minX, int maxX,
+            int minY, int maxY)
+        {
+            if (moveDirection.IsHorizontal())
+            {
+                return minY >= opening.MinCell.y && maxY <= opening.MaxCell.y;
+            }
+
+            return minX >= opening.MinCell.x && maxX <= opening.MaxCell.x;
+        }
+
+        private bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
+        {
+            block = default;
+            return IsInitialized && _runtimeBlocks.TryGetValue(blockId, out block);
+        }
+
+        private void SetRuntimeBlockCount(int nextCount)
+        {
+            var previousCount = RuntimeBlockCount;
+            nextCount = Mathf.Max(0, nextCount);
+            if (RuntimeBlockCount == nextCount)
+                return;
+
+            RuntimeBlockCount = nextCount;
+            if (nextCount == 0 && previousCount != nextCount)
             {
                 LevelCompleted?.Invoke();
             }
-        }
-
-        private static bool TryGetExitDirection(Direction moveDirection, EdgeSide edgeSide, out Vector2Int direction)
-        {
-            var moveVector = moveDirection.ToVector();
-            if (moveVector != Vector2Int.zero && edgeSide.IsToward(moveVector))
-            {
-                direction = moveVector;
-                return true;
-            }
-
-            return edgeSide.TryGetNormal(out direction);
         }
     }
 }

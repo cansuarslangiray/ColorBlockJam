@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Runtime.Core
@@ -7,13 +6,12 @@ namespace Runtime.Core
     public class BoardOccupancyMap
     {
         private const int EmptyCell = -1;
-        private const int BlockedCell = -2;
 
         private int _width;
         private int _height;
         private int[] _cells = Array.Empty<int>();
 
-        public void Configure(int boardWidth, int boardHeight, List<Vector2Int> blockedCells)
+        public void Configure(int boardWidth, int boardHeight)
         {
             _width = Mathf.Max(1, boardWidth);
             _height = Mathf.Max(1, boardHeight);
@@ -28,20 +26,6 @@ namespace Runtime.Core
             {
                 _cells[i] = EmptyCell;
             }
-
-            if (blockedCells == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < blockedCells.Count; i++)
-            {
-                var cell = blockedCells[i];
-                if (IsInside(cell))
-                {
-                    _cells[GetIndex(cell.x, cell.y)] = BlockedCell;
-                }
-            }
         }
 
         public bool CanPlace(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)
@@ -51,21 +35,16 @@ namespace Runtime.Core
                 return false;
             }
 
-            for (var i = 0; i < localCells.Length; i++)
+            foreach (var cell in localCells)
             {
-                var worldCell = anchorPosition + localCells[i];
+                var worldCell = anchorPosition + cell;
                 if (!IsInside(worldCell))
                 {
                     return false;
                 }
 
-                int index = GetIndex(worldCell.x, worldCell.y);
-                int cellValue = _cells[index];
-                if (cellValue == BlockedCell)
-                {
-                    return false;
-                }
-
+                var index = GetIndex(worldCell.x, worldCell.y);
+                var cellValue = _cells[index];
                 if (cellValue != EmptyCell && cellValue != blockId)
                 {
                     return false;
@@ -82,9 +61,9 @@ namespace Runtime.Core
                 return;
             }
 
-            for (var i = 0; i < localCells.Length; i++)
+            foreach (var cell in localCells)
             {
-                Vector2Int worldCell = anchorPosition + localCells[i];
+                var worldCell = anchorPosition + cell;
                 if (!IsInside(worldCell))
                 {
                     continue;
@@ -127,11 +106,13 @@ namespace Runtime.Core
 
             var index = GetIndex(x, y);
             var cellValue = _cells[index];
+            if (cellValue == EmptyCell)
+            {
+                return false;
+            }
 
-            if (cellValue is EmptyCell or BlockedCell) return false;
             blockId = cellValue;
             return true;
-
         }
 
         private bool IsInside(Vector2Int cell)

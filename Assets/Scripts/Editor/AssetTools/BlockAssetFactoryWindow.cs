@@ -147,11 +147,7 @@ namespace Editor.AssetTools
             temp.transform.rotation = Quaternion.identity;
             temp.transform.localScale = Vector3.one;
 
-            Renderer renderer = temp.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.sharedMaterial = material;
-            }
+            temp.GetComponent<Renderer>().sharedMaterial = material;
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temp, prefabPath);
             DestroyImmediate(temp);

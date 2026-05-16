@@ -19,20 +19,25 @@ MonoBehaviour:
   availableColors: 0400000001000000
   availableShapes:
   - {fileID: 11400000, guid: dabccd432e186427d8b17da10acbfc6e, type: 2}
-  - {fileID: 0}
   doors:
   - position: {x: 1, y: 0}
     colorType: 1
+    openingWidth: 1
   - position: {x: 2, y: 0}
     colorType: 1
+    openingWidth: 1
   - position: {x: 3, y: 0}
     colorType: 1
+    openingWidth: 1
   - position: {x: 4, y: 6}
     colorType: 4
+    openingWidth: 1
   - position: {x: 3, y: 6}
     colorType: 4
+    openingWidth: 1
   - position: {x: 2, y: 6}
     colorType: 4
+    openingWidth: 1
   blocks:
   - position: {x: 1, y: 2}
     shape: {fileID: 11400000, guid: dabccd432e186427d8b17da10acbfc6e, type: 2}

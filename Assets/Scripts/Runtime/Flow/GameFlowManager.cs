@@ -14,6 +14,7 @@ namespace Runtime.Flow
 
         [SerializeField] private BoardController boardController;
         [SerializeField] private BlockSceneBuilder blockSceneBuilder;
+        [SerializeField] private BoardInputController boardInputController;
         [SerializeField] private StateManager stateManager;
         [SerializeField] private LevelCountdownTimer levelCountdownTimer;
 
@@ -52,7 +53,6 @@ namespace Runtime.Flow
             stateManager.OnStateChanged += HandleStateChanged;
             levelCountdownTimer.SecondChanged += HandleTimerSecondChanged;
             levelCountdownTimer.TimerExpired += HandleTimerExpired;
-            BoardInputController.OnScreenTapped += HandleScreenTapped;
         }
 
         private void OnDestroy()
@@ -72,28 +72,11 @@ namespace Runtime.Flow
                 levelCountdownTimer.SecondChanged -= HandleTimerSecondChanged;
                 levelCountdownTimer.TimerExpired -= HandleTimerExpired;
             }
-
-            BoardInputController.OnScreenTapped -= HandleScreenTapped;
         }
 
         private void Start()
         {
             if (initializeOnStart)
-            {
-                InitializeRun();
-            }
-        }
-
-        private void HandleScreenTapped()
-        {
-            if (stateManager == null) return;
-
-            if (stateManager.CurrentState == GameState.StartScreen)
-            {
-                StartCurrentLevel();
-            }
-            else if (stateManager.CurrentState == GameState.LevelFailed ||
-                     stateManager.CurrentState == GameState.GameCompleted)
             {
                 InitializeRun();
             }
@@ -108,6 +91,25 @@ namespace Runtime.Flow
 
             RefreshStaticUI();
             RefreshTimerUI(0);
+        }
+
+        public void OnStartButtonPressed()
+        {
+            if (_transitionInProgress || stateManager == null || boardController == null)
+            {
+                return;
+            }
+
+            switch (stateManager.CurrentState)
+            {
+                case GameState.StartScreen:
+                    StartCurrentLevel();
+                    break;
+                case GameState.LevelFailed:
+                case GameState.GameCompleted:
+                    InitializeRun();
+                    break;
+            }
         }
 
 
@@ -127,6 +129,7 @@ namespace Runtime.Flow
             blockSceneBuilder.BuildForLevel(levelData);
 
             boardController.Setup(levelData);
+            boardInputController?.ForceFitInputArea();
             _transitionInProgress = false;
 
             FitCameraToLevel(levelData);
@@ -160,7 +163,7 @@ namespace Runtime.Flow
 
         private void HandleTimerExpired()
         {
-            if (stateManager == null || stateManager.CurrentState != GameState.Playing)
+            if (stateManager.CurrentState != GameState.Playing)
             {
                 return;
             }
@@ -205,10 +208,7 @@ namespace Runtime.Flow
 
         private void FailRun(string message)
         {
-            if (endMessageText != null)
-            {
-                endMessageText.text = message;
-            }
+            endMessageText.text = message;
 
             StopTimer();
             stateManager.ChangeState(GameState.LevelFailed);
@@ -220,9 +220,9 @@ namespace Runtime.Flow
             var showGameplay = newState == GameState.Playing;
             var showEnd = newState is GameState.LevelFailed or GameState.GameCompleted;
 
-            if (startScreenRoot != null) startScreenRoot.SetActive(showStart);
-            if (gameplayScreenRoot != null) gameplayScreenRoot.SetActive(showGameplay);
-            if (endScreenRoot != null) endScreenRoot.SetActive(showEnd);
+            startScreenRoot.SetActive(showStart);
+            gameplayScreenRoot.SetActive(showGameplay);
+            endScreenRoot.SetActive(showEnd);
 
             if (newState != GameState.Playing)
             {
@@ -247,17 +247,6 @@ namespace Runtime.Flow
 
         private void FitCameraToLevel(LevelData levelData)
         {
-            if (levelData == null || boardController == null)
-            {
-                return;
-            }
-
-            var cameraToUse = gameplayCamera != null ? gameplayCamera : Camera.main;
-            if (cameraToUse == null)
-            {
-                return;
-            }
-
             var cellSize = Mathf.Max(0.01f, boardController.CellSize);
             var width = levelData.gridDimensions.x * cellSize;
             var height = levelData.gridDimensions.y * cellSize;
@@ -266,7 +255,7 @@ namespace Runtime.Flow
             var contentHeight = height + (padding * 2f);
 
             var center = boardController.BoardOrigin + new Vector2(width * 0.5f, height * 0.5f);
-            var cameraTransform = cameraToUse.transform;
+            var cameraTransform = gameplayCamera.transform;
             cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
 
             if (resetCameraTilt)
@@ -276,19 +265,19 @@ namespace Runtime.Flow
 
             if (forceOrthographicCamera)
             {
-                cameraToUse.orthographic = true;
+                gameplayCamera.orthographic = true;
 
-                var aspect = Mathf.Max(0.01f, cameraToUse.aspect);
+                var aspect = Mathf.Max(0.01f, gameplayCamera.aspect);
                 var halfHeight = contentHeight * 0.5f;
                 var halfWidthAsHeight = (contentWidth * 0.5f) / aspect;
-                cameraToUse.orthographicSize = Mathf.Max(minimumOrthographicSize, halfHeight, halfWidthAsHeight);
+                gameplayCamera.orthographicSize = Mathf.Max(minimumOrthographicSize, halfHeight, halfWidthAsHeight);
                 return;
             }
 
-            cameraToUse.orthographic = false;
+            gameplayCamera.orthographic = false;
 
-            var halfFovY = Mathf.Max(0.01f, cameraToUse.fieldOfView * 0.5f * Mathf.Deg2Rad);
-            var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, cameraToUse.aspect));
+            var halfFovY = Mathf.Max(0.01f, gameplayCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, gameplayCamera.aspect));
             var distanceByHeight = (contentHeight * 0.5f) / Mathf.Tan(halfFovY);
             var distanceByWidth = (contentWidth * 0.5f) / Mathf.Tan(halfFovX);
             var requiredDistance = Mathf.Max(minimumPerspectiveDistance, distanceByHeight, distanceByWidth);

@@ -22,7 +22,7 @@ namespace Runtime.Domain.Models
                 return DefaultCells;
             }
 
-            Vector2Int[] shapeCells = shape.GetLocalCells();
+            var shapeCells = shape.GetLocalCells();
             if (shapeCells == null || shapeCells.Length == 0)
             {
                 return DefaultCells;

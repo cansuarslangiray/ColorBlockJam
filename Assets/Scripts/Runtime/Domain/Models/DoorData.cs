@@ -7,13 +7,8 @@ namespace Runtime.Domain.Models
     [Serializable]
     public struct DoorData
     {
-        [Tooltip("Kapının ızgara hücresi")] public Vector2Int position;
-
-        [Tooltip("Kapının kabul ettiği blok rengi")]
+        public Vector2Int position;
         public BlockColor colorType;
-
-        [Min(1)]
-        [Tooltip("Kapının kenar boyunca uzunluğu (kaç hücre)")]
-        public int openingWidth;
+        [Min(1)] public int openingWidth;
     }
 }

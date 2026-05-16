@@ -6,7 +6,7 @@ namespace Runtime.Data
     [CreateAssetMenu(fileName = "LevelCollection", menuName = "ColorBlockJam/LevelCollection")]
     public class LevelCollection : ScriptableObject
     {
-        public List<LevelData> levels = new List<LevelData>();
+        public List<LevelData> levels = new ();
 
         public int Count => levels?.Count ?? 0;
 

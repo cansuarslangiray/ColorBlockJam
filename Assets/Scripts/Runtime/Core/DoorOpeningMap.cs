@@ -5,9 +5,9 @@ using UnityEngine;
 
 namespace Runtime.Core
 {
-    public class DoorOpeningMap
+    public abstract class DoorOpeningMap
     {
-        private static readonly Vector2Int[] _neighbors =
+        private static readonly Vector2Int[] Neighbors =
         {
             Vector2Int.up,
             Vector2Int.down,
@@ -15,29 +15,43 @@ namespace Runtime.Core
             Vector2Int.right
         };
 
-        private readonly Dictionary<Vector2Int, int> _openingIndexByCell = new Dictionary<Vector2Int, int>();
-        private readonly List<DoorOpeningData> _openings = new List<DoorOpeningData>();
-
-        public IReadOnlyList<DoorOpeningData> Openings => _openings;
-
-        public void Clear()
+        public static void BuildOpenings(List<DoorData> doors, Vector2Int gridDimensions,
+            List<DoorOpeningData> resultOpenings)
         {
-            _openingIndexByCell.Clear();
-            _openings.Clear();
+            if (resultOpenings == null)
+            {
+                return;
+            }
+
+            var doorColorByCell = new Dictionary<Vector2Int, BlockColor>();
+            var doorDirectionByCell = new Dictionary<Vector2Int, Direction>();
+            var expandedDoorCells = new List<Vector2Int>(8);
+            var unvisited = new HashSet<Vector2Int>();
+            var queue = new Queue<Vector2Int>();
+            var clusterCells = new List<Vector2Int>();
+
+            BuildOpeningsInternal(doors, gridDimensions, resultOpenings, doorColorByCell, doorDirectionByCell,
+                expandedDoorCells, unvisited, queue, clusterCells);
         }
 
-        public void Build(List<DoorData> doors, Vector2Int gridDimensions)
+
+        private static void BuildOpeningsInternal(IReadOnlyList<DoorData> doors, Vector2Int gridDimensions,
+            List<DoorOpeningData> resultOpenings, Dictionary<Vector2Int, BlockColor> doorColorByCell,
+            Dictionary<Vector2Int, Direction> doorDirectionByCell, List<Vector2Int> expandedDoorCells,
+            HashSet<Vector2Int> unvisited, Queue<Vector2Int> queue, List<Vector2Int> clusterCells)
         {
-            Clear();
+            resultOpenings.Clear();
+            doorColorByCell.Clear();
+            doorDirectionByCell.Clear();
+            expandedDoorCells.Clear();
+            unvisited.Clear();
+            queue.Clear();
+            clusterCells.Clear();
 
             if (doors == null || doors.Count == 0)
             {
                 return;
             }
-
-            Dictionary<Vector2Int, BlockColor> doorColorByCell = new Dictionary<Vector2Int, BlockColor>();
-            Dictionary<Vector2Int, EdgeSide> doorSideByCell = new Dictionary<Vector2Int, EdgeSide>();
-            List<Vector2Int> expandedDoorCells = new List<Vector2Int>(8);
 
             for (int i = 0; i < doors.Count; i++)
             {
@@ -50,25 +64,28 @@ namespace Runtime.Core
                 for (int cellIndex = 0; cellIndex < expandedDoorCells.Count; cellIndex++)
                 {
                     Vector2Int cell = expandedDoorCells[cellIndex];
-                    if (!TryGetDoorSide(cell, gridDimensions, out var edgeSide))
+                    if (!TryGetDoorDirection(cell, gridDimensions, out var edgeDirection))
                     {
                         continue;
                     }
 
                     doorColorByCell[cell] = door.colorType;
-                    doorSideByCell[cell] = edgeSide;
+                    doorDirectionByCell[cell] = edgeDirection;
                 }
             }
 
-            HashSet<Vector2Int> unvisited = new HashSet<Vector2Int>(doorColorByCell.Keys);
-            Queue<Vector2Int> queue = new Queue<Vector2Int>();
-            List<Vector2Int> clusterCells = new List<Vector2Int>();
+            if (doorColorByCell.Count == 0)
+            {
+                return;
+            }
+
+            unvisited.UnionWith(doorColorByCell.Keys);
 
             while (unvisited.Count > 0)
             {
                 Vector2Int startCell = GetAnyCell(unvisited);
                 BlockColor colorType = doorColorByCell[startCell];
-                var edgeSide = doorSideByCell[startCell];
+                var edgeDirection = doorDirectionByCell[startCell];
 
                 queue.Clear();
                 clusterCells.Clear();
@@ -90,20 +107,22 @@ namespace Runtime.Core
                     if (current.y < minY) minY = current.y;
                     if (current.y > maxY) maxY = current.y;
 
-                    for (int i = 0; i < _neighbors.Length; i++)
+                    for (int i = 0; i < Neighbors.Length; i++)
                     {
-                        Vector2Int neighbor = current + _neighbors[i];
+                        Vector2Int neighbor = current + Neighbors[i];
                         if (!unvisited.Contains(neighbor))
                         {
                             continue;
                         }
 
-                        if (!doorColorByCell.TryGetValue(neighbor, out BlockColor neighborColor) || neighborColor != colorType)
+                        if (!doorColorByCell.TryGetValue(neighbor, out BlockColor neighborColor) ||
+                            neighborColor != colorType)
                         {
                             continue;
                         }
 
-                        if (!doorSideByCell.TryGetValue(neighbor, out var neighborSide) || neighborSide != edgeSide)
+                        if (!doorDirectionByCell.TryGetValue(neighbor, out var neighborDirection) ||
+                            neighborDirection != edgeDirection)
                         {
                             continue;
                         }
@@ -115,32 +134,14 @@ namespace Runtime.Core
 
                 DoorOpeningData opening = new DoorOpeningData
                 {
-                    colorType = colorType,
-                    minCell = new Vector2Int(minX, minY),
-                    maxCell = new Vector2Int(maxX, maxY),
-                    edgeSide = edgeSide
+                    ColorType = colorType,
+                    MinCell = new Vector2Int(minX, minY),
+                    MaxCell = new Vector2Int(maxX, maxY),
+                    EdgeDirection = edgeDirection
                 };
 
-                int openingIndex = _openings.Count;
-                _openings.Add(opening);
-
-                for (int i = 0; i < clusterCells.Count; i++)
-                {
-                    _openingIndexByCell[clusterCells[i]] = openingIndex;
-                }
+                resultOpenings.Add(opening);
             }
-        }
-
-        public bool TryGetOpening(Vector2Int cell, out DoorOpeningData openingData)
-        {
-            if (_openingIndexByCell.TryGetValue(cell, out int openingIndex))
-            {
-                openingData = _openings[openingIndex];
-                return true;
-            }
-
-            openingData = default;
-            return false;
         }
 
         private static Vector2Int GetAnyCell(HashSet<Vector2Int> cells)
@@ -161,7 +162,7 @@ namespace Runtime.Core
                 return false;
             }
 
-            if (!TryGetDoorSide(door.position, gridDimensions, out var edgeSide))
+            if (!TryGetDoorDirection(door.position, gridDimensions, out var edgeDirection))
             {
                 return false;
             }
@@ -171,7 +172,7 @@ namespace Runtime.Core
                 return false;
             }
 
-            if (!TryGetAxisRange(edgeSide, gridDimensions, out int axisMin, out int axisMax))
+            if (!TryGetAxisRange(edgeDirection, gridDimensions, out int axisMin, out int axisMax))
             {
                 return false;
             }
@@ -183,7 +184,7 @@ namespace Runtime.Core
                 return false;
             }
 
-            var verticalEdge = edgeSide.IsVertical();
+            var verticalEdge = edgeDirection.IsHorizontal();
             int anchorAxis = verticalEdge ? door.position.y : door.position.x;
             int startAxis = Mathf.Clamp(anchorAxis, axisMin, axisMax);
             int endAxis = startAxis + openingWidth - 1;
@@ -204,36 +205,36 @@ namespace Runtime.Core
             return resultCells.Count > 0;
         }
 
-        public static bool TryGetDoorSide(Vector2Int cell, Vector2Int gridDimensions, out EdgeSide edgeSide)
+        public static bool TryGetDoorDirection(Vector2Int cell, Vector2Int gridDimensions, out Direction edgeDirection)
         {
             int maxX = gridDimensions.x - 1;
             int maxY = gridDimensions.y - 1;
 
             if (cell.x == 0)
             {
-                edgeSide = EdgeSide.Left;
+                edgeDirection = Direction.Left;
                 return true;
             }
 
             if (cell.x == maxX)
             {
-                edgeSide = EdgeSide.Right;
+                edgeDirection = Direction.Right;
                 return true;
             }
 
             if (cell.y == 0)
             {
-                edgeSide = EdgeSide.Bottom;
+                edgeDirection = Direction.Down;
                 return true;
             }
 
             if (cell.y == maxY)
             {
-                edgeSide = EdgeSide.Top;
+                edgeDirection = Direction.Up;
                 return true;
             }
 
-            edgeSide = default;
+            edgeDirection = default;
             return false;
         }
 
@@ -246,16 +247,17 @@ namespace Runtime.Core
             return (left || right) && (bottom || top);
         }
 
-        private static bool TryGetAxisRange(EdgeSide edgeSide, Vector2Int gridDimensions, out int axisMin, out int axisMax)
+        private static bool TryGetAxisRange(Direction edgeDirection, Vector2Int gridDimensions, out int axisMin,
+            out int axisMax)
         {
-            if (edgeSide.IsVertical())
+            if (edgeDirection.IsHorizontal())
             {
                 axisMin = 1;
                 axisMax = gridDimensions.y - 2;
                 return axisMax >= axisMin;
             }
 
-            if (edgeSide.IsHorizontal())
+            if (edgeDirection.IsVertical())
             {
                 axisMin = 1;
                 axisMax = gridDimensions.x - 2;
@@ -266,6 +268,5 @@ namespace Runtime.Core
             axisMax = -1;
             return false;
         }
-
     }
 }

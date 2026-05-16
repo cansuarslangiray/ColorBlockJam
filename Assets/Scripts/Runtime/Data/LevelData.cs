@@ -9,15 +9,12 @@ namespace Runtime.Data
     [CreateAssetMenu(fileName = "LevelData", menuName = "ColorBlockJam/LevelData")]
     public class LevelData : ScriptableObject
     {
-        [Header("Level Settings")] public int levelNumber = 1;
-
+        public int levelNumber = 1;
         public float timeLimit = 60f;
-
-        [Header("Grid Configurations")] public Vector2Int gridDimensions = new(6, 8);
-
+        public Vector2Int gridDimensions = new(6, 8);
         public List<Vector2Int> blockedCells = new();
 
-        [Header("Level Editor Data")] public List<BlockColor> availableColors = new List<BlockColor>
+        public List<BlockColor> availableColors = new List<BlockColor>
         {
             BlockColor.Red,
             BlockColor.Blue,
@@ -28,7 +25,15 @@ namespace Runtime.Data
 
         public List<DoorData> doors = new();
 
-        [Header("Block Placements")] public List<BlockData> blocks = new();
+        public List<BlockData> blocks = new();
+        [System.NonSerialized] private List<DoorOpeningData> _cachedDoorOpenings = new();
+        [System.NonSerialized] private bool _isDoorOpeningsCacheDirty = true;
+
+        public IReadOnlyList<DoorOpeningData> GetDoorOpenings()
+        {
+            EnsureDoorOpeningsCache();
+            return _cachedDoorOpenings;
+        }
 
         private void OnValidate()
         {
@@ -36,7 +41,6 @@ namespace Runtime.Data
             if (gridDimensions.y < 1) gridDimensions.y = 1;
             if (timeLimit < 1f) timeLimit = 1f;
 
-            blockedCells ??= new List<Vector2Int>();
             availableColors ??= new List<BlockColor>();
             availableShapes ??= new List<BlockShapeData>();
             doors ??= new List<DoorData>();
@@ -56,6 +60,25 @@ namespace Runtime.Data
 
                 doors[i] = door;
             }
+
+            _isDoorOpeningsCacheDirty = true;
+        }
+
+        private void OnEnable()
+        {
+            _isDoorOpeningsCacheDirty = true;
+        }
+
+        private void EnsureDoorOpeningsCache()
+        {
+            _cachedDoorOpenings ??= new List<DoorOpeningData>();
+            if (!_isDoorOpeningsCacheDirty)
+            {
+                return;
+            }
+
+            DoorOpeningMap.BuildOpenings(doors, gridDimensions, _cachedDoorOpenings);
+            _isDoorOpeningsCacheDirty = false;
         }
     }
 }

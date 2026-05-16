@@ -1,201 +1,380 @@
-using System;
 using Runtime.Domain.Enums;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Runtime.Controllers
 {
     [DisallowMultipleComponent]
-    public class BoardInputController : MonoBehaviour
+    public class BoardInputController : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler, ICancelHandler, IEndDragHandler
     {
         [SerializeField] private BoardController boardController;
+        [SerializeField] private BoxCollider inputAreaCollider;
         [SerializeField] private Camera inputCamera;
-        [SerializeField] private float inputPlaneZ;
-        [SerializeField, Min(1f)] private float dragThresholdPixels = 25f;
-        [SerializeField] private bool allowContinuousStepDrag = true;
-
-        public static event Action OnScreenTapped;
+        [SerializeField, Range(0f, 1f)] private float dragAxisActivationRatio = 0.1f;
+        [SerializeField, Min(0.01f)] private float autoFitColliderThickness = 0.5f;
 
         private int _activeBlockId = -1;
-        private Vector2 _lastDragPosition;
-        private Plane _inputPlane;
+        private Vector2 _dragStartWorldPoint;
+        private Vector2Int _activeDragAxis = Vector2Int.zero;
+        private int _dragAxisCellOffset;
+        private Vector2Int _freeDragStepOffset;
+        private bool _activeBlockIsFree;
+        private Plane _boardPlane = new (Vector3.forward, Vector3.zero);
+        private Camera _activePointerCamera;
 
         private void Awake()
         {
-            RefreshInputPlane();
+            RefreshBoardPlane();
+            TryFitInputArea();
         }
 
         private void OnValidate()
         {
-            RefreshInputPlane();
+            RefreshBoardPlane();
+            TryFitInputArea();
         }
 
         private void OnDisable()
         {
             ResetDragState();
         }
-
-        private void Update()
+        
+        public void OnPointerDown(PointerEventData eventData)
         {
-            if (!TryReadPrimaryPointer(out var pointer))
-            {
-                return;
-            }
-
-            if (pointer.DownThisFrame)
-            {
-                HandlePointerDown(pointer.Position);
-            }
-
-            if (pointer.IsPressed)
-            {
-                HandlePointerDrag(pointer.Position);
-            }
-
-            if (pointer.UpThisFrame)
-            {
-                HandlePointerUp();
-            }
+            _activePointerCamera = ResolvePointerCamera(eventData);
+            HandlePointerDown(eventData.position, _activePointerCamera);
         }
 
-        private void HandlePointerDown(Vector2 pointerPosition)
+        public void OnDrag(PointerEventData eventData)
         {
-            OnScreenTapped?.Invoke();
+            HandlePointerDrag(eventData.position, _activePointerCamera);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            HandlePointerUp();
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            HandlePointerUp();
+        }
+
+        public void OnCancel(BaseEventData eventData)
+        {
+            HandlePointerUp();
+        }
+
+        private void HandlePointerDown(Vector2 pointerPosition, Camera cameraToUse)
+        {
             ResetDragState();
+            TryFitInputArea();
 
-            if (boardController == null || !boardController.IsInitialized)
+            if (!TryGetActiveBlock(pointerPosition, cameraToUse, out var blockId, out var worldPos, out var movementConstraint))
             {
                 return;
             }
 
-            if (!TryResolveBoardPoint(pointerPosition, out var worldPos))
-            {
-                return;
-            }
-
-            if (boardController.TryWorldToCell(worldPos, out var touchedCell) &&
-                boardController.TryGetBlockAtCell(touchedCell, out var blockId))
-            {
-                _activeBlockId = blockId;
-                _lastDragPosition = pointerPosition;
-            }
+            _activeBlockId = blockId;
+            _dragStartWorldPoint = worldPos;
+            _activeBlockIsFree = movementConstraint == BlockMovementConstraint.Free;
         }
 
-        private void HandlePointerDrag(Vector2 pointerPosition)
+        private void HandlePointerDrag(Vector2 pointerPosition, Camera cameraToUse)
         {
-            if (_activeBlockId < 0 || boardController == null)
+            if (_activeBlockId < 0 || !boardController.IsInitialized)
             {
                 return;
             }
 
-            var delta = pointerPosition - _lastDragPosition;
-            var absoluteX = Mathf.Abs(delta.x);
-            var absoluteY = Mathf.Abs(delta.y);
-            var isHorizontalDrag = absoluteX >= absoluteY;
-            var dominantDistance = isHorizontalDrag ? absoluteX : absoluteY;
-
-            if (dominantDistance < dragThresholdPixels)
+            if (!TryResolveBoardPoint(pointerPosition, cameraToUse, out var worldPos))
             {
                 return;
             }
 
-            var direction = isHorizontalDrag
-                ? (delta.x > 0f ? Direction.Right : Direction.Left)
-                : (delta.y > 0f ? Direction.Up : Direction.Down);
-
-            var moveAttemptCount = allowContinuousStepDrag
-                ? Mathf.Max(1, Mathf.FloorToInt(dominantDistance / dragThresholdPixels))
-                : 1;
-
-            var movedAnyStep = false;
-            for (var i = 0; i < moveAttemptCount; i++)
+            if (_activeBlockIsFree)
             {
-                if (!boardController.TryMoveBlock(_activeBlockId, direction))
+                HandleFreeDrag(worldPos);
+                return;
+            }
+
+            var dragVector = worldPos - _dragStartWorldPoint;
+            if (_activeDragAxis == Vector2Int.zero)
+            {
+                _activeDragAxis = ResolveDragAxis(dragVector);
+                if (_activeDragAxis == Vector2Int.zero)
+                {
+                    return;
+                }
+            }
+
+            var dragAxisDistance = _activeDragAxis.x != 0 ? dragVector.x : dragVector.y;
+            var targetStepOffset = ConvertAxisDistanceToCellSteps(dragAxisDistance, boardController.CellSize);
+            var requestStepDelta = targetStepOffset - _dragAxisCellOffset;
+            if (requestStepDelta == 0)
+            {
+                return;
+            }
+
+            var requestDirection = ResolveDirectionFromAxisAndSign(_activeDragAxis, requestStepDelta > 0);
+            var requestCount = Mathf.Abs(requestStepDelta);
+            var movedCount = 0;
+
+            for (var i = 0; i < requestCount; i++)
+            {
+                if (!boardController.TryMoveBlockByStep(_activeBlockId, requestDirection))
                 {
                     break;
                 }
 
-                movedAnyStep = true;
+                movedCount++;
             }
 
-            if (allowContinuousStepDrag && movedAnyStep)
+            if (movedCount <= 0)
             {
-                var consumedDelta = isHorizontalDrag
-                    ? new Vector2(Mathf.Sign(delta.x) * (moveAttemptCount * dragThresholdPixels), 0f)
-                    : new Vector2(0f, Mathf.Sign(delta.y) * (moveAttemptCount * dragThresholdPixels));
-                _lastDragPosition += consumedDelta;
+                return;
             }
-            else
+
+            _dragAxisCellOffset += requestStepDelta > 0 ? movedCount : -movedCount;
+        }
+
+        private void HandleFreeDrag(Vector2 worldPos)
+        {
+            if (!boardController.IsInitialized)
             {
-                _lastDragPosition = pointerPosition;
+                return;
+            }
+
+            var cellSize = boardController.CellSize;
+            if (cellSize <= 0f)
+            {
+                return;
+            }
+
+            var dragVector = worldPos - _dragStartWorldPoint;
+            var targetStepOffset = new Vector2Int(
+                ConvertAxisDistanceToCellSteps(dragVector.x, cellSize),
+                ConvertAxisDistanceToCellSteps(dragVector.y, cellSize));
+
+            var requestDelta = targetStepOffset - _freeDragStepOffset;
+            if (requestDelta == Vector2Int.zero)
+            {
+                return;
+            }
+
+            while (requestDelta != Vector2Int.zero)
+            {
+                var moveOnX = requestDelta.x != 0 &&
+                               (requestDelta.y == 0 || Mathf.Abs(requestDelta.x) >= Mathf.Abs(requestDelta.y));
+
+                if (moveOnX)
+                {
+                    if (!boardController.TryMoveBlockByStep(_activeBlockId, requestDelta.x > 0 ? Direction.Right : Direction.Left))
+                    {
+                        requestDelta.x = 0;
+                        continue;
+                    }
+
+                    var stepSign = requestDelta.x > 0 ? 1 : -1;
+                    requestDelta.x -= stepSign;
+                    _freeDragStepOffset.x += stepSign;
+                }
+                else
+                {
+                    if (!boardController.TryMoveBlockByStep(_activeBlockId, requestDelta.y > 0 ? Direction.Up : Direction.Down))
+                    {
+                        requestDelta.y = 0;
+                        continue;
+                    }
+
+                    var stepSign = requestDelta.y > 0 ? 1 : -1;
+                    requestDelta.y -= stepSign;
+                    _freeDragStepOffset.y += stepSign;
+                }
             }
         }
 
         private void HandlePointerUp()
         {
+            _activePointerCamera = null;
             ResetDragState();
         }
 
-        private bool TryResolveBoardPoint(Vector2 screenPosition, out Vector2 boardWorldPoint)
+        private bool TryResolveBoardPoint(Vector2 screenPosition, Camera pointerCamera, out Vector2 boardWorldPoint)
         {
-            var cameraToUse = inputCamera != null ? inputCamera : Camera.main;
-            if (cameraToUse == null)
+            boardWorldPoint = default;
+            if (!pointerCamera)
             {
-                boardWorldPoint = default;
                 return false;
             }
 
-            var ray = cameraToUse.ScreenPointToRay(screenPosition);
-            if (!_inputPlane.Raycast(ray, out var hitDistance))
+            var ray = pointerCamera.ScreenPointToRay(screenPosition);
+            if (inputAreaCollider.Raycast(ray, out var colliderHitInfo, float.MaxValue))
             {
-                boardWorldPoint = default;
+                var colliderHit = ray.GetPoint(colliderHitInfo.distance);
+                if (IsPointInsideBoard(colliderHit))
+                {
+                    boardWorldPoint = new Vector2(colliderHit.x, colliderHit.y);
+                    return true;
+                }
+            }
+
+            if (!_boardPlane.Raycast(ray, out var hitDistance))
+            {
                 return false;
             }
 
             var hitPoint = ray.GetPoint(hitDistance);
+            if (!IsPointInsideBoard(hitPoint))
+            {
+                return false;
+            }
+
             boardWorldPoint = new Vector2(hitPoint.x, hitPoint.y);
             return true;
         }
 
-        private void RefreshInputPlane()
+        private bool TryGetActiveBlock(Vector2 pointerPosition, Camera pointerCamera, out int blockId, out Vector2 boardWorldPoint,
+            out BlockMovementConstraint movementConstraint)
         {
-            _inputPlane = new Plane(Vector3.forward, new Vector3(0f, 0f, inputPlaneZ));
+            blockId = -1;
+            boardWorldPoint = default;
+            movementConstraint = default;
+
+            if (!boardController.IsInitialized || !TryResolveBoardPoint(pointerPosition, pointerCamera, out boardWorldPoint))
+            {
+                return false;
+            }
+
+            if (!boardController.TryWorldToCell(boardWorldPoint, out var touchedCell) ||
+                !boardController.TryGetBlockAtCell(touchedCell, out blockId))
+            {
+                return false;
+            }
+
+            return boardController.TryGetBlockMovementConstraint(blockId, out movementConstraint);
+        }
+
+        private void RefreshBoardPlane()
+        {
+            var planeZ = inputAreaCollider.transform.position.z;
+            _boardPlane = new Plane(Vector3.forward, new Vector3(0f, 0f, planeZ));
+        }
+
+        private void TryFitInputArea()
+        {
+            if (!boardController.IsInitialized)
+            {
+                return;
+            }
+
+            var gridDimensions = boardController.CurrentLevel.gridDimensions;
+            var cellSize = boardController.CellSize;
+            if (gridDimensions.x <= 0 || gridDimensions.y <= 0 || cellSize <= 0f)
+            {
+                return;
+            }
+
+            var width = gridDimensions.x * cellSize;
+            var height = gridDimensions.y * cellSize;
+            var boardCenterWorld = new Vector3(
+                boardController.BoardOrigin.x + (width * 0.5f),
+                boardController.BoardOrigin.y + (height * 0.5f),
+                inputAreaCollider.transform.position.z);
+
+            var scale = inputAreaCollider.transform.lossyScale;
+            var sizeX = width / Mathf.Max(Mathf.Abs(scale.x), 0.0001f);
+            var sizeY = height / Mathf.Max(Mathf.Abs(scale.y), 0.0001f);
+            var sizeZ = autoFitColliderThickness / Mathf.Max(Mathf.Abs(scale.z), 0.0001f);
+            inputAreaCollider.size = new Vector3(sizeX, sizeY, sizeZ);
+            inputAreaCollider.center = inputAreaCollider.transform.InverseTransformPoint(boardCenterWorld);
+
+            RefreshBoardPlane();
         }
 
         private void ResetDragState()
         {
             _activeBlockId = -1;
-            _lastDragPosition = Vector2.zero;
+            _dragStartWorldPoint = Vector2.zero;
+            _activeDragAxis = Vector2Int.zero;
+            _dragAxisCellOffset = 0;
+            _freeDragStepOffset = Vector2Int.zero;
+            _activeBlockIsFree = false;
         }
-
-        private static bool TryReadPrimaryPointer(out PointerSample pointer)
+        
+        private bool IsPointInsideBoard(Vector3 boardWorldPoint)
         {
-            if (Input.touchCount > 0)
+            var boardOrigin = boardController.BoardOrigin;
+            var gridDimensions = boardController.CurrentLevel.gridDimensions;
+            var cellSize = boardController.CellSize;
+            if (gridDimensions.x <= 0 || gridDimensions.y <= 0 || cellSize <= 0f)
             {
-                var touch = Input.GetTouch(0);
-                pointer = default;
-                pointer.Position = touch.position;
-                pointer.IsPressed = touch.phase is TouchPhase.Began or TouchPhase.Moved or TouchPhase.Stationary;
-                pointer.DownThisFrame = touch.phase == TouchPhase.Began;
-                pointer.UpThisFrame = touch.phase is TouchPhase.Ended or TouchPhase.Canceled;
-                return true;
-            }
-
-            var mousePressed = Input.GetMouseButton(0);
-            var mouseDown = Input.GetMouseButtonDown(0);
-            var mouseUp = Input.GetMouseButtonUp(0);
-            if (!mousePressed && !mouseDown && !mouseUp)
-            {
-                pointer = default;
                 return false;
             }
 
-            pointer = default;
-            pointer.Position = Input.mousePosition;
-            pointer.IsPressed = mousePressed;
-            pointer.DownThisFrame = mouseDown;
-            pointer.UpThisFrame = mouseUp;
+            var relativeX = boardWorldPoint.x - boardOrigin.x;
+            var relativeY = boardWorldPoint.y - boardOrigin.y;
+            var width = gridDimensions.x * cellSize;
+            var height = gridDimensions.y * cellSize;
+            return relativeX >= 0f && relativeX < width && relativeY >= 0f && relativeY < height;
+        }
 
-            return true;
+        private Vector2Int ResolveDragAxis(Vector2 dragVector)
+        {
+            if (!boardController.IsInitialized)
+            {
+                return Vector2Int.zero;
+            }
+
+            var cellSize = boardController.CellSize;
+            var minAxisDistance = Mathf.Max(0.05f, cellSize * dragAxisActivationRatio);
+            var horizontalDistance = Mathf.Abs(dragVector.x);
+            var verticalDistance = Mathf.Abs(dragVector.y);
+
+            if (horizontalDistance < minAxisDistance && verticalDistance < minAxisDistance)
+            {
+                return Vector2Int.zero;
+            }
+
+            return horizontalDistance >= verticalDistance ? Vector2Int.right : Vector2Int.up;
+        }
+
+        private static Direction ResolveDirectionFromAxisAndSign(Vector2Int axis, bool positive)
+        {
+            if (axis == Vector2Int.right)
+            {
+                return positive ? Direction.Right : Direction.Left;
+            }
+
+            return positive ? Direction.Up : Direction.Down;
+        }
+
+        private static int ConvertAxisDistanceToCellSteps(float axisDistance, float cellSize)
+        {
+            if (cellSize <= 0f)
+                return 0;
+            
+            return axisDistance >= 0f ? Mathf.FloorToInt(axisDistance / cellSize) : -Mathf.FloorToInt(Mathf.Abs(axisDistance) / cellSize);
+        }
+
+        public void ForceFitInputArea()
+        {
+            TryFitInputArea();
+        }
+
+        private Camera ResolvePointerCamera(PointerEventData eventData)
+        {
+            if (eventData.pressEventCamera)
+            {
+                return eventData.pressEventCamera;
+            }
+
+            if (eventData.enterEventCamera)
+            {
+                return eventData.enterEventCamera;
+            }
+
+            return inputCamera;
         }
     }
 }

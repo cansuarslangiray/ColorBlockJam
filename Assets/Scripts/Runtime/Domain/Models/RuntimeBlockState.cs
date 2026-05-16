@@ -11,12 +11,7 @@ namespace Runtime.Domain.Models
         public readonly BlockMovementConstraint MovementConstraint;
         public readonly BlockColor ColorType;
 
-        public RuntimeBlockState(
-            int id,
-            Vector2Int position,
-            Vector2Int[] localCells,
-            BlockMovementConstraint movementConstraint,
-            BlockColor colorType)
+        public RuntimeBlockState(int id, Vector2Int position, Vector2Int[] localCells, BlockMovementConstraint movementConstraint, BlockColor colorType)
         {
             Id = id;
             Position = position;

@@ -5,22 +5,22 @@ namespace Runtime.Domain.Models
 {
     public struct DoorOpeningData
     {
-        public BlockColor colorType;
-        public Vector2Int minCell;
-        public Vector2Int maxCell;
-        public EdgeSide edgeSide;
+        public BlockColor ColorType;
+        public Vector2Int MinCell;
+        public Vector2Int MaxCell;
+        public Direction EdgeDirection;
 
-        public Vector2Int Size => new Vector2Int((maxCell.x - minCell.x) + 1, (maxCell.y - minCell.y) + 1);
+        private Vector2Int Size => new ((MaxCell.x - MinCell.x) + 1, (MaxCell.y - MinCell.y) + 1);
 
         public int OpeningWidth
         {
             get
             {
                 var size = Size;
-                return edgeSide switch
+                return EdgeDirection switch
                 {
-                    EdgeSide.Left or EdgeSide.Right => size.y,
-                    EdgeSide.Bottom or EdgeSide.Top => size.x,
+                    Direction.Left or Direction.Right => size.y,
+                    Direction.Down or Direction.Up => size.x,
                     _ => Mathf.Max(size.x, size.y)
                 };
             }
