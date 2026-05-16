@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,7 +11,7 @@ namespace Runtime.Core
 
         private int _width;
         private int _height;
-        private int[] _cells = new int[0];
+        private int[] _cells = Array.Empty<int>();
 
         public void Configure(int boardWidth, int boardHeight, List<Vector2Int> blockedCells)
         {
@@ -33,8 +34,9 @@ namespace Runtime.Core
                 return;
             }
 
-            foreach (var cell in blockedCells)
+            for (var i = 0; i < blockedCells.Count; i++)
             {
+                var cell = blockedCells[i];
                 if (IsInside(cell))
                 {
                     _cells[GetIndex(cell.x, cell.y)] = BlockedCell;
@@ -51,7 +53,7 @@ namespace Runtime.Core
 
             for (var i = 0; i < localCells.Length; i++)
             {
-                Vector2Int worldCell = anchorPosition + localCells[i];
+                var worldCell = anchorPosition + localCells[i];
                 if (!IsInside(worldCell))
                 {
                     return false;
@@ -75,7 +77,7 @@ namespace Runtime.Core
 
         public void FillBlock(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)
         {
-            if (localCells == null)
+            if (localCells == null || localCells.Length == 0)
             {
                 return;
             }
@@ -94,7 +96,7 @@ namespace Runtime.Core
 
         public void ClearBlock(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)
         {
-            if (localCells == null)
+            if (localCells == null || localCells.Length == 0)
             {
                 return;
             }
@@ -115,9 +117,31 @@ namespace Runtime.Core
             }
         }
 
+        public bool TryGetBlockAt(int x, int y, out int blockId)
+        {
+            blockId = EmptyCell;
+            if (!IsInside(x, y))
+            {
+                return false;
+            }
+
+            var index = GetIndex(x, y);
+            var cellValue = _cells[index];
+
+            if (cellValue is EmptyCell or BlockedCell) return false;
+            blockId = cellValue;
+            return true;
+
+        }
+
         private bool IsInside(Vector2Int cell)
         {
-            return cell.x >= 0 && cell.y >= 0 && cell.x < _width && cell.y < _height;
+            return IsInside(cell.x, cell.y);
+        }
+
+        public bool IsInside(int x, int y)
+        {
+            return x >= 0 && y >= 0 && x < _width && y < _height;
         }
 
         private int GetIndex(int x, int y)

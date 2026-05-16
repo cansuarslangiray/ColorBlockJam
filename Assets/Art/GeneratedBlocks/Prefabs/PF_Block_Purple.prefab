@@ -12,8 +12,6 @@ GameObject:
   - component: {fileID: 8930650537370361922}
   - component: {fileID: 4408901509428270053}
   - component: {fileID: 4969358879613785086}
-  - component: {fileID: 4448052182830543693}
-  - component: {fileID: 5595893488267509458}
   m_Layer: 0
   m_Name: PF_Block_Purple
   m_TagString: Untagged
@@ -107,31 +105,3 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &4448052182830543693
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8424838114815159834}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5eeb70f98e14043bfa40bc08225bbce9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  blockId: 0
---- !u!114 &5595893488267509458
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8424838114815159834}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee5f282cc14e646969c02b6190033df7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  boardController: {fileID: 0}
-  blockView: {fileID: 0}
-  dragThresholdPixels: 25

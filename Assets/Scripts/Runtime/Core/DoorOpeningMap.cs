@@ -36,7 +36,7 @@ namespace Runtime.Core
             }
 
             Dictionary<Vector2Int, BlockColor> doorColorByCell = new Dictionary<Vector2Int, BlockColor>();
-            Dictionary<Vector2Int, int> doorSideByCell = new Dictionary<Vector2Int, int>();
+            Dictionary<Vector2Int, EdgeSide> doorSideByCell = new Dictionary<Vector2Int, EdgeSide>();
             List<Vector2Int> expandedDoorCells = new List<Vector2Int>(8);
 
             for (int i = 0; i < doors.Count; i++)
@@ -50,7 +50,7 @@ namespace Runtime.Core
                 for (int cellIndex = 0; cellIndex < expandedDoorCells.Count; cellIndex++)
                 {
                     Vector2Int cell = expandedDoorCells[cellIndex];
-                    if (!TryGetDoorSide(cell, gridDimensions, out int edgeSide))
+                    if (!TryGetDoorSide(cell, gridDimensions, out var edgeSide))
                     {
                         continue;
                     }
@@ -68,7 +68,7 @@ namespace Runtime.Core
             {
                 Vector2Int startCell = GetAnyCell(unvisited);
                 BlockColor colorType = doorColorByCell[startCell];
-                int edgeSide = doorSideByCell[startCell];
+                var edgeSide = doorSideByCell[startCell];
 
                 queue.Clear();
                 clusterCells.Clear();
@@ -103,7 +103,7 @@ namespace Runtime.Core
                             continue;
                         }
 
-                        if (!doorSideByCell.TryGetValue(neighbor, out int neighborSide) || neighborSide != edgeSide)
+                        if (!doorSideByCell.TryGetValue(neighbor, out var neighborSide) || neighborSide != edgeSide)
                         {
                             continue;
                         }
@@ -118,7 +118,6 @@ namespace Runtime.Core
                     colorType = colorType,
                     minCell = new Vector2Int(minX, minY),
                     maxCell = new Vector2Int(maxX, maxY),
-                    cellCount = clusterCells.Count,
                     edgeSide = edgeSide
                 };
 
@@ -162,7 +161,7 @@ namespace Runtime.Core
                 return false;
             }
 
-            if (!TryGetDoorSide(door.position, gridDimensions, out int edgeSide))
+            if (!TryGetDoorSide(door.position, gridDimensions, out var edgeSide))
             {
                 return false;
             }
@@ -184,7 +183,7 @@ namespace Runtime.Core
                 return false;
             }
 
-            bool verticalEdge = edgeSide is 0 or 1;
+            var verticalEdge = edgeSide.IsVertical();
             int anchorAxis = verticalEdge ? door.position.y : door.position.x;
             int startAxis = Mathf.Clamp(anchorAxis, axisMin, axisMax);
             int endAxis = startAxis + openingWidth - 1;
@@ -205,36 +204,36 @@ namespace Runtime.Core
             return resultCells.Count > 0;
         }
 
-        public static bool TryGetDoorSide(Vector2Int cell, Vector2Int gridDimensions, out int edgeSide)
+        public static bool TryGetDoorSide(Vector2Int cell, Vector2Int gridDimensions, out EdgeSide edgeSide)
         {
             int maxX = gridDimensions.x - 1;
             int maxY = gridDimensions.y - 1;
 
             if (cell.x == 0)
             {
-                edgeSide = 0;
+                edgeSide = EdgeSide.Left;
                 return true;
             }
 
             if (cell.x == maxX)
             {
-                edgeSide = 1;
+                edgeSide = EdgeSide.Right;
                 return true;
             }
 
             if (cell.y == 0)
             {
-                edgeSide = 2;
+                edgeSide = EdgeSide.Bottom;
                 return true;
             }
 
             if (cell.y == maxY)
             {
-                edgeSide = 3;
+                edgeSide = EdgeSide.Top;
                 return true;
             }
 
-            edgeSide = -1;
+            edgeSide = default;
             return false;
         }
 
@@ -247,16 +246,16 @@ namespace Runtime.Core
             return (left || right) && (bottom || top);
         }
 
-        private static bool TryGetAxisRange(int edgeSide, Vector2Int gridDimensions, out int axisMin, out int axisMax)
+        private static bool TryGetAxisRange(EdgeSide edgeSide, Vector2Int gridDimensions, out int axisMin, out int axisMax)
         {
-            if (edgeSide is 0 or 1)
+            if (edgeSide.IsVertical())
             {
                 axisMin = 1;
                 axisMax = gridDimensions.y - 2;
                 return axisMax >= axisMin;
             }
 
-            if (edgeSide is 2 or 3)
+            if (edgeSide.IsHorizontal())
             {
                 axisMin = 1;
                 axisMax = gridDimensions.x - 2;

@@ -14,6 +14,8 @@ namespace Runtime.Flow
 
         [SerializeField] private BoardController boardController;
         [SerializeField] private BlockSceneBuilder blockSceneBuilder;
+        [SerializeField] private StateManager stateManager;
+        [SerializeField] private LevelCountdownTimer levelCountdownTimer;
 
         [Header("Screen Roots")] [SerializeField]
         private GameObject startScreenRoot;
@@ -27,22 +29,30 @@ namespace Runtime.Flow
 
         [SerializeField] private Text endMessageText;
 
+        [Header("Camera Framing")] [SerializeField]
+        private Camera gameplayCamera;
+
+        [SerializeField] private bool forceOrthographicCamera;
+        [SerializeField] private bool resetCameraTilt;
+        [SerializeField, Min(0f)] private float cameraPaddingInCells = 1.1f;
+        [SerializeField, Min(0.01f)] private float minimumOrthographicSize = 5f;
+        [SerializeField, Min(0.01f)] private float minimumPerspectiveDistance = 14f;
+
         [Header("Flow Settings")] [SerializeField]
         private bool initializeOnStart = true;
 
         [SerializeField] private float levelCompleteDelay = 0.25f;
 
         private int _currentLevelIndex;
-        private float _remainingTime;
-        private GameState _state;
         private bool _transitionInProgress;
 
         private void Awake()
         {
-            if (boardController != null)
-            {
-                boardController.LevelCompleted += OnLevelCompleted;
-            }
+            boardController.LevelCompleted += OnLevelCompleted;
+            stateManager.OnStateChanged += HandleStateChanged;
+            levelCountdownTimer.SecondChanged += HandleTimerSecondChanged;
+            levelCountdownTimer.TimerExpired += HandleTimerExpired;
+            BoardInputController.OnScreenTapped += HandleScreenTapped;
         }
 
         private void OnDestroy()
@@ -51,6 +61,19 @@ namespace Runtime.Flow
             {
                 boardController.LevelCompleted -= OnLevelCompleted;
             }
+
+            if (stateManager != null)
+            {
+                stateManager.OnStateChanged -= HandleStateChanged;
+            }
+
+            if (levelCountdownTimer != null)
+            {
+                levelCountdownTimer.SecondChanged -= HandleTimerSecondChanged;
+                levelCountdownTimer.TimerExpired -= HandleTimerExpired;
+            }
+
+            BoardInputController.OnScreenTapped -= HandleScreenTapped;
         }
 
         private void Start()
@@ -61,93 +84,94 @@ namespace Runtime.Flow
             }
         }
 
-        private void Update()
+        private void HandleScreenTapped()
         {
-            switch (_state)
-            {
-                case GameState.StartScreen:
-                {
-                    if (IsTapDetected())
-                    {
-                        StartCurrentLevel();
-                    }
+            if (stateManager == null) return;
 
-                    return;
-                }
-                case GameState.Playing:
-                    UpdateTimer();
-                    return;
-                case GameState.LevelFailed or GameState.GameCompleted when IsTapDetected():
-                    InitializeRun();
-                    break;
+            if (stateManager.CurrentState == GameState.StartScreen)
+            {
+                StartCurrentLevel();
+            }
+            else if (stateManager.CurrentState == GameState.LevelFailed ||
+                     stateManager.CurrentState == GameState.GameCompleted)
+            {
+                InitializeRun();
             }
         }
 
         public void InitializeRun()
         {
-            if (!levelCollection)
-            {
-                Debug.LogError("GameFlowManager: LevelCollection reference is missing.");
-                return;
-            }
-
-            if (levelCollection.Count < 5)
-            {
-                Debug.LogWarning("Case requirement: prepare at least 5 unique levels in LevelCollection.");
-            }
-
             _currentLevelIndex = 0;
             _transitionInProgress = false;
-            SetState(GameState.StartScreen);
+
+            stateManager.ChangeState(GameState.StartScreen);
+
             RefreshStaticUI();
+            RefreshTimerUI(0);
         }
+
 
         private void StartCurrentLevel()
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
-            if (levelData == null)
+            if (!levelData)
             {
-                Debug.LogError($"GameFlowManager: Level at index {_currentLevelIndex} is missing.");
                 return;
             }
 
-            if (boardController == null)
+            if (!boardController)
             {
-                Debug.LogError("GameFlowManager: BoardController reference is missing.");
                 return;
             }
 
-            if (blockSceneBuilder != null)
-            {
-                blockSceneBuilder.BuildForLevel(levelData);
-            }
+            blockSceneBuilder.BuildForLevel(levelData);
 
             boardController.Setup(levelData);
-            _remainingTime = Mathf.Max(1f, levelData.timeLimit);
             _transitionInProgress = false;
 
-            SetState(GameState.Playing);
+            FitCameraToLevel(levelData);
+            stateManager.ChangeState(GameState.Playing);
+
             RefreshStaticUI();
-            RefreshTimerUI();
+            StartTimer(levelData.timeLimit);
         }
 
-        private void UpdateTimer()
+        private void StartTimer(float durationSeconds)
         {
-            _remainingTime -= Time.deltaTime;
-            if (_remainingTime <= 0f)
+            if (!levelCountdownTimer)
             {
-                _remainingTime = 0f;
-                RefreshTimerUI();
-                FailRun("Time is up!");
+                var fallbackSeconds = Mathf.Max(1, Mathf.CeilToInt(durationSeconds));
+                RefreshTimerUI(fallbackSeconds);
                 return;
             }
 
-            RefreshTimerUI();
+            levelCountdownTimer.Begin(durationSeconds);
+        }
+
+        private void StopTimer()
+        {
+            levelCountdownTimer.Stop();
+        }
+
+        private void HandleTimerSecondChanged(int remainingSeconds)
+        {
+            RefreshTimerUI(remainingSeconds);
+        }
+
+        private void HandleTimerExpired()
+        {
+            if (stateManager == null || stateManager.CurrentState != GameState.Playing)
+            {
+                return;
+            }
+
+            RefreshTimerUI(0);
+            FailRun("Time is up!");
         }
 
         private void OnLevelCompleted()
         {
-            if (_state != GameState.Playing || _transitionInProgress)
+            if (stateManager.CurrentState != GameState.Playing || _transitionInProgress)
             {
                 return;
             }
@@ -173,12 +197,10 @@ namespace Runtime.Flow
 
         private void CompleteRun()
         {
-            if (endMessageText != null)
-            {
-                endMessageText.text = "Congratulations! All levels completed.";
-            }
+            endMessageText.text = "Congratulations! All levels completed.";
 
-            SetState(GameState.GameCompleted);
+            StopTimer();
+            stateManager.ChangeState(GameState.GameCompleted);
         }
 
         private void FailRun(string message)
@@ -188,59 +210,90 @@ namespace Runtime.Flow
                 endMessageText.text = message;
             }
 
-            SetState(GameState.LevelFailed);
+            StopTimer();
+            stateManager.ChangeState(GameState.LevelFailed);
         }
 
-        private void SetState(GameState nextState)
+        private void HandleStateChanged(GameState oldState, GameState newState)
         {
-            _state = nextState;
-
-            var showStart = nextState == GameState.StartScreen;
-            var showGameplay = nextState == GameState.Playing;
-            var showEnd = nextState == GameState.LevelFailed || nextState == GameState.GameCompleted;
+            var showStart = newState == GameState.StartScreen;
+            var showGameplay = newState == GameState.Playing;
+            var showEnd = newState is GameState.LevelFailed or GameState.GameCompleted;
 
             if (startScreenRoot != null) startScreenRoot.SetActive(showStart);
             if (gameplayScreenRoot != null) gameplayScreenRoot.SetActive(showGameplay);
             if (endScreenRoot != null) endScreenRoot.SetActive(showEnd);
+
+            if (newState != GameState.Playing)
+            {
+                StopTimer();
+            }
         }
 
         private void RefreshStaticUI()
         {
-            LevelData levelData = levelCollection != null ? levelCollection.GetLevelAt(_currentLevelIndex) : null;
-            int levelNumber = levelData != null ? levelData.levelNumber : _currentLevelIndex + 1;
-
-            if (levelText != null)
-            {
-                levelText.text = $"Level {levelNumber}";
-            }
+            LevelData levelData = levelCollection ? levelCollection.GetLevelAt(_currentLevelIndex) : null;
+            int levelNumber = levelData ? levelData.levelNumber : _currentLevelIndex + 1;
+            levelText.text = $"Level {levelNumber}";
         }
 
-        private void RefreshTimerUI()
+        private void RefreshTimerUI(int remainingSeconds)
         {
-            if (timerText == null)
+            var totalSeconds = Mathf.Max(0, remainingSeconds);
+            var minutes = totalSeconds / 60;
+            var seconds = totalSeconds % 60;
+            timerText.text = $"{minutes:00}:{seconds:00}";
+        }
+
+        private void FitCameraToLevel(LevelData levelData)
+        {
+            if (levelData == null || boardController == null)
             {
                 return;
             }
 
-            int totalSeconds = Mathf.Max(0, Mathf.CeilToInt(_remainingTime));
-            int minutes = totalSeconds / 60;
-            int seconds = totalSeconds % 60;
-            timerText.text = $"{minutes:00}:{seconds:00}";
-        }
-
-        private static bool IsTapDetected()
-        {
-            if (Input.GetMouseButtonDown(0))
+            var cameraToUse = gameplayCamera != null ? gameplayCamera : Camera.main;
+            if (cameraToUse == null)
             {
-                return true;
+                return;
             }
 
-            if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
+            var cellSize = Mathf.Max(0.01f, boardController.CellSize);
+            var width = levelData.gridDimensions.x * cellSize;
+            var height = levelData.gridDimensions.y * cellSize;
+            var padding = Mathf.Max(0f, cameraPaddingInCells * cellSize);
+            var contentWidth = width + (padding * 2f);
+            var contentHeight = height + (padding * 2f);
+
+            var center = boardController.BoardOrigin + new Vector2(width * 0.5f, height * 0.5f);
+            var cameraTransform = cameraToUse.transform;
+            cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
+
+            if (resetCameraTilt)
             {
-                return true;
+                cameraTransform.rotation = Quaternion.identity;
             }
 
-            return Input.GetKeyDown(KeyCode.Space);
+            if (forceOrthographicCamera)
+            {
+                cameraToUse.orthographic = true;
+
+                var aspect = Mathf.Max(0.01f, cameraToUse.aspect);
+                var halfHeight = contentHeight * 0.5f;
+                var halfWidthAsHeight = (contentWidth * 0.5f) / aspect;
+                cameraToUse.orthographicSize = Mathf.Max(minimumOrthographicSize, halfHeight, halfWidthAsHeight);
+                return;
+            }
+
+            cameraToUse.orthographic = false;
+
+            var halfFovY = Mathf.Max(0.01f, cameraToUse.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, cameraToUse.aspect));
+            var distanceByHeight = (contentHeight * 0.5f) / Mathf.Tan(halfFovY);
+            var distanceByWidth = (contentWidth * 0.5f) / Mathf.Tan(halfFovX);
+            var requiredDistance = Mathf.Max(minimumPerspectiveDistance, distanceByHeight, distanceByWidth);
+            var forward = cameraTransform.forward.normalized;
+            cameraTransform.position = new Vector3(center.x, center.y, 0f) - (forward * requiredDistance);
         }
     }
 }

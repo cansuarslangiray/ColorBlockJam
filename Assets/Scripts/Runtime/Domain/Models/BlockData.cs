@@ -10,16 +10,10 @@ namespace Runtime.Domain.Models
     {
         private static readonly Vector2Int[] DefaultCells = { Vector2Int.zero };
 
-        [Tooltip("Bloğun ızgaradaki referans konumu (sol alt köşe)")]
         public Vector2Int position;
-
-        [Tooltip("Bloğun shape asset'i")]
         public BlockShapeData shape;
-
-        [Tooltip("Hareket kısıtı. Free ise 4 yöne hareket eder.")]
         public BlockMovementConstraint movementConstraint;
-
-        [Tooltip("Bloğun rengi")] public BlockColor colorType;
+        public BlockColor colorType;
 
         public Vector2Int[] GetLocalCells()
         {

@@ -8,8 +8,7 @@ namespace Runtime.Domain.Models
         public BlockColor colorType;
         public Vector2Int minCell;
         public Vector2Int maxCell;
-        public int cellCount;
-        public int edgeSide;
+        public EdgeSide edgeSide;
 
         public Vector2Int Size => new Vector2Int((maxCell.x - minCell.x) + 1, (maxCell.y - minCell.y) + 1);
 
@@ -20,8 +19,8 @@ namespace Runtime.Domain.Models
                 var size = Size;
                 return edgeSide switch
                 {
-                    0 or 1 => size.y,
-                    2 or 3 => size.x,
+                    EdgeSide.Left or EdgeSide.Right => size.y,
+                    EdgeSide.Bottom or EdgeSide.Top => size.x,
                     _ => Mathf.Max(size.x, size.y)
                 };
             }

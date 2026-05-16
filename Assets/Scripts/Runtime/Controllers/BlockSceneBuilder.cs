@@ -4,471 +4,565 @@ using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using UnityEngine;
+using System.Collections;
 
 namespace Runtime.Controllers
 {
     public class BlockSceneBuilder : MonoBehaviour
     {
-        [SerializeField] private BoardController boardController;
+        [Header("Core References")] [SerializeField]
+        private BoardController boardController;
+
         [SerializeField] private LevelData sourceLevel;
         [SerializeField] private BlockVisualProfile visualProfile;
+        [SerializeField] private Transform boardRoot;
         [SerializeField] private Transform blocksRoot;
-        [SerializeField] private bool clearExistingBeforeBuild= true;
 
-        [Header("Board Cells Visual")]
-        [SerializeField] private bool buildBoardCells= true;
-        [SerializeField] private float boardCellsZOffset= 0.75f;
-        [SerializeField] private float boardCellGap= 0.08f;
-        [SerializeField, Min(0.01f)] private float boardCellDepthInCells= 0.05f;
-        [SerializeField] private Color openCellColor= new Color(0.74f, 0.74f, 0.79f, 1f);
-        [SerializeField] private Color blockedCellColor= new Color(0.37f, 0.37f, 0.42f, 1f);
-        [SerializeField, Range(0f, 1f)] private float doorColorBlendWithOpenCell= 0.75f;
-        [SerializeField] private bool showDoorColorInsideGrid;
-        [SerializeField] private bool buildBoardBackdrop= true;
-        [SerializeField] private float boardBackdropPaddingInCells= 0.4f;
-        [SerializeField] private float boardBackdropZOffset= 0.95f;
-        [SerializeField] private Color boardBackdropColor= new Color(0.2f, 0.24f, 0.32f, 1f);
+        [Header("Prefab References")] [SerializeField]
+        private GameObject gridCellPrefab;
 
-        [Header("Board Frame")]
-        [SerializeField] private bool buildBoardFrame= true;
-        [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells= 0.48f;
-        [SerializeField, Min(0f)] private float edgeFramePaddingInCells= 0.03f;
-        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells= 0.14f;
-        [SerializeField] private Color edgeFrameColor= new Color(0.17f, 0.2f, 0.29f, 1f);
-        [SerializeField] private float edgeFrameZOffset= 0.34f;
+        [SerializeField] private GameObject borderPrefab;
+        [SerializeField] private GameObject backdropPrefab;
+        [SerializeField] private GameObject doorPrefab;
 
-        [Header("Door Edge Visual")]
-        [SerializeField] private bool buildDoorEdges= true;
-        [SerializeField, Min(0f)] private float doorEdgeInsetInCells= 0.02f;
-        [SerializeField, Range(0f, 1f)] private float doorEdgeColorBlend= 0.98f;
-        [SerializeField] private float doorEdgeZOffset= 0.22f;
-        [SerializeField, Min(0f)] private float doorEdgeDepthBiasFromFrame= 0.02f;
-        
+        [Header("Board Layout")] [SerializeField]
+        private float boardCellGap = 0.08f;
 
-        [Header("Block Visual")]
-        [SerializeField, Range(0.75f, 1f)] private float blockCellVisualScale= 0.92f;
-        [SerializeField, Range(0.6f, 1f)] private float blockColliderScale= 0.9f;
-        [SerializeField, Min(0f)] private float blockMoveSmoothingSpeed= 18f;
+        [SerializeField, Min(0.01f)] private float boardCellDepthInCells = 0.05f;
+        [SerializeField] private float boardCellsZOffset = 0.75f;
+        [SerializeField] private float boardBackdropPaddingInCells = 0.4f;
+        [SerializeField] private float boardBackdropZOffset = 0.95f;
+        [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
+        [SerializeField, Min(0f)] private float edgeFramePaddingInCells = 0.03f;
+        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.14f;
+        [SerializeField, Min(0f)] private float doorInsetInCells = 0.02f;
+        [SerializeField, Min(0f)] private float doorDepthBiasFromFrame = 0.02f;
 
-        private Material _openCellMaterial;
-        private Material _blockedCellMaterial;
-        private Material _boardBackdropMaterial;
-        private Material _edgeFrameMaterial;
-        private readonly Dictionary<BlockColor, Material> _doorCellMaterialByColor = new Dictionary<BlockColor, Material>();
-        private readonly Dictionary<BlockColor, Material> _doorEdgeMaterialByColor = new Dictionary<BlockColor, Material>();
-        private readonly Dictionary<BlockColor, Material> _fallbackBlockMaterialByColor = new Dictionary<BlockColor, Material>();
+        [Header("Block Layout")] [SerializeField, Range(0.75f, 1f)]
+        private float blockCellVisualScale = 0.92f;
+
+        [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
+
+        [SerializeField, Min(0f)] private float blockMoveSmoothingSpeed = 18f;
+        [SerializeField, Min(0.05f)] private float doorExitDuration = 0.32f;
+        [SerializeField, Min(0.2f)] private float doorExitTravelInCells = 1.15f;
+        [SerializeField] private AnimationCurve doorExitMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+        [SerializeField] private AnimationCurve doorExitScaleCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
+        [SerializeField, Range(0f, 1f)] private float doorExitMinScaleMultiplier = 0.05f;
+
+        private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
+
+        private readonly List<GameObject> _borderPool = new();
+        private readonly List<GameObject> _doorPool = new();
+        private readonly List<GameObject> _blockRootPool = new();
+
+        private readonly Dictionary<BlockColor, Material> _fallbackDoorMaterialByColor = new();
+        private readonly Dictionary<BlockColor, Material> _fallbackBlockMaterialByColor = new();
+
+        private readonly DoorOpeningMap _openingMap = new();
+        private readonly Dictionary<int, GameObject> _activeBlockRootById = new();
+        private readonly Dictionary<int, Vector3> _blockTargetPositionById = new();
+        private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
+        private readonly List<int> _reachedTargetIds = new();
+        private GameObject _backdropObject;
+        private bool _baseGridInitialized;
+        private Vector2Int _baseGridSize;
+
+        private void OnEnable()
+        {
+            SubscribeBoardEvents();
+        }
+
+        private void OnDisable()
+        {
+            UnsubscribeBoardEvents();
+            StopAllBlockRoutines();
+        }
+
+        private void LateUpdate()
+        {
+            if (_blockTargetPositionById.Count == 0 || blockMoveSmoothingSpeed <= 0f)
+            {
+                return;
+            }
+
+            _reachedTargetIds.Clear();
+            var interpolationFactor = 1f - Mathf.Exp(-blockMoveSmoothingSpeed * Time.deltaTime);
+
+            foreach (var pair in _blockTargetPositionById)
+            {
+                if (!_activeBlockRootById.TryGetValue(pair.Key, out var blockRoot) || blockRoot == null ||
+                    !blockRoot.activeSelf)
+                {
+                    _reachedTargetIds.Add(pair.Key);
+                    continue;
+                }
+
+                var targetPosition = pair.Value;
+                var currentPosition = blockRoot.transform.position;
+                if ((currentPosition - targetPosition).sqrMagnitude <= 0.0001f)
+                {
+                    blockRoot.transform.position = targetPosition;
+                    _reachedTargetIds.Add(pair.Key);
+                    continue;
+                }
+
+                blockRoot.transform.position = Vector3.Lerp(currentPosition, targetPosition, interpolationFactor);
+            }
+
+            foreach (var t in _reachedTargetIds)
+            {
+                _blockTargetPositionById.Remove(t);
+            }
+        }
 
         public void BuildForLevel(LevelData levelData)
         {
-            if (levelData != null)
+            sourceLevel = levelData;
+            StopAllBlockRoutines();
+
+            if (!_baseGridInitialized)
             {
-                sourceLevel = levelData;
+                _baseGridSize = levelData.gridDimensions;
+                _baseGridInitialized = true;
             }
 
-            BuildBlocksFromLevelData();
+            var pooledGridSize = new Vector2Int(
+                Mathf.Max(_baseGridSize.x, levelData.gridDimensions.x),
+                Mathf.Max(_baseGridSize.y, levelData.gridDimensions.y));
+
+            EnsureBoardPool(pooledGridSize);
+            ApplyBoardVisuals(levelData);
+            EnsureBlockPool(levelData.blocks.Count);
+            ApplyBlockVisuals(levelData);
+            SubscribeBoardEvents();
         }
 
         [ContextMenu("Build Blocks From Level Data")]
         public void BuildBlocksFromLevelData()
         {
-            if (boardController == null || sourceLevel == null)
-            {
-                Debug.LogWarning("BlockSceneBuilder: BoardController ve SourceLevel atanmali.");
-                return;
-            }
-
-            var parent = blocksRoot == null ? transform : blocksRoot;
-            if (clearExistingBeforeBuild)
-            {
-                ClearChildren(parent);
-            }
-
-            if (buildBoardCells)
-            {
-                BuildBoardCells(parent);
-            }
-
-            var views = new List<BlockView>(sourceLevel.blocks.Count);
-
-            for (var i = 0; i < sourceLevel.blocks.Count; i++)
-            {
-                var blockData = sourceLevel.blocks[i];
-                var rootObject = new GameObject($"BLK_{i}_{blockData.colorType}");
-                rootObject.transform.SetParent(parent, false);
-
-                var blockView = rootObject.AddComponent<BlockView>();
-                blockView.SetBlockId(i);
-                blockView.ConfigureMovementSmoothing(blockMoveSmoothingSpeed);
-
-                var input = rootObject.AddComponent<BlockDragInput>();
-                input.Configure(boardController, blockView);
-
-                BuildShapeVisual(rootObject.transform, blockData);
-                EnsureRootCollider(rootObject, blockData.GetSize(), boardController.CellSize);
-                ApplyTransform(rootObject.transform, blockData);
-                views.Add(blockView);
-            }
-
-            boardController.SetBlockViews(views.ToArray());
-
-            
-#if UNITY_EDITOR
-            UnityEditor.EditorUtility.SetDirty(boardController);
-            UnityEditor.EditorUtility.SetDirty(this);
-#endif
+            BuildForLevel(sourceLevel);
         }
 
-        private void BuildBoardCells(Transform parent)
+        private void EnsureBoardPool(Vector2Int gridSize)
         {
-            var blockedCells = sourceLevel.blockedCells ?? new List<Vector2Int>();
-            var blockedCellSet = new HashSet<Vector2Int>(blockedCells);
-            var doorColorsByCell = BuildDoorColorMap();
+            var width = Mathf.Max(1, gridSize.x);
+            var height = Mathf.Max(1, gridSize.y);
 
-            var boardCellsRoot = new GameObject("BoardCellsRoot").transform;
-            boardCellsRoot.SetParent(parent, false);
-
-            var cellSize = boardController.CellSize;
-            var boardOrigin = boardController.BoardOrigin;
-            var tileScale = Mathf.Max(0.01f, cellSize - boardCellGap);
-            var tileDepth = Mathf.Max(0.01f, cellSize * boardCellDepthInCells);
-            var cellsZ = Mathf.Abs(boardCellsZOffset);
-
-            EnsureBoardMaterials();
-
-            if (buildBoardBackdrop)
+            for (var y = 0; y < height; y++)
             {
-                BuildBoardBackdrop(boardCellsRoot, boardOrigin, cellSize, cellsZ);
-            }
-
-            if (buildBoardFrame)
-            {
-                BuildBoardFrame(boardCellsRoot, boardOrigin, cellSize);
-            }
-
-            if (buildDoorEdges)
-            {
-                BuildDoorEdges(boardCellsRoot, boardOrigin, cellSize, doorColorsByCell);
-            }
-
-            for (var y = 0; y < sourceLevel.gridDimensions.y; y++)
-            {
-                for (var x = 0; x < sourceLevel.gridDimensions.x; x++)
+                for (var x = 0; x < width; x++)
                 {
                     var cell = new Vector2Int(x, y);
-                    var isBlocked = blockedCellSet.Contains(cell);
-
-                    var tileObject = CreateBoardPrimitive(
-                        boardCellsRoot,
-                        isBlocked ? $"Cell_{x}_{y}_Blocked" : $"Cell_{x}_{y}_Open",
-                        new Vector3(tileScale, tileScale, tileDepth),
-                        new Vector3(
-                            boardOrigin.x + ((x + 0.5f) * cellSize),
-                            boardOrigin.y + ((y + 0.5f) * cellSize),
-                            cellsZ));
-
-                    var tileRenderer = tileObject.GetComponent<Renderer>();
-                    if (tileRenderer == null)
+                    if (_gridCellPoolByCell.ContainsKey(cell))
                     {
                         continue;
                     }
 
-                    if (isBlocked)
-                    {
-                        tileRenderer.sharedMaterial = _blockedCellMaterial;
-                        continue;
-                    }
-
-                    if (showDoorColorInsideGrid && doorColorsByCell.TryGetValue(cell, out var doorColor))
-                    {
-                        tileRenderer.sharedMaterial = GetDoorCellMaterial(doorColor);
-                        continue;
-                    }
-
-                    tileRenderer.sharedMaterial = _openCellMaterial;
+                    var cellObject = CreateGridCellObject(boardRoot, cell);
+                    _gridCellPoolByCell.Add(cell, cellObject);
                 }
+            }
+
+            if (_backdropObject == null)
+            {
+                _backdropObject = CreateVisualObject(boardRoot, "BoardBackdrop", backdropPrefab);
+            }
+
+            while (_borderPool.Count < 4)
+            {
+                var borderObject = CreateVisualObject(boardRoot, $"Border_{_borderPool.Count}", borderPrefab);
+                _borderPool.Add(borderObject);
             }
         }
 
-        private Dictionary<Vector2Int, BlockColor> BuildDoorColorMap()
+        private void ApplyBoardVisuals(LevelData levelData)
         {
-            var colorMap = new Dictionary<Vector2Int, BlockColor>();
-            var doors = sourceLevel.doors;
-            if (doors == null)
-            {
-                return colorMap;
-            }
+            var dims = levelData.gridDimensions;
+            var boardOrigin = boardController.BoardOrigin;
+            var cellSize = boardController.CellSize;
+            var tileSize = Mathf.Max(0.01f, cellSize - boardCellGap);
+            var tileDepth = Mathf.Max(0.01f, cellSize * boardCellDepthInCells);
+            var tileZ = Mathf.Abs(boardCellsZOffset);
 
-            var doorCells = new List<Vector2Int>(8);
-            for (int i = 0; i < doors.Count; i++)
+            foreach (var pair in _gridCellPoolByCell)
             {
-                var door = doors[i];
-                if (!DoorOpeningMap.TryCollectDoorCells(door, sourceLevel.gridDimensions, doorCells))
+                var cell = pair.Key;
+                var isInsideLevel = cell.x < dims.x && cell.y < dims.y;
+                pair.Value.SetActive(isInsideLevel);
+                if (!isInsideLevel)
                 {
                     continue;
                 }
 
-                for (int cellIndex = 0; cellIndex < doorCells.Count; cellIndex++)
-                {
-                    colorMap[doorCells[cellIndex]] = door.colorType;
-                }
+                var position = new Vector3(
+                    boardOrigin.x + ((cell.x + 0.5f) * cellSize),
+                    boardOrigin.y + ((cell.y + 0.5f) * cellSize),
+                    tileZ);
+
+                pair.Value.transform.position = position;
+                pair.Value.transform.rotation = Quaternion.identity;
+                pair.Value.transform.localScale = new Vector3(tileSize, tileSize, tileDepth);
             }
 
-            return colorMap;
+            ApplyBackdrop(dims, boardOrigin, cellSize, tileZ);
+            ApplyBorders(dims, boardOrigin, cellSize);
+            ApplyDoors(levelData, boardOrigin, cellSize);
         }
 
-        private void BuildBoardBackdrop(Transform parent, Vector2 boardOrigin, float cellSize, float cellsZ)
+        private void ApplyBackdrop(Vector2Int dims, Vector2 boardOrigin, float cellSize, float tileZ)
         {
-            EnsureBoardMaterials();
-
-            var gridWidth = sourceLevel.gridDimensions.x * cellSize;
-            var gridHeight = sourceLevel.gridDimensions.y * cellSize;
+            var width = dims.x * cellSize;
+            var height = dims.y * cellSize;
             var padding = Mathf.Max(0f, boardBackdropPaddingInCells * cellSize);
-            var backdropZ = cellsZ + Mathf.Abs(boardBackdropZOffset);
+            var depth = Mathf.Max(0.02f, cellSize * 0.08f);
 
-            var backdropObject = CreateBoardPrimitive(
-                parent,
-                "BoardBackdrop",
-                new Vector3(
-                    gridWidth + (padding * 2f),
-                    gridHeight + (padding * 2f),
-                    Mathf.Max(0.02f, cellSize * 0.08f)),
-                new Vector3(
-                    boardOrigin.x + (gridWidth * 0.5f),
-                    boardOrigin.y + (gridHeight * 0.5f),
-                    backdropZ));
-
-            var backdropRenderer = backdropObject.GetComponent<Renderer>();
-            if (backdropRenderer != null)
-            {
-                backdropRenderer.sharedMaterial = _boardBackdropMaterial;
-            }
+            _backdropObject.SetActive(true);
+            _backdropObject.transform.position = new Vector3(
+                boardOrigin.x + (width * 0.5f),
+                boardOrigin.y + (height * 0.5f),
+                tileZ + Mathf.Abs(boardBackdropZOffset));
+            _backdropObject.transform.rotation = Quaternion.identity;
+            _backdropObject.transform.localScale = new Vector3(width + (padding * 2f), height + (padding * 2f), depth);
         }
 
-        private void BuildBoardFrame(Transform parent, Vector2 boardOrigin, float cellSize)
+        private void ApplyBorders(Vector2Int dims, Vector2 boardOrigin, float cellSize)
         {
-            EnsureBoardMaterials();
-
-            var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
-            var framePadding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
-            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
-            var frameZ = Mathf.Abs(edgeFrameZOffset);
-
-            var gridWidth = sourceLevel.gridDimensions.x * cellSize;
-            var gridHeight = sourceLevel.gridDimensions.y * cellSize;
-            var frameHeight = gridHeight + (2f * (frameThickness + framePadding));
-            var frameWidth = gridWidth + (2f * (frameThickness + framePadding));
-
-            var leftFrame = CreateBoardPrimitive(
-                parent,
-                "Frame_Left",
-                new Vector3(frameThickness, frameHeight, frameDepth),
-                new Vector3(
-                    boardOrigin.x - framePadding - (frameThickness * 0.5f),
-                    boardOrigin.y + (gridHeight * 0.5f),
-                    frameZ));
-
-            var rightFrame = CreateBoardPrimitive(
-                parent,
-                "Frame_Right",
-                new Vector3(frameThickness, frameHeight, frameDepth),
-                new Vector3(
-                    boardOrigin.x + gridWidth + framePadding + (frameThickness * 0.5f),
-                    boardOrigin.y + (gridHeight * 0.5f),
-                    frameZ));
-
-            var topFrame = CreateBoardPrimitive(
-                parent,
-                "Frame_Top",
-                new Vector3(frameWidth, frameThickness, frameDepth),
-                new Vector3(
-                    boardOrigin.x + (gridWidth * 0.5f),
-                    boardOrigin.y + gridHeight + framePadding + (frameThickness * 0.5f),
-                    frameZ));
-
-            var bottomFrame = CreateBoardPrimitive(
-                parent,
-                "Frame_Bottom",
-                new Vector3(frameWidth, frameThickness, frameDepth),
-                new Vector3(
-                    boardOrigin.x + (gridWidth * 0.5f),
-                    boardOrigin.y - framePadding - (frameThickness * 0.5f),
-                    frameZ));
-
-            ApplyMaterial(leftFrame, _edgeFrameMaterial);
-            ApplyMaterial(rightFrame, _edgeFrameMaterial);
-            ApplyMaterial(topFrame, _edgeFrameMaterial);
-            ApplyMaterial(bottomFrame, _edgeFrameMaterial);
-        }
-
-        private void BuildDoorEdges(
-            Transform parent,
-            Vector2 boardOrigin,
-            float cellSize,
-            Dictionary<Vector2Int, BlockColor> doorColorsByCell)
-        {
-            if (doorColorsByCell == null || doorColorsByCell.Count == 0)
+            if (_borderPool.Count < 4)
             {
                 return;
             }
 
-            EnsureBoardMaterials();
-            var doorThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
-            var doorDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
-            var edgeOffsetInCells = 0.5f + edgeFramePaddingInCells + (edgeFrameThicknessInCells * 0.5f) - doorEdgeInsetInCells;
-            var desiredDoorZ = Mathf.Abs(edgeFrameZOffset) - Mathf.Max(0f, doorEdgeDepthBiasFromFrame);
-            var doorZ = Mathf.Max(0.01f, Mathf.Min(Mathf.Abs(doorEdgeZOffset), desiredDoorZ));
+            var thickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
+            var padding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
+            var depth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
+            var width = dims.x * cellSize;
+            var height = dims.y * cellSize;
+            var frameHeight = height + (2f * (thickness + padding));
+            var frameWidth = width + (2f * (thickness + padding));
 
-            var openingMap = new DoorOpeningMap();
-            openingMap.Build(sourceLevel.doors, sourceLevel.gridDimensions);
-            var openings = openingMap.Openings;
+            var leftPosition = new Vector3(
+                boardOrigin.x - padding - (thickness * 0.5f),
+                boardOrigin.y + (height * 0.5f),
+                Mathf.Abs(boardCellsZOffset) - 0.01f);
 
-            for (int i = 0; i < openings.Count; i++)
+            var rightPosition = new Vector3(
+                boardOrigin.x + width + padding + (thickness * 0.5f),
+                boardOrigin.y + (height * 0.5f),
+                Mathf.Abs(boardCellsZOffset) - 0.01f);
+
+            var topPosition = new Vector3(
+                boardOrigin.x + (width * 0.5f),
+                boardOrigin.y + height + padding + (thickness * 0.5f),
+                Mathf.Abs(boardCellsZOffset) - 0.01f);
+
+            var bottomPosition = new Vector3(
+                boardOrigin.x + (width * 0.5f),
+                boardOrigin.y - padding - (thickness * 0.5f),
+                Mathf.Abs(boardCellsZOffset) - 0.01f);
+
+            ApplyBorderTransform(_borderPool[0], leftPosition, new Vector3(thickness, frameHeight, depth));
+            ApplyBorderTransform(_borderPool[1], rightPosition, new Vector3(thickness, frameHeight, depth));
+            ApplyBorderTransform(_borderPool[2], topPosition, new Vector3(frameWidth, thickness, depth));
+            ApplyBorderTransform(_borderPool[3], bottomPosition, new Vector3(frameWidth, thickness, depth));
+        }
+
+        private void ApplyDoors(LevelData levelData, Vector2 boardOrigin, float cellSize)
+        {
+            _openingMap.Build(levelData.doors, levelData.gridDimensions);
+            var openings = _openingMap.Openings;
+            var requiredCount = openings.Count;
+
+            while (_doorPool.Count < requiredCount)
             {
-                var opening = openings[i];
-                if (!TryGetDoorNormalFromSide(opening.edgeSide, out Vector2Int normal))
+                var doorObject = CreateVisualObject(boardRoot == null ? transform : boardRoot,
+                    $"Door_{_doorPool.Count}", doorPrefab);
+                _doorPool.Add(doorObject);
+            }
+
+            var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
+            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
+            var framePadding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
+            var doorOffset = (0.5f * cellSize) + framePadding + (frameThickness * 0.5f) - (doorInsetInCells * cellSize);
+            var doorDepth = frameDepth;
+            var doorZ = Mathf.Abs(boardCellsZOffset) - Mathf.Max(0.001f, doorDepthBiasFromFrame);
+
+            for (var i = 0; i < _doorPool.Count; i++)
+            {
+                var isActive = i < requiredCount;
+                var doorObject = _doorPool[i];
+                doorObject.SetActive(isActive);
+                if (!isActive)
                 {
                     continue;
                 }
 
-                var openingWidthInCells = Mathf.Max(1, opening.OpeningWidth);
-                var alongAxisSpan = Mathf.Max(0.01f, (openingWidthInCells * cellSize) - boardCellGap);
-                var centerCellX = (opening.minCell.x + opening.maxCell.x + 1) * 0.5f;
-                var centerCellY = (opening.minCell.y + opening.maxCell.y + 1) * 0.5f;
+                var opening = openings[i];
+                if (!opening.edgeSide.TryGetNormal(out var normal))
+                {
+                    doorObject.SetActive(false);
+                    continue;
+                }
+
+                var openingWidth = Mathf.Max(1, opening.OpeningWidth);
+                var span = Mathf.Max(0.01f, (openingWidth * cellSize) - boardCellGap);
+                var centerX = (opening.minCell.x + opening.maxCell.x + 1) * 0.5f;
+                var centerY = (opening.minCell.y + opening.maxCell.y + 1) * 0.5f;
 
                 var cellCenter = new Vector2(
-                    boardOrigin.x + (centerCellX * cellSize),
-                    boardOrigin.y + (centerCellY * cellSize));
+                    boardOrigin.x + (centerX * cellSize),
+                    boardOrigin.y + (centerY * cellSize));
 
-                var doorCenter = new Vector3(
-                    cellCenter.x + (normal.x * edgeOffsetInCells * cellSize),
-                    cellCenter.y + (normal.y * edgeOffsetInCells * cellSize),
+                var position = new Vector3(
+                    cellCenter.x + (normal.x * doorOffset),
+                    cellCenter.y + (normal.y * doorOffset),
                     doorZ);
 
-                var isHorizontalDoorStrip = opening.edgeSide == 2 || opening.edgeSide == 3;
-                var fillSize = isHorizontalDoorStrip
-                    ? new Vector3(alongAxisSpan, doorThickness, doorDepth)
-                    : new Vector3(doorThickness, alongAxisSpan, doorDepth);
+                var isHorizontal = opening.edgeSide.IsHorizontal();
+                var scale = isHorizontal
+                    ? new Vector3(span, frameThickness, doorDepth)
+                    : new Vector3(frameThickness, span, doorDepth);
 
-                var fillObject = CreateBoardPrimitive(
-                    parent,
-                    $"DoorFill_{opening.edgeSide}_{i}_{opening.colorType}",
-                    fillSize,
-                    doorCenter);
+                doorObject.transform.position = position;
+                doorObject.transform.rotation = Quaternion.identity;
+                doorObject.transform.localScale = scale;
 
-                ApplyMaterial(fillObject, GetDoorEdgeMaterial(opening.colorType));
+                var renderer = doorObject.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    renderer.sharedMaterial = GetDoorMaterial(opening.colorType);
+                }
             }
         }
 
-        private void EnsureBoardMaterials()
+        private void EnsureBlockPool(int requiredBlockCount)
         {
-            _openCellMaterial = GetOrCreateMaterial(_openCellMaterial, openCellColor, "MAT_Runtime_OpenCell");
-            _blockedCellMaterial = GetOrCreateMaterial(_blockedCellMaterial, blockedCellColor, "MAT_Runtime_BlockedCell");
-            _boardBackdropMaterial = GetOrCreateMaterial(_boardBackdropMaterial, boardBackdropColor, "MAT_Runtime_BoardBackdrop");
-            _edgeFrameMaterial = GetOrCreateMaterial(_edgeFrameMaterial, edgeFrameColor, "MAT_Runtime_EdgeFrame");
+            var blockParent = blocksRoot == null ? transform : blocksRoot;
+
+            while (_blockRootPool.Count < requiredBlockCount)
+            {
+                var rootObject = new GameObject($"BLK_{_blockRootPool.Count}");
+                rootObject.transform.SetParent(blockParent, false);
+                rootObject.transform.localRotation = Quaternion.identity;
+                _blockRootPool.Add(rootObject);
+            }
         }
 
-        private Material GetDoorCellMaterial(BlockColor color)
+        private void ApplyBlockVisuals(LevelData levelData)
         {
-            if (_doorCellMaterialByColor.TryGetValue(color, out var existing) && existing != null)
-            {
-                return existing;
-            }
+            _activeBlockRootById.Clear();
 
-            var mixedColor = Color.Lerp(openCellColor, BlockColorUtility.GetColor(color), Mathf.Clamp01(doorColorBlendWithOpenCell));
-            var doorMaterial = CreateColorMaterial(mixedColor, $"MAT_Runtime_DoorCell_{color}");
-            _doorCellMaterialByColor[color] = doorMaterial;
-            return doorMaterial;
+            for (var i = 0; i < _blockRootPool.Count; i++)
+            {
+                var isActive = i < levelData.blocks.Count;
+                var rootObject = _blockRootPool[i];
+                StopBlockMovement(i);
+                StopBlockExit(i);
+                rootObject.SetActive(isActive);
+                if (!isActive)
+                {
+                    continue;
+                }
+
+                var blockData = levelData.blocks[i];
+
+                ApplyBlockCells(rootObject.transform, blockData);
+                rootObject.transform.position = ToWorldPosition(blockData.position);
+                rootObject.transform.localScale = Vector3.one;
+                _activeBlockRootById[i] = rootObject;
+                _blockTargetPositionById[i] = rootObject.transform.position;
+            }
         }
 
-        private Material GetDoorEdgeMaterial(BlockColor color)
+        private void SubscribeBoardEvents()
         {
-            if (_doorEdgeMaterialByColor.TryGetValue(color, out var existing) && existing != null)
+            if (boardController == null)
             {
-                return existing;
+                return;
             }
 
-            var mixedColor = Color.Lerp(edgeFrameColor, BlockColorUtility.GetColor(color), Mathf.Clamp01(doorEdgeColorBlend));
-            var doorMaterial = CreateColorMaterial(mixedColor, $"MAT_Runtime_DoorEdge_{color}");
-            _doorEdgeMaterialByColor[color] = doorMaterial;
-            return doorMaterial;
+            boardController.BlockMoved -= HandleBlockMoved;
+            boardController.BlockMoved += HandleBlockMoved;
+
+            boardController.BlockCleared -= HandleBlockCleared;
+            boardController.BlockCleared += HandleBlockCleared;
         }
 
-        private Material GetOrCreateMaterial(Material current, Color color, string materialName)
+        private void UnsubscribeBoardEvents()
         {
-            if (current == null)
+            if (boardController == null)
             {
-                return CreateColorMaterial(color, materialName);
+                return;
             }
 
-            current.color = color;
-            return current;
+            boardController.BlockMoved -= HandleBlockMoved;
+            boardController.BlockCleared -= HandleBlockCleared;
         }
 
-        private Material CreateColorMaterial(Color color, string materialName)
+        private void HandleBlockMoved(int blockId, Vector2Int newPosition)
         {
-            var shader = Shader.Find("Unlit/Color");
-            if (shader == null)
+            if (!_activeBlockRootById.TryGetValue(blockId, out var blockRoot) || blockRoot == null)
             {
-                shader = Shader.Find("Sprites/Default");
+                return;
             }
 
-            var material = new Material(shader)
+            StopBlockExit(blockId);
+
+            var targetPosition = ToWorldPosition(newPosition);
+            if (blockMoveSmoothingSpeed <= 0f)
             {
-                name = materialName
-            };
-            material.color = color;
-            material.enableInstancing = true;
-            return material;
+                StopBlockMovement(blockId);
+                blockRoot.transform.position = targetPosition;
+                return;
+            }
+
+            _blockTargetPositionById[blockId] = targetPosition;
         }
 
-        private void OnDestroy()
+        private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection)
         {
-            DestroyMaterial(_openCellMaterial);
-            DestroyMaterial(_blockedCellMaterial);
-            DestroyMaterial(_boardBackdropMaterial);
-            DestroyMaterial(_edgeFrameMaterial);
-
-            foreach (var pair in _doorCellMaterialByColor)
+            if (!_activeBlockRootById.TryGetValue(blockId, out var blockRoot) || blockRoot == null)
             {
-                DestroyMaterial(pair.Value);
+                return;
             }
 
-            foreach (var pair in _doorEdgeMaterialByColor)
+            StopBlockMovement(blockId);
+            StopBlockExit(blockId);
+            blockRoot.transform.position = ToWorldPosition(clearedPosition);
+
+            if (exitDirection == Vector2Int.zero)
             {
-                DestroyMaterial(pair.Value);
+                blockRoot.SetActive(false);
+                _activeBlockRootById.Remove(blockId);
+                return;
             }
 
-            foreach (var pair in _fallbackBlockMaterialByColor)
-            {
-                DestroyMaterial(pair.Value);
-            }
-
-            _doorCellMaterialByColor.Clear();
-            _doorEdgeMaterialByColor.Clear();
-            _fallbackBlockMaterialByColor.Clear();
+            _blockExitRoutineById[blockId] =
+                StartCoroutine(ExitBlockRoutine(blockId, blockRoot.transform, exitDirection));
         }
 
-        private void BuildShapeVisual(Transform root, BlockData blockData)
+        private IEnumerator ExitBlockRoutine(int blockId, Transform blockTransform, Vector2Int exitDirection)
+        {
+            var startPosition = blockTransform.position;
+            var startScale = blockTransform.localScale;
+            var distance = Mathf.Max(0.2f, doorExitTravelInCells) * boardController.CellSize;
+            var targetPosition = startPosition + new Vector3(exitDirection.x, exitDirection.y, 0f) * distance;
+            var duration = Mathf.Max(0.05f, doorExitDuration);
+            var elapsed = 0f;
+            var minScale = startScale * Mathf.Clamp01(doorExitMinScaleMultiplier);
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                var normalized = Mathf.Clamp01(elapsed / duration);
+                var moveLerp = doorExitMoveCurve != null
+                    ? Mathf.Clamp01(doorExitMoveCurve.Evaluate(normalized))
+                    : normalized;
+                var scaleLerp = doorExitScaleCurve != null
+                    ? Mathf.Clamp01(doorExitScaleCurve.Evaluate(normalized))
+                    : 1f - normalized;
+
+                blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, moveLerp);
+                blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleLerp);
+                yield return null;
+            }
+
+            blockTransform.position = targetPosition;
+            blockTransform.localScale = startScale;
+            blockTransform.gameObject.SetActive(false);
+
+            _activeBlockRootById.Remove(blockId);
+            _blockExitRoutineById.Remove(blockId);
+        }
+
+        private void StopBlockMovement(int blockId)
+        {
+            _blockTargetPositionById.Remove(blockId);
+        }
+
+        private void StopBlockExit(int blockId)
+        {
+            if (!_blockExitRoutineById.TryGetValue(blockId, out var routine) || routine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(routine);
+            _blockExitRoutineById.Remove(blockId);
+        }
+
+        private void StopAllBlockRoutines()
+        {
+            foreach (var pair in _blockExitRoutineById)
+            {
+                if (pair.Value != null)
+                {
+                    StopCoroutine(pair.Value);
+                }
+            }
+
+            _blockTargetPositionById.Clear();
+            _blockExitRoutineById.Clear();
+        }
+
+        private Vector3 ToWorldPosition(Vector2Int gridPosition)
+        {
+            var cellSize = boardController.CellSize;
+            var boardOrigin = boardController.BoardOrigin;
+            var gridZ = Mathf.Abs(boardCellsZOffset);
+            var blockZ = gridZ - Mathf.Max(0.01f, blockLayerForwardOffsetFromGrid);
+            return new Vector3(
+                boardOrigin.x + (gridPosition.x * cellSize),
+                boardOrigin.y + (gridPosition.y * cellSize),
+                blockZ);
+        }
+
+        private void ApplyBlockCells(Transform root, BlockData blockData)
         {
             var localCells = blockData.GetLocalCells();
             var cellSize = boardController.CellSize;
             var scaledCellSize = Mathf.Max(0.01f, cellSize * blockCellVisualScale);
 
-            foreach (var cell in localCells)
+            EnsureBlockCellCount(root, localCells.Length);
+
+            for (var i = 0; i < root.childCount; i++)
             {
-                var cellObject = CreateVisualCellObject(root);
-                cellObject.name = $"Cell_{cell.x}_{cell.y}";
+                var cellObject = root.GetChild(i).gameObject;
+                var isActive = i < localCells.Length;
+                cellObject.SetActive(isActive);
+                if (!isActive)
+                {
+                    continue;
+                }
+
+                var localCell = localCells[i];
+                cellObject.name = $"Cell_{localCell.x}_{localCell.y}";
                 cellObject.transform.localPosition = new Vector3(
-                    (cell.x + 0.5f) * cellSize,
-                    (cell.y + 0.5f) * cellSize,
+                    (localCell.x + 0.5f) * cellSize,
+                    (localCell.y + 0.5f) * cellSize,
                     0f);
+                cellObject.transform.localRotation = Quaternion.identity;
                 cellObject.transform.localScale = Vector3.one * scaledCellSize;
 
-                ApplyVisuals(cellObject, blockData);
+                var renderer = cellObject.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    var material = visualProfile != null ? visualProfile.GetMaterial(blockData.colorType) : null;
+                    renderer.sharedMaterial = material ?? GetBlockFallbackMaterial(blockData.colorType);
+                }
             }
         }
 
-        private GameObject CreateVisualCellObject(Transform parent)
+        private void EnsureBlockCellCount(Transform blockRoot, int requiredCellCount)
+        {
+            while (blockRoot.childCount < requiredCellCount)
+            {
+                var cellObject = CreateBlockCellObject(blockRoot);
+                cellObject.SetActive(true);
+            }
+        }
+
+        private GameObject CreateBlockCellObject(Transform parent)
         {
             var prefab = visualProfile != null ? visualProfile.defaultBlockPrefab : null;
             GameObject cellObject;
@@ -483,148 +577,84 @@ namespace Runtime.Controllers
                 cellObject.transform.SetParent(parent, false);
             }
 
-            RemoveBehaviourIfExists<BlockView>(cellObject);
-            RemoveBehaviourIfExists<BlockDragInput>(cellObject);
-
-            var childCollider = cellObject.GetComponent<Collider>();
-            if (childCollider != null)
-            {
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                {
-                    DestroyImmediate(childCollider);
-                }
-                else
-#endif
-                {
-                    Destroy(childCollider);
-                }
-            }
-
+            RemoveCollider(cellObject);
             return cellObject;
         }
 
-        private void ApplyVisuals(GameObject blockCellObject, BlockData blockData)
+        private GameObject CreateGridCellObject(Transform parent, Vector2Int cell)
         {
-            var renderer = blockCellObject.GetComponent<Renderer>();
-            if (renderer == null)
-            {
-                return;
-            }
-
-            var material = visualProfile != null ? visualProfile.GetMaterial(blockData.colorType) : null;
-            renderer.sharedMaterial = material ?? GetFallbackBlockMaterial(blockData.colorType);
+            var cellObject = CreateVisualObject(parent, $"GridCell_{cell.x}_{cell.y}", gridCellPrefab);
+            RemoveCollider(cellObject);
+            return cellObject;
         }
 
-        private Material GetFallbackBlockMaterial(BlockColor color)
+        private GameObject CreateVisualObject(Transform parent, string objectName, GameObject prefab)
         {
-            if (_fallbackBlockMaterialByColor.TryGetValue(color, out var existing) && existing != null)
-            {
-                return existing;
-            }
+            var visualObject = Instantiate(prefab, parent);
+            visualObject.name = objectName;
 
-            var fallback = CreateColorMaterial(BlockColorUtility.GetColor(color), $"MAT_Runtime_Block_{color}");
-            _fallbackBlockMaterialByColor[color] = fallback;
-            return fallback;
+            visualObject.transform.localRotation = Quaternion.identity;
+            RemoveCollider(visualObject);
+            return visualObject;
         }
 
-        private void EnsureRootCollider(GameObject rootObject, Vector2Int size, float cellSize)
+        private void ApplyBorderTransform(GameObject borderObject, Vector3 position, Vector3 scale)
         {
-            var boxCollider = rootObject.GetComponent<BoxCollider>();
-            if (boxCollider == null)
-            {
-                boxCollider = rootObject.AddComponent<BoxCollider>();
-            }
-
-            var scaledWidth = size.x * cellSize * blockColliderScale;
-            var scaledHeight = size.y * cellSize * blockColliderScale;
-            boxCollider.center = new Vector3(size.x * cellSize * 0.5f, size.y * cellSize * 0.5f, 0f);
-            boxCollider.size = new Vector3(scaledWidth, scaledHeight, cellSize);
+            borderObject.SetActive(true);
+            borderObject.transform.position = position;
+            borderObject.transform.rotation = Quaternion.identity;
+            borderObject.transform.localScale = scale;
         }
 
-        private void ApplyTransform(Transform target, BlockData blockData)
+        private Material GetDoorMaterial(BlockColor colorType)
         {
-            var view = target.GetComponent<BlockView>();
-            if (view != null)
+            if (_fallbackDoorMaterialByColor.TryGetValue(colorType, out var existingMaterial) &&
+                existingMaterial != null)
             {
-                view.SetGridPosition(blockData.position, boardController.CellSize, boardController.BoardOrigin);
+                return existingMaterial;
             }
+
+            var doorColor = BlockColorUtility.GetColor(colorType);
+
+            var material = CreateColorMaterial(doorColor, $"MAT_Runtime_Door_{colorType}");
+            _fallbackDoorMaterialByColor[colorType] = material;
+            return material;
         }
 
-        private GameObject CreateBoardPrimitive(Transform parent, string objectName, Vector3 scale, Vector3 position)
+        private Material GetBlockFallbackMaterial(BlockColor colorType)
         {
-            var primitiveObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            primitiveObject.name = objectName;
-            primitiveObject.transform.SetParent(parent, false);
-            primitiveObject.transform.rotation = Quaternion.identity;
-            primitiveObject.transform.localScale = scale;
-            primitiveObject.transform.position = position;
-
-            var collider = primitiveObject.GetComponent<Collider>();
-            if (collider != null)
+            if (_fallbackBlockMaterialByColor.TryGetValue(colorType, out var existingMaterial) &&
+                existingMaterial != null)
             {
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                {
-                    DestroyImmediate(collider);
-                }
-                else
-#endif
-                {
-                    Destroy(collider);
-                }
+                return existingMaterial;
             }
 
-            return primitiveObject;
+            var material = CreateColorMaterial(BlockColorUtility.GetColor(colorType), $"MAT_Runtime_Block_{colorType}");
+            _fallbackBlockMaterialByColor[colorType] = material;
+            return material;
         }
 
-        private static void ApplyMaterial(GameObject target, Material material)
+        private static Material CreateColorMaterial(Color color, string materialName)
         {
-            if (target == null || material == null)
+            var shader = Shader.Find("Unlit/Color");
+            if (!shader)
             {
-                return;
+                shader = Shader.Find("Sprites/Default");
             }
 
-            var renderer = target.GetComponent<Renderer>();
-            if (renderer != null)
+            var material = new Material(shader)
             {
-                renderer.sharedMaterial = material;
-            }
+                name = materialName,
+                color = color,
+                enableInstancing = true
+            };
+            return material;
         }
 
-        private static bool TryGetDoorNormalFromSide(int edgeSide, out Vector2Int normal)
+        private static void RemoveCollider(GameObject target)
         {
-            if (edgeSide == 0)
-            {
-                normal = Vector2Int.left;
-                return true;
-            }
-
-            if (edgeSide == 1)
-            {
-                normal = Vector2Int.right;
-                return true;
-            }
-
-            if (edgeSide == 2)
-            {
-                normal = Vector2Int.down;
-                return true;
-            }
-
-            if (edgeSide == 3)
-            {
-                normal = Vector2Int.up;
-                return true;
-            }
-
-            normal = Vector2Int.zero;
-            return false;
-        }
-
-        private static void DestroyMaterial(Object materialObject)
-        {
-            if (materialObject == null)
+            var collider = target.GetComponent<Collider>();
+            if (collider == null)
             {
                 return;
             }
@@ -632,54 +662,17 @@ namespace Runtime.Controllers
 #if UNITY_EDITOR
             if (!Application.isPlaying)
             {
+                DestroyImmediate(collider);
                 return;
             }
 #endif
-            Destroy(materialObject);
+            Destroy(collider);
         }
 
-        private static void DestroyComponent(Object componentObject)
+        private void OnDestroy()
         {
-            if (componentObject == null)
-            {
-                return;
-            }
-
-#if UNITY_EDITOR
-            if (!Application.isPlaying)
-            {
-                DestroyImmediate(componentObject);
-                return;
-            }
-#endif
-            Destroy(componentObject);
-        }
-
-        private void RemoveBehaviourIfExists<T>(GameObject target) where T : Behaviour
-        {
-            var component = target.GetComponent<T>();
-            if (component == null)
-            {
-                return;
-            }
-
-            DestroyComponent(component);
-        }
-
-        private void ClearChildren(Transform parent)
-        {
-            for (int i = parent.childCount - 1; i >= 0; i--)
-            {
-                var child = parent.GetChild(i);
-#if UNITY_EDITOR
-                if (!Application.isPlaying)
-                {
-                    DestroyImmediate(child.gameObject);
-                    continue;
-                }
-#endif
-                Destroy(child.gameObject);
-            }
+            _fallbackDoorMaterialByColor.Clear();
+            _fallbackBlockMaterialByColor.Clear();
         }
     }
 }
