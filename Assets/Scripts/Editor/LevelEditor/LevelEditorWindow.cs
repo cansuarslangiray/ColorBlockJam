@@ -394,13 +394,12 @@ namespace Editor.LevelEditor
                 return;
             }
 
-            List<Vector2Int> targetDoorCells = new List<Vector2Int>(_doorCellsBuffer);
             RecordLevelChange("Toggle Door");
-            RemoveDoorsOnCells(targetDoorCells);
+            RemoveDoorsOnCells(_doorCellsBuffer);
 
-            for (int i = 0; i < targetDoorCells.Count; i++)
+            for (int i = 0; i < _doorCellsBuffer.Count; i++)
             {
-                Vector2Int doorCell = targetDoorCells[i];
+                Vector2Int doorCell = _doorCellsBuffer[i];
                 _activeLevel.blockedCells.Remove(doorCell);
                 RemoveBlocksIntersectingCell(doorCell);
             }
@@ -412,10 +411,10 @@ namespace Editor.LevelEditor
         private void ToggleBlock(Vector2Int anchorCell)
         {
             int existingAnchorIndex = GetBlockByAnchor(anchorCell);
-            RecordLevelChange("Toggle Block");
 
             if (existingAnchorIndex >= 0)
             {
+                RecordLevelChange("Toggle Block");
                 _activeLevel.blocks.RemoveAt(existingAnchorIndex);
                 SaveLevelChange();
                 return;
@@ -423,19 +422,19 @@ namespace Editor.LevelEditor
 
             if (_selectedBlockShape == null)
             {
-                SaveLevelChange();
                 return;
-            }
-
-            if (!_activeLevel.availableShapes.Contains(_selectedBlockShape))
-            {
-                _activeLevel.availableShapes.Add(_selectedBlockShape);
             }
 
             if (!CanPlaceShape(anchorCell, _selectedBlockShape))
             {
-                SaveLevelChange();
                 return;
+            }
+
+            RecordLevelChange("Toggle Block");
+
+            if (!_activeLevel.availableShapes.Contains(_selectedBlockShape))
+            {
+                _activeLevel.availableShapes.Add(_selectedBlockShape);
             }
 
             BlockData block = new BlockData

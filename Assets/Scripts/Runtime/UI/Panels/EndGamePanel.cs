@@ -1,11 +1,14 @@
 using System;
+using Runtime.Data;
 using Runtime.Domain.Enums;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Runtime.UI.Panels
 {
     public class EndGamePanel : GamePanel
     {
+        [SerializeField] private GameUiTextProfile uiTextProfile;
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
@@ -54,19 +57,13 @@ namespace Runtime.UI.Panels
             switch (state)
             {
                 case GameState.LevelCompleted:
-                    _titleLabel.text = "Level Complete!";
-                    _subtitleLabel.text = "Nice move. Keep the streak going.";
-                    ConfigureAction("Continue", _continueAction);
+                    ConfigureForState(state, _continueAction);
                     break;
                 case GameState.LevelFailed:
-                    _titleLabel.text = "Time's Up";
-                    _subtitleLabel.text = "You were close. Try that route once more.";
-                    ConfigureAction("Retry", _retryAction);
+                    ConfigureForState(state, _retryAction);
                     break;
                 case GameState.GameCompleted:
-                    _titleLabel.text = "You Cleared All Levels!";
-                    _subtitleLabel.text = "Great run. Ready for another full clear?";
-                    ConfigureAction("Restart", _restartAction);
+                    ConfigureForState(state, _restartAction);
                     break;
                 case GameState.StartScreen:
                 case GameState.Playing:
@@ -76,9 +73,18 @@ namespace Runtime.UI.Panels
             }
         }
 
-        private void ConfigureAction(string label, Action onAction)
+        private void ConfigureForState(GameState state, Action onAction)
         {
-            _actionButton.text = label;
+            var stateText = uiTextProfile.GetEndGamePanelText(state);
+            ConfigureAction(stateText.actionLabel, stateText.title, stateText.subtitle, onAction);
+        }
+
+
+        private void ConfigureAction(string actionLabel, string title, string subtitle, Action onAction)
+        {
+            _titleLabel.text = title;
+            _subtitleLabel.text = subtitle;
+            _actionButton.text = actionLabel;
             _actionHandler = onAction;
             Show();
         }

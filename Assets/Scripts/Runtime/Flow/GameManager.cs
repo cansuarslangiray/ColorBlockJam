@@ -21,14 +21,7 @@ namespace Runtime.Flow
         [Header("Camera Framing")] [SerializeField]
         private Camera gameplayCamera;
 
-        [SerializeField] private bool forceOrthographicCamera;
-        [SerializeField] private bool resetCameraTilt;
-        [SerializeField, Min(0f)] private float cameraPaddingInCells = 0.9f;
-        [SerializeField] private Vector2 cameraCenterOffsetInCells = new(0f, 1.2f);
-        [SerializeField, Range(0f, 30f)] private float perspectiveCameraTiltDegrees = 8.5f;
-        [SerializeField, Min(0.01f)] private float minimumOrthographicSize = 5f;
-        [SerializeField, Min(0.01f)] private float minimumPerspectiveDistance = 14f;
-        [SerializeField, Range(0.55f, 1.25f)] private float cameraFitDistanceMultiplier = 1.15f;
+        [SerializeField] private BoardCameraFramingSettings boardCameraFramingSettings = BoardCameraFramingSettings.CreateDefault();
 
         [Header("Flow Settings")] [SerializeField]
         private bool initializeOnStart = true;
@@ -43,11 +36,19 @@ namespace Runtime.Flow
         private bool _uiActionsBound;
         private bool _startupInitialized;
         private Coroutine _bootstrapRoutine;
+        private WaitForSeconds _levelCompletedDelayWait;
+        private float _cachedLevelCompleteDelay = -1f;
 
         protected override void Awake()
         {
             base.Awake();
             ApplyDisplaySettings();
+            RefreshLevelCompleteDelayInstruction();
+        }
+
+        private void OnValidate()
+        {
+            RefreshLevelCompleteDelayInstruction();
         }
 
         private void OnEnable()
@@ -176,13 +177,13 @@ namespace Runtime.Flow
 
             StateManager.Instance.ChangeState(GameState.Playing);
             RefreshStaticUI();
-            StartTimer(levelData.timeLimit);
+            UIManager.Instance.StartLevelTimer(levelData.timeLimit);
             return true;
         }
 
         private void StartNextLevelOrCompleteRun()
         {
-            var hasNextLevel = _currentLevelIndex + 1 < GetTotalLevelCount();
+            var hasNextLevel = _currentLevelIndex + 1 < levelCollection.Count;
             if (!hasNextLevel)
             {
                 CompleteRun();
@@ -191,21 +192,6 @@ namespace Runtime.Flow
 
             _currentLevelIndex++;
             StartCurrentLevel();
-        }
-
-        private void RetryCurrentLevel()
-        {
-            StartCurrentLevel();
-        }
-
-        private void StartTimer(float durationSeconds)
-        {
-            UIManager.Instance.StartLevelTimer(durationSeconds);
-        }
-
-        private void StopTimer()
-        {
-            UIManager.Instance.StopLevelTimer();
         }
 
         private void HandleTimerExpired()
@@ -231,11 +217,12 @@ namespace Runtime.Flow
         private IEnumerator ShowLevelCompletedRoutine()
         {
             _transitionInProgress = true;
-            StopTimer();
+            UIManager.Instance.StopLevelTimer();
 
             if (levelCompletePanelDelay > 0f)
             {
-                yield return new WaitForSeconds(levelCompletePanelDelay);
+                RefreshLevelCompleteDelayInstruction();
+                yield return _levelCompletedDelayWait;
             }
 
             StateManager.Instance.ChangeState(GameState.LevelCompleted);
@@ -244,13 +231,13 @@ namespace Runtime.Flow
 
         private void CompleteRun()
         {
-            StopTimer();
+            UIManager.Instance.StopLevelTimer();
             StateManager.Instance.ChangeState(GameState.GameCompleted);
         }
 
         private void FailRun()
         {
-            StopTimer();
+            UIManager.Instance.StopLevelTimer();
             StateManager.Instance.ChangeState(GameState.LevelFailed);
         }
 
@@ -260,7 +247,7 @@ namespace Runtime.Flow
 
             if (newState != GameState.Playing)
             {
-                StopTimer();
+                UIManager.Instance.StopLevelTimer();
             }
         }
 
@@ -268,12 +255,7 @@ namespace Runtime.Flow
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
             var levelNumber = levelData != null ? levelData.levelNumber : _currentLevelIndex + 1;
-            UIManager.Instance.SetLevel(levelNumber, _currentLevelIndex, GetTotalLevelCount());
-        }
-
-        private int GetTotalLevelCount()
-        {
-            return levelCollection.Count;
+            UIManager.Instance.SetLevel(levelNumber, _currentLevelIndex, levelCollection.Count);
         }
 
         private void HandleStartPanelInput()
@@ -303,7 +285,7 @@ namespace Runtime.Flow
                 return;
             }
 
-            RetryCurrentLevel();
+            StartCurrentLevel();
         }
 
         private void HandleRestartInput()
@@ -323,61 +305,24 @@ namespace Runtime.Flow
                 return;
             }
 
-            RetryCurrentLevel();
+            StartCurrentLevel();
         }
 
         private bool FitCameraToLevel(LevelData levelData)
         {
-            if (levelData == null)
+            return BoardCameraFramer.TryFrame(gameplayCamera, levelData, boardController.BoardOrigin,
+                boardController.CellSize, boardCameraFramingSettings);
+        }
+
+        private void RefreshLevelCompleteDelayInstruction()
+        {
+            if (Mathf.Approximately(_cachedLevelCompleteDelay, levelCompletePanelDelay))
             {
-                return false;
+                return;
             }
 
-            var cellSize = Mathf.Max(0.01f, boardController.CellSize);
-            var width = levelData.gridDimensions.x * cellSize;
-            var height = levelData.gridDimensions.y * cellSize;
-            var padding = Mathf.Max(0f, cameraPaddingInCells * cellSize);
-            var contentWidth = width + (padding * 2f);
-            var contentHeight = height + (padding * 2f);
-            var centerOffset = cameraCenterOffsetInCells * cellSize;
-
-            var center = boardController.BoardOrigin + new Vector2((width * 0.5f) + centerOffset.x, (height * 0.5f) + centerOffset.y);
-            var cameraTransform = gameplayCamera.transform;
-            cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
-
-            if (resetCameraTilt)
-            {
-                cameraTransform.rotation = Quaternion.identity;
-            }
-
-            if (forceOrthographicCamera)
-            {
-                gameplayCamera.orthographic = true;
-
-                var aspect = Mathf.Max(0.01f, gameplayCamera.aspect);
-                var halfHeight = contentHeight * 0.5f;
-                var halfWidthAsHeight = (contentWidth * 0.5f) / aspect;
-                gameplayCamera.orthographicSize = Mathf.Max(minimumOrthographicSize, halfHeight, halfWidthAsHeight);
-                return true;
-            }
-
-            gameplayCamera.orthographic = false;
-            if (!resetCameraTilt)
-            {
-                var currentEuler = cameraTransform.eulerAngles;
-                cameraTransform.rotation = Quaternion.Euler(-Mathf.Abs(perspectiveCameraTiltDegrees), currentEuler.y,
-                    currentEuler.z);
-            }
-
-            var halfFovY = Mathf.Max(0.01f, gameplayCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
-            var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, gameplayCamera.aspect));
-            var distanceByHeight = (contentHeight * 0.5f) / Mathf.Tan(halfFovY);
-            var distanceByWidth = (contentWidth * 0.5f) / Mathf.Tan(halfFovX);
-            var requiredDistance = Mathf.Max(minimumPerspectiveDistance, distanceByHeight, distanceByWidth);
-            requiredDistance *= Mathf.Clamp(cameraFitDistanceMultiplier, 0.55f, 1.25f);
-            var forward = cameraTransform.forward.normalized;
-            cameraTransform.position = new Vector3(center.x, center.y, 0f) - (forward * requiredDistance);
-            return true;
+            _cachedLevelCompleteDelay = levelCompletePanelDelay;
+            _levelCompletedDelayWait = levelCompletePanelDelay > 0f ? new WaitForSeconds(levelCompletePanelDelay) : null;
         }
     }
 }

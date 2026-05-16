@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 942754947dc68409da0148cc0aace000, type: 3}
+  m_Name: GameUiTextProfile
+  m_EditorClassIdentifier: 
+  startPanel:
+    title: Ready to Solve?
+    subtitle: Slide each block to its matching door before the timer runs out.
+    actionLabel: Start Level
+  levelCompleted:
+    title: Level Complete!
+    subtitle: Nice move. Keep the streak going.
+    actionLabel: Continue
+  levelFailed:
+    title: Time's Up
+    subtitle: You were close. Try that route once more.
+    actionLabel: Retry
+  gameCompleted:
+    title: You Cleared All Levels!
+    subtitle: Great run. Ready for another full clear?
+    actionLabel: Restart

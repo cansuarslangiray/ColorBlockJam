@@ -1,4 +1,5 @@
 using System;
+using Runtime.Data;
 using Runtime.Domain.Enums;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -7,6 +8,8 @@ namespace Runtime.UI.Panels
 {
     public class StartPanel : GamePanel
     {
+        [SerializeField] private GameUiTextProfile uiTextProfile;
+
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _startButton;
@@ -20,13 +23,15 @@ namespace Runtime.UI.Panels
             _startButton = Root.Q<Button>("start-button");
             if (_titleLabel == null || _subtitleLabel == null || _startButton == null)
             {
-                Debug.LogError("StartPanel could not find required elements: start-title, start-subtitle, or start-button.", this);
+                Debug.LogError(
+                    "StartPanel could not find required elements: start-title, start-subtitle, or start-button.", this);
                 return;
             }
 
-            _titleLabel.text = "Ready to Solve?";
-            _subtitleLabel.text = "Slide each block to its matching door before the timer runs out.";
-            _startButton.text = "Start Level";
+            var startText = uiTextProfile.startPanel;
+            _titleLabel.text = startText.title;
+            _subtitleLabel.text = startText.subtitle;
+            _startButton.text = startText.actionLabel;
             _startButton.clicked += HandleStartClicked;
             Show();
         }
