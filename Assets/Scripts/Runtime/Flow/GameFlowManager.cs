@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using Runtime.Controllers;
+using Runtime.Controllers.BlockSceneBuilder;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using UnityEngine;
@@ -47,7 +49,12 @@ namespace Runtime.Flow
         private int _currentLevelIndex;
         private bool _transitionInProgress;
 
-        private void Awake()
+        private void OnEnable()
+        {
+            RegisterEvents();
+        }
+
+        private void RegisterEvents()
         {
             boardController.LevelCompleted += OnLevelCompleted;
             stateManager.OnStateChanged += HandleStateChanged;
@@ -55,7 +62,12 @@ namespace Runtime.Flow
             levelCountdownTimer.TimerExpired += HandleTimerExpired;
         }
 
-        private void OnDestroy()
+        private void OnDisable()
+        {
+            UnregisterEvents();
+        }
+
+        private void UnregisterEvents()
         {
             if (boardController != null)
             {
@@ -82,7 +94,7 @@ namespace Runtime.Flow
             }
         }
 
-        public void InitializeRun()
+        private void InitializeRun()
         {
             _currentLevelIndex = 0;
             _transitionInProgress = false;
@@ -95,7 +107,7 @@ namespace Runtime.Flow
 
         public void OnStartButtonPressed()
         {
-            if (_transitionInProgress || stateManager == null || boardController == null)
+            if (_transitionInProgress)
             {
                 return;
             }
@@ -109,34 +121,38 @@ namespace Runtime.Flow
                 case GameState.GameCompleted:
                     InitializeRun();
                     break;
+                case GameState.Playing:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
-
-        private void StartCurrentLevel()
+        private bool StartCurrentLevel()
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
             if (!levelData)
             {
-                return;
+                return false;
             }
-
-            if (!boardController)
-            {
-                return;
-            }
-
-            blockSceneBuilder.BuildForLevel(levelData);
 
             boardController.Setup(levelData);
-            boardInputController?.ForceFitInputArea();
-            _transitionInProgress = false;
 
-            FitCameraToLevel(levelData);
+            blockSceneBuilder.BuildForLevel(levelData);
+            boardInputController?.ForceFitInputArea();
+
+            if (!FitCameraToLevel(levelData))
+            {
+                stateManager.ChangeState(GameState.StartScreen);
+                return false;
+            }
+
             stateManager.ChangeState(GameState.Playing);
 
             RefreshStaticUI();
             StartTimer(levelData.timeLimit);
+
+            return true;
         }
 
         private void StartTimer(float durationSeconds)
@@ -191,11 +207,18 @@ namespace Runtime.Flow
             if (!hasNextLevel)
             {
                 CompleteRun();
+                _transitionInProgress = false;
                 yield break;
             }
 
             _currentLevelIndex++;
-            StartCurrentLevel();
+
+            if (!StartCurrentLevel())
+            {
+                stateManager.ChangeState(GameState.LevelFailed);
+            }
+
+            _transitionInProgress = false;
         }
 
         private void CompleteRun()
@@ -245,7 +268,7 @@ namespace Runtime.Flow
             timerText.text = $"{minutes:00}:{seconds:00}";
         }
 
-        private void FitCameraToLevel(LevelData levelData)
+        private bool FitCameraToLevel(LevelData levelData)
         {
             var cellSize = Mathf.Max(0.01f, boardController.CellSize);
             var width = levelData.gridDimensions.x * cellSize;
@@ -271,7 +294,7 @@ namespace Runtime.Flow
                 var halfHeight = contentHeight * 0.5f;
                 var halfWidthAsHeight = (contentWidth * 0.5f) / aspect;
                 gameplayCamera.orthographicSize = Mathf.Max(minimumOrthographicSize, halfHeight, halfWidthAsHeight);
-                return;
+                return true;
             }
 
             gameplayCamera.orthographic = false;
@@ -283,6 +306,7 @@ namespace Runtime.Flow
             var requiredDistance = Mathf.Max(minimumPerspectiveDistance, distanceByHeight, distanceByWidth);
             var forward = cameraTransform.forward.normalized;
             cameraTransform.position = new Vector3(center.x, center.y, 0f) - (forward * requiredDistance);
+            return true;
         }
     }
 }

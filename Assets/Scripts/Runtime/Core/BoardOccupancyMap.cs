@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Runtime.Core
@@ -6,6 +7,7 @@ namespace Runtime.Core
     public class BoardOccupancyMap
     {
         private const int EmptyCell = -1;
+        private const int BlockedCell = -2;
 
         private int _width;
         private int _height;
@@ -25,6 +27,24 @@ namespace Runtime.Core
             for (var i = 0; i < total; i++)
             {
                 _cells[i] = EmptyCell;
+            }
+        }
+
+        public void MarkBlockedCells(IReadOnlyList<Vector2Int> blockedCells)
+        {
+            if (blockedCells == null || blockedCells.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var blockedCell in blockedCells)
+            {
+                if (!IsInside(blockedCell.x, blockedCell.y))
+                {
+                    continue;
+                }
+
+                _cells[GetIndex(blockedCell.x, blockedCell.y)] = BlockedCell;
             }
         }
 
@@ -69,7 +89,11 @@ namespace Runtime.Core
                     continue;
                 }
 
-                _cells[GetIndex(worldCell.x, worldCell.y)] = blockId;
+                var index = GetIndex(worldCell.x, worldCell.y);
+                if (_cells[index] != BlockedCell)
+                {
+                    _cells[index] = blockId;
+                }
             }
         }
 
@@ -106,7 +130,7 @@ namespace Runtime.Core
 
             var index = GetIndex(x, y);
             var cellValue = _cells[index];
-            if (cellValue == EmptyCell)
+            if (cellValue is EmptyCell or BlockedCell)
             {
                 return false;
             }

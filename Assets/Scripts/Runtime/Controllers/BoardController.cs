@@ -16,11 +16,11 @@ namespace Runtime.Controllers
         public event Action LevelCompleted;
         public event Action<int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int> BlockCleared;
-        public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockExitedThroughDoor;
 
-        public LevelData CurrentLevel { get; private set; }
+        private LevelData CurrentLevel { get; set; }
         public bool IsInitialized { get; private set; }
-        public int RuntimeBlockCount { get; private set; }
+        private int RuntimeBlockCount { get; set; }
+        public Vector2Int GridDimensions => CurrentLevel ? CurrentLevel.gridDimensions : Vector2Int.zero;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => boardOrigin;
 
@@ -33,17 +33,30 @@ namespace Runtime.Controllers
             IsInitialized = false;
             _runtimeBlocks.Clear();
             _doorOpenings.Clear();
+            RuntimeBlockCount = 0;
 
             if (!levelData)
             {
                 CurrentLevel = null;
-                SetRuntimeBlockCount(0);
                 return;
             }
 
             CurrentLevel = levelData;
 
+            if (levelData.blocks == null)
+            {
+                _occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
+                IsInitialized = true;
+                return;
+            }
+
             _occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
+
+            if (levelData.blockedCells != null && levelData.blockedCells.Count > 0)
+            {
+                _occupancyMap.MarkBlockedCells(levelData.blockedCells);
+            }
+
             var openings = levelData.GetDoorOpenings();
             foreach (var openingData in openings)
             {
@@ -68,7 +81,7 @@ namespace Runtime.Controllers
             }
 
             IsInitialized = true;
-            SetRuntimeBlockCount(_runtimeBlocks.Count);
+            RuntimeBlockCount = _runtimeBlocks.Count;
         }
 
 
@@ -94,12 +107,7 @@ namespace Runtime.Controllers
         public bool TryGetBlockAtCell(Vector2Int cell, out int blockId)
         {
             blockId = -1;
-            if (!IsInitialized)
-            {
-                return false;
-            }
-
-            return _occupancyMap.TryGetBlockAt(cell.x, cell.y, out blockId);
+            return IsInitialized && _occupancyMap.TryGetBlockAt(cell.x, cell.y, out blockId);
         }
 
         public bool TryGetBlockMovementConstraint(int blockId, out BlockMovementConstraint movementConstraint)
@@ -143,7 +151,6 @@ namespace Runtime.Controllers
             {
                 _runtimeBlocks.Remove(blockId);
                 BlockCleared?.Invoke(blockId, block.Position, direction.ToVector());
-                BlockExitedThroughDoor?.Invoke(blockId, block.Position, direction.ToVector(), exitDoor);
                 SetRuntimeBlockCount(_runtimeBlocks.Count);
             }
             else
@@ -263,7 +270,7 @@ namespace Runtime.Controllers
             return minX >= opening.MinCell.x && maxX <= opening.MaxCell.x;
         }
 
-        private bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
+        public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
         {
             block = default;
             return IsInitialized && _runtimeBlocks.TryGetValue(blockId, out block);

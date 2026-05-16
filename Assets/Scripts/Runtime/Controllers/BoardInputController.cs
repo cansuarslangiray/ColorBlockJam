@@ -22,6 +22,8 @@ namespace Runtime.Controllers
         private Plane _boardPlane = new (Vector3.forward, Vector3.zero);
         private Camera _activePointerCamera;
 
+        private bool IsBoardReadyForInput => boardController != null && boardController.IsInitialized;
+
         private void Awake()
         {
             RefreshBoardPlane();
@@ -42,6 +44,12 @@ namespace Runtime.Controllers
         public void OnPointerDown(PointerEventData eventData)
         {
             _activePointerCamera = ResolvePointerCamera(eventData);
+
+            if (_activePointerCamera == null)
+            {
+                return;
+            }
+
             HandlePointerDown(eventData.position, _activePointerCamera);
         }
 
@@ -68,6 +76,11 @@ namespace Runtime.Controllers
         private void HandlePointerDown(Vector2 pointerPosition, Camera cameraToUse)
         {
             ResetDragState();
+            if (!IsBoardReadyForInput)
+            {
+                return;
+            }
+
             TryFitInputArea();
 
             if (!TryGetActiveBlock(pointerPosition, cameraToUse, out var blockId, out var worldPos, out var movementConstraint))
@@ -82,7 +95,7 @@ namespace Runtime.Controllers
 
         private void HandlePointerDrag(Vector2 pointerPosition, Camera cameraToUse)
         {
-            if (_activeBlockId < 0 || !boardController.IsInitialized)
+            if (_activeBlockId < 0 || !IsBoardReadyForInput)
             {
                 return;
             }
@@ -140,7 +153,7 @@ namespace Runtime.Controllers
 
         private void HandleFreeDrag(Vector2 worldPos)
         {
-            if (!boardController.IsInitialized)
+            if (!IsBoardReadyForInput)
             {
                 return;
             }
@@ -234,20 +247,18 @@ namespace Runtime.Controllers
             return true;
         }
 
-        private bool TryGetActiveBlock(Vector2 pointerPosition, Camera pointerCamera, out int blockId, out Vector2 boardWorldPoint,
-            out BlockMovementConstraint movementConstraint)
+        private bool TryGetActiveBlock(Vector2 pointerPosition, Camera pointerCamera, out int blockId, out Vector2 boardWorldPoint, out BlockMovementConstraint movementConstraint)
         {
             blockId = -1;
             boardWorldPoint = default;
             movementConstraint = default;
 
-            if (!boardController.IsInitialized || !TryResolveBoardPoint(pointerPosition, pointerCamera, out boardWorldPoint))
+            if (!IsBoardReadyForInput || !TryResolveBoardPoint(pointerPosition, pointerCamera, out boardWorldPoint))
             {
                 return false;
             }
 
-            if (!boardController.TryWorldToCell(boardWorldPoint, out var touchedCell) ||
-                !boardController.TryGetBlockAtCell(touchedCell, out blockId))
+            if (!boardController.TryWorldToCell(boardWorldPoint, out var touchedCell) || !boardController.TryGetBlockAtCell(touchedCell, out blockId))
             {
                 return false;
             }
@@ -263,12 +274,12 @@ namespace Runtime.Controllers
 
         private void TryFitInputArea()
         {
-            if (!boardController.IsInitialized)
+            if (!IsBoardReadyForInput)
             {
                 return;
             }
 
-            var gridDimensions = boardController.CurrentLevel.gridDimensions;
+            var gridDimensions = boardController.GridDimensions;
             var cellSize = boardController.CellSize;
             if (gridDimensions.x <= 0 || gridDimensions.y <= 0 || cellSize <= 0f)
             {
@@ -277,10 +288,7 @@ namespace Runtime.Controllers
 
             var width = gridDimensions.x * cellSize;
             var height = gridDimensions.y * cellSize;
-            var boardCenterWorld = new Vector3(
-                boardController.BoardOrigin.x + (width * 0.5f),
-                boardController.BoardOrigin.y + (height * 0.5f),
-                inputAreaCollider.transform.position.z);
+            var boardCenterWorld = new Vector3(boardController.BoardOrigin.x + (width * 0.5f), boardController.BoardOrigin.y + (height * 0.5f), inputAreaCollider.transform.position.z);
 
             var scale = inputAreaCollider.transform.lossyScale;
             var sizeX = width / Mathf.Max(Mathf.Abs(scale.x), 0.0001f);
@@ -304,8 +312,13 @@ namespace Runtime.Controllers
         
         private bool IsPointInsideBoard(Vector3 boardWorldPoint)
         {
+            if (!IsBoardReadyForInput)
+            {
+                return false;
+            }
+
             var boardOrigin = boardController.BoardOrigin;
-            var gridDimensions = boardController.CurrentLevel.gridDimensions;
+            var gridDimensions = boardController.GridDimensions;
             var cellSize = boardController.CellSize;
             if (gridDimensions.x <= 0 || gridDimensions.y <= 0 || cellSize <= 0f)
             {
@@ -321,7 +334,7 @@ namespace Runtime.Controllers
 
         private Vector2Int ResolveDragAxis(Vector2 dragVector)
         {
-            if (!boardController.IsInitialized)
+            if (!IsBoardReadyForInput)
             {
                 return Vector2Int.zero;
             }
