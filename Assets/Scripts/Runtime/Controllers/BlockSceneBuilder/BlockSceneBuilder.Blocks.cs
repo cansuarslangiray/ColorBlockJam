@@ -17,7 +17,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             while (_blockRootPool.Count < requiredBlockCount)
             {
                 var blockId = _blockRootPool.Count;
-                var rootName = GetRuntimeName(blockRootNamePrefix, blockId);
+                var rootName = GetRuntimeName(BlockRootNamePrefix, blockId);
                 var rootObject = string.IsNullOrWhiteSpace(rootName) ? new GameObject() : new GameObject(rootName);
                 rootObject.transform.SetParent(blockParent, false);
                 rootObject.transform.localRotation = Quaternion.identity;
@@ -224,9 +224,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var max = new Vector2(float.MinValue, float.MinValue);
             var hasActiveCell = false;
 
-            for (var i = 0; i < blockView.Cells.Count; i++)
+            foreach (var cellVisual in blockView.Cells)
             {
-                var cellVisual = blockView.Cells[i];
                 if (cellVisual == null || !cellVisual.GameObject || !cellVisual.GameObject.activeSelf)
                 {
                     continue;
@@ -251,7 +250,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor, Vector2Int fallbackDirection)
         {
             var gridSize = boardController.GridDimensions;
-            if (gridSize.x > 0 && gridSize.y > 0)
+            if (gridSize is { x: > 0, y: > 0 })
             {
                 var maxX = gridSize.x - 1;
                 var maxY = gridSize.y - 1;
@@ -277,12 +276,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
-            if (fallbackDirection != Vector2Int.zero)
-            {
-                return fallbackDirection;
-            }
-
-            return matchedDoor.EdgeDirection.ToVector();
+            return fallbackDirection != Vector2Int.zero ? fallbackDirection : matchedDoor.EdgeDirection.ToVector();
         }
 
         private IEnumerator TweenBlockMove(Transform blockTransform, Vector3 targetPosition, float duration,
@@ -300,7 +294,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             {
                 elapsed += Time.deltaTime;
                 var normalized = Mathf.Clamp01(elapsed / duration);
-                var eased = easingCurve != null ? easingCurve.Evaluate(normalized) : normalized;
+                var eased = easingCurve?.Evaluate(normalized) ?? normalized;
                 blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, eased);
                 yield return null;
             }
@@ -404,7 +398,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             {
                 var cellIndex = blockView.Cells.Count;
                 var cellVisual = CreateBlockCellObject(blockView.RootTransform);
-                RenameIfConfigured(cellVisual.GameObject, GetRuntimeName(blockCellNamePrefix, cellIndex));
+                RenameIfConfigured(cellVisual.GameObject, GetRuntimeName(BlockCellNamePrefix, cellIndex));
                 blockView.Cells.Add(cellVisual);
             }
         }

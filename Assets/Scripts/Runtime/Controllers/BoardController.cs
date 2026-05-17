@@ -42,6 +42,8 @@ namespace Runtime.Controllers
         private float _resolvedCellSize = 1f;
         private float _inverseCellSize = 1f;
         private bool _levelCompletedRaised;
+        private bool _isGameplayState;
+        private bool _stateEventsRegistered;
 
         private Plane _boardPlane = new(Vector3.forward, Vector3.zero);
         private int _activeGestureBlockId = -1;
@@ -50,13 +52,20 @@ namespace Runtime.Controllers
         private int _activeGestureAppliedStepCount;
         private Camera _activeGestureCamera;
 
-        private bool IsBoardReadyForInput => IsInitialized &&
-                                             StateManager.Instance.CurrentState == GameState.Playing;
+        private bool IsBoardReadyForInput => IsInitialized && _isGameplayState;
 
         private void Awake()
         {
             RefreshInputPlane();
             RefreshCachedBoardMetrics();
+        }
+
+        private void OnEnable() => TryRegisterStateEvents();
+
+        private void OnDisable()
+        {
+            UnregisterStateEvents();
+            EndPointerGesture();
         }
 
         private void OnValidate()
@@ -85,28 +94,61 @@ namespace Runtime.Controllers
             RuntimeBoardSetupBuilder.Populate(levelData, shapeRegistry, _occupancyMap, _runtimeBlocks, _doorOpenings);
             IsInitialized = true;
 
+            TryRegisterStateEvents();
             RefreshInputPlane();
+        }
+
+        private void TryRegisterStateEvents()
+        {
+            if (_stateEventsRegistered)
+            {
+                return;
+            }
+
+            var stateManager = StateManager.Instance;
+            if (!stateManager)
+            {
+                return;
+            }
+
+            stateManager.OnStateChanged += HandleStateChanged;
+            _isGameplayState = stateManager.CurrentState == GameState.Playing;
+            _stateEventsRegistered = true;
+        }
+
+        private void UnregisterStateEvents()
+        {
+            if (!_stateEventsRegistered)
+            {
+                _isGameplayState = false;
+                return;
+            }
+
+            var stateManager = StateManager.Instance;
+            if (stateManager)
+            {
+                stateManager.OnStateChanged -= HandleStateChanged;
+            }
+
+            _stateEventsRegistered = false;
+            _isGameplayState = false;
+        }
+
+        private void HandleStateChanged(GameState newState)
+        {
+            _isGameplayState = newState == GameState.Playing;
+            if (!_isGameplayState)
+            {
+                EndPointerGesture();
+            }
         }
 
         public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera pointerCamera)
         {
-            if (!IsBoardReadyForInput)
-            {
-                return false;
-            }
-
-            var resolvedCamera = pointerCamera ? pointerCamera : inputCamera;
-            if (!resolvedCamera)
-            {
-                return false;
-            }
-
-            if (!TryResolveBoardPoint(pointerPosition, resolvedCamera, out var boardWorldPoint))
-            {
-                return false;
-            }
-
-            if (!TryWorldToCell(boardWorldPoint, out var touchedCell) ||
+            if (!IsBoardReadyForInput ||
+                !TryResolveGestureBoardPoint(pointerPosition, pointerCamera, null, out var boardWorldPoint,
+                    out var resolvedCamera) ||
+                !TryWorldToCell(boardWorldPoint, out var touchedCell) ||
                 !TryGetBlockAtCell(touchedCell, out var blockId))
             {
                 return false;
@@ -128,18 +170,8 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            var resolvedCamera = pointerCamera ? pointerCamera : _activeGestureCamera;
-            if (!resolvedCamera)
-            {
-                resolvedCamera = inputCamera;
-            }
-
-            if (!resolvedCamera)
-            {
-                return false;
-            }
-
-            if (!TryResolveBoardPoint(pointerPosition, resolvedCamera, out var boardWorldPoint))
+            if (!TryResolveGestureBoardPoint(pointerPosition, pointerCamera, _activeGestureCamera, out var boardWorldPoint,
+                    out _))
             {
                 return false;
             }
@@ -155,6 +187,11 @@ namespace Runtime.Controllers
                 return TryUpdateFreePointerGesture(boardWorldPoint);
             }
 
+            return TryUpdateConstrainedPointerGesture(activeBlock, boardWorldPoint);
+        }
+
+        private bool TryUpdateConstrainedPointerGesture(RuntimeBlockState activeBlock, Vector2 boardWorldPoint)
+        {
             var deltaFromGestureStart = boardWorldPoint - _activeGestureStartBoardPoint;
             if (_activeGestureAxis == GestureAxis.None)
             {
@@ -175,20 +212,15 @@ namespace Runtime.Controllers
             }
 
             var stepSign = stepDelta > 0 ? 1 : -1;
-            var direction = ResolveDirectionForAxis(_activeGestureAxis, stepSign);
             var requestedCellCount = Mathf.Abs(stepDelta);
-            if (requestedCellCount == 0)
+            if (!TryMoveActiveGestureBlock(ResolveDirectionForAxis(_activeGestureAxis, stepSign), requestedCellCount,
+                    out var movedCellCount))
             {
                 return false;
             }
 
-            var moved = TrySlideBlock(_activeGestureBlockId, direction, requestedCellCount, out var movedCellCount);
-            if (movedCellCount > 0)
-            {
-                _activeGestureAppliedStepCount += movedCellCount * stepSign;
-            }
-
-            return moved;
+            _activeGestureAppliedStepCount += movedCellCount * stepSign;
+            return true;
         }
 
         private bool TryUpdateFreePointerGesture(Vector2 boardWorldPoint)
@@ -209,22 +241,13 @@ namespace Runtime.Controllers
                     break;
                 }
 
-                var moved = TrySlideBlock(_activeGestureBlockId, direction, requestedCellCount, out var movedCellCount);
-                if (movedCellCount <= 0)
+                if (!TryMoveActiveGestureBlock(direction, requestedCellCount, out var movedCellCount))
                 {
                     break;
                 }
 
-                movedAny |= moved;
-                var consumedDistance = movedCellCount * _resolvedCellSize;
-                if (direction.IsHorizontal())
-                {
-                    _activeGestureStartBoardPoint.x += axisDelta >= 0f ? consumedDistance : -consumedDistance;
-                }
-                else
-                {
-                    _activeGestureStartBoardPoint.y += axisDelta >= 0f ? consumedDistance : -consumedDistance;
-                }
+                movedAny = true;
+                AdvanceGestureStartPoint(direction, movedCellCount);
 
                 deltaFromAnchor = boardWorldPoint - _activeGestureStartBoardPoint;
                 if (deltaFromAnchor.sqrMagnitude < _dragActivationDistanceSqr)
@@ -234,6 +257,29 @@ namespace Runtime.Controllers
             }
 
             return movedAny;
+        }
+
+        private bool TryResolveGestureBoardPoint(Vector2 pointerPosition, Camera preferredCamera, Camera secondaryCamera,
+            out Vector2 boardWorldPoint, out Camera resolvedCamera)
+        {
+            boardWorldPoint = default;
+            resolvedCamera = preferredCamera ? preferredCamera : secondaryCamera ? secondaryCamera : inputCamera;
+            return resolvedCamera && TryResolveBoardPoint(pointerPosition, resolvedCamera, out boardWorldPoint);
+        }
+
+        private bool TryMoveActiveGestureBlock(Direction direction, int requestedCellCount, out int movedCellCount)
+        {
+            movedCellCount = 0;
+            return requestedCellCount > 0 && _activeGestureBlockId >= 0 &&
+                   TrySlideBlock(_activeGestureBlockId, direction, requestedCellCount, out movedCellCount);
+        }
+
+        private void AdvanceGestureStartPoint(Direction direction, int movedCellCount)
+        {
+            var consumedDistance = movedCellCount * _resolvedCellSize;
+            var directionVector = direction.ToVector();
+            _activeGestureStartBoardPoint.x += directionVector.x * consumedDistance;
+            _activeGestureStartBoardPoint.y += directionVector.y * consumedDistance;
         }
 
         public void EndPointerGesture()
@@ -353,7 +399,6 @@ namespace Runtime.Controllers
 
             _runtimeBlocks[blockId] = block;
             _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
-            AudioManager.Instance.PlayBlockMove();
             BlockMoved?.Invoke(blockId, startPosition, currentPosition);
             return true;
         }
@@ -405,7 +450,7 @@ namespace Runtime.Controllers
 
             var absX = Mathf.Abs(delta.x);
             var absY = Mathf.Abs(delta.y);
-            if (absX < DirectionDeadZone && absY < DirectionDeadZone)
+            if (IsBelowDirectionDeadZone(absX, absY))
             {
                 return false;
             }
@@ -429,7 +474,7 @@ namespace Runtime.Controllers
             direction = default;
             var absX = Mathf.Abs(delta.x);
             var absY = Mathf.Abs(delta.y);
-            if (absX < DirectionDeadZone && absY < DirectionDeadZone)
+            if (IsBelowDirectionDeadZone(absX, absY))
             {
                 return false;
             }
@@ -442,6 +487,11 @@ namespace Runtime.Controllers
 
             direction = delta.y >= 0f ? Direction.Up : Direction.Down;
             return true;
+        }
+
+        private static bool IsBelowDirectionDeadZone(float absX, float absY)
+        {
+            return absX < DirectionDeadZone && absY < DirectionDeadZone;
         }
 
         private static bool IsDirectionAllowed(BlockMovementConstraint movementConstraint, Direction direction)
@@ -502,30 +552,21 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            var gridDimensions = GridDimensions;
-            if (gridDimensions.x <= 0 || gridDimensions.y <= 0)
-            {
-                return false;
-            }
-
             var relativeX = boardWorldPoint.x - boardOrigin.x;
             var relativeY = boardWorldPoint.y - boardOrigin.y;
             return relativeX >= 0f && relativeX < _boardWidthWorld && relativeY >= 0f && relativeY < _boardHeightWorld;
         }
 
-        private void RefreshInputPlane()
-        {
+        private void RefreshInputPlane() =>
             _boardPlane = new Plane(Vector3.forward, new Vector3(0f, 0f, transform.position.z));
-        }
 
         private void RefreshCachedBoardMetrics()
         {
-            var resolvedCellSize = Mathf.Max(0.01f, cellSize);
-            _resolvedCellSize = resolvedCellSize;
-            _inverseCellSize = 1f / resolvedCellSize;
-            _boardWidthWorld = Mathf.Max(0, _gridDimensions.x) * resolvedCellSize;
-            _boardHeightWorld = Mathf.Max(0, _gridDimensions.y) * resolvedCellSize;
-            var dragActivationDistance = resolvedCellSize * DragActivationInCells;
+            _resolvedCellSize = Mathf.Max(0.01f, cellSize);
+            _inverseCellSize = 1f / _resolvedCellSize;
+            _boardWidthWorld = Mathf.Max(0, _gridDimensions.x) * _resolvedCellSize;
+            _boardHeightWorld = Mathf.Max(0, _gridDimensions.y) * _resolvedCellSize;
+            var dragActivationDistance = _resolvedCellSize * DragActivationInCells;
             _dragActivationDistanceSqr = dragActivationDistance * dragActivationDistance;
         }
     }

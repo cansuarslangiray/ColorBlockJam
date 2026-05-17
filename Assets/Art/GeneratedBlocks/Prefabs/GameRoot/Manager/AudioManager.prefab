@@ -308,5 +308,4 @@ MonoBehaviour:
   buttonClick: {fileID: 8300000, guid: 0d9b1779a424b411594e6a10a4fc6ce8, type: 3}
   levelFail: {fileID: 8300000, guid: aedb62463703e4187ab61d2a98084d25, type: 3}
   blockSelect: {fileID: 8300000, guid: 0a081f95782544bc397f29d5c361d26e, type: 3}
-  blockMove: {fileID: 8300000, guid: 945d2bc1ade5a42d58c593709b458764, type: 3}
   blockMatchSuccess: {fileID: 8300000, guid: 740f9694bcceb4ac1bce2a035eb0df80, type: 3}

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Runtime.Data;
+using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -25,15 +26,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
 
-        [Header("Runtime Naming")] [SerializeField]
-        private bool applyRuntimeNames;
-
-        [SerializeField] private string boardBackdropName = "BoardBackdrop";
-        [SerializeField] private string gridCellNamePrefix = "GridCell";
-        [SerializeField] private string borderNamePrefix = "Border";
-        [SerializeField] private string doorNamePrefix = "Door";
-        [SerializeField] private string blockRootNamePrefix = "BlockRoot";
-        [SerializeField] private string blockCellNamePrefix = "BlockCell";
+        private readonly Dictionary<BlockColor, Material> _configuredMaterialByColor = new();
+        private bool _isConfiguredMaterialCacheDirty = true;
+        
+        private const string BoardBackdropName = "BoardBackdrop";
+        private const string GridCellNamePrefix = "GridCell";
+        private const string BorderNamePrefix = "Border";
+        private const string DoorNamePrefix = "Door";
+        private const string BlockRootNamePrefix = "BlockRoot";
+        private const string BlockCellNamePrefix = "BlockCell";
 
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
@@ -91,8 +92,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
 
-        private BoardGameplayConfig ResolvedGameplayConfig => gameplayConfig ? gameplayConfig :
-            boardController.GameplayConfig;
+        private BoardGameplayConfig ResolvedGameplayConfig =>
+            gameplayConfig ? gameplayConfig : boardController.GameplayConfig;
 
         private float MoveDuration => Mathf.Max(0.05f,
             ResolvedGameplayConfig ? ResolvedGameplayConfig.blockMoveDuration : blockMoveDuration);
@@ -120,10 +121,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private float ExitMinScaleMultiplier => Mathf.Clamp01(
             ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitMinScaleMultiplier : doorExitMinScaleMultiplier);
 
-        private void OnEnable()
-        {
-            SubscribeBoardEvents();
-        }
+        private void OnEnable() => SubscribeBoardEvents();
+
+        private void OnValidate() => _isConfiguredMaterialCacheDirty = true;
 
         private void OnDisable()
         {
@@ -155,10 +155,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         }
 
         [ContextMenu("Build Blocks From Level JSON")]
-        public void BuildBlocksFromLevelJson()
-        {
-            BuildForLevel(sourceLevel);
-        }
+        public void BuildBlocksFromLevelJson() => BuildForLevel(sourceLevel);
 
         private void EnsureBaseGridSize(Vector2Int levelGridSize)
         {
@@ -173,9 +170,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 Mathf.Max(_baseGridSize.y, levelGridSize.y));
         }
 
-        private static int GetSourceBlockCount(LevelJsonData levelData)
-        {
-            return levelData != null && levelData.blocks != null ? levelData.blocks.Count : 0;
-        }
+        private static int GetSourceBlockCount(LevelJsonData levelData) =>
+            levelData != null && levelData.blocks != null ? levelData.blocks.Count : 0;
     }
 }

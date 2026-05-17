@@ -15,52 +15,80 @@ namespace Runtime.Controllers
         [SerializeField] private InputActionReference pointerPositionActionReference;
 
         private bool _gestureActive;
+        private bool _inputActionsReady;
+        private bool _inputActionsBound;
+        private InputAction _pointerPressAction;
+        private InputAction _pointerPositionAction;
         private readonly List<RaycastResult> _uiRaycastResults = new();
         private PointerEventData _pointerEventData;
         private EventSystem _cachedEventSystem;
 
-        private InputAction PointerPressAction =>
-            pointerPressActionReference != null ? pointerPressActionReference.action : null;
-
-        private InputAction PointerPositionAction =>
-            pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
+        private void Awake() => ResolveInputActions();
 
         private void OnEnable()
         {
+            if (!_inputActionsReady)
+            {
+                ResolveInputActions();
+            }
+
+            if (!_inputActionsReady || _inputActionsBound)
+            {
+                return;
+            }
+
             EnableInputActions();
         }
 
         private void OnDisable()
         {
-            DisableInputActions();
+            if (_inputActionsBound)
+            {
+                DisableInputActions();
+            }
+
             EndActiveGesture();
+        }
+
+        private void ResolveInputActions()
+        {
+            _pointerPressAction = pointerPressActionReference ? pointerPressActionReference.action : null;
+            _pointerPositionAction = pointerPositionActionReference ? pointerPositionActionReference.action : null;
+            _inputActionsReady = boardController != null && _pointerPressAction != null && _pointerPositionAction != null;
+
+            if (_inputActionsReady)
+            {
+                return;
+            }
+
+            Debug.LogError($"{nameof(BoardInputController)} is missing required references.", this);
         }
 
         private void EnableInputActions()
         {
-            PointerPressAction.started += OnPointerPressStarted;
-            PointerPressAction.canceled += OnPointerPressCanceled;
-            PointerPositionAction.performed += OnPointerPositionPerformed;
+            _pointerPressAction.started += OnPointerPressStarted;
+            _pointerPressAction.canceled += OnPointerPressCanceled;
+            _pointerPositionAction.performed += OnPointerPositionPerformed;
 
-            PointerPositionAction.Enable();
-            PointerPressAction.Enable();
+            _pointerPositionAction.Enable();
+            _pointerPressAction.Enable();
+            _inputActionsBound = true;
         }
 
         private void DisableInputActions()
         {
-            PointerPressAction.started -= OnPointerPressStarted;
-            PointerPressAction.canceled -= OnPointerPressCanceled;
-            PointerPressAction.Disable();
-            
-            PointerPositionAction.performed -= OnPointerPositionPerformed;
-            PointerPositionAction.Disable();
+            _pointerPressAction.started -= OnPointerPressStarted;
+            _pointerPressAction.canceled -= OnPointerPressCanceled;
+            _pointerPressAction.Disable();
+
+            _pointerPositionAction.performed -= OnPointerPositionPerformed;
+            _pointerPositionAction.Disable();
+            _inputActionsBound = false;
         }
 
         private void OnPointerPressStarted(InputAction.CallbackContext context)
         {
-            var pointerPosition = PointerPositionAction != null
-                ? PointerPositionAction.ReadValue<Vector2>()
-                : Vector2.zero;
+            var pointerPosition = _pointerPositionAction.ReadValue<Vector2>();
 
             if (_gestureActive || ShouldIgnorePointer(pointerPosition))
             {
@@ -76,7 +104,7 @@ namespace Runtime.Controllers
                 return;
             }
 
-            if (!PointerPressAction.IsPressed())
+            if (!_pointerPressAction.IsPressed())
             {
                 EndActiveGesture();
                 return;
@@ -86,10 +114,7 @@ namespace Runtime.Controllers
             boardController.TryUpdatePointerGesture(pointerPosition, inputCamera);
         }
 
-        private void OnPointerPressCanceled(InputAction.CallbackContext context)
-        {
-            EndActiveGesture();
-        }
+        private void OnPointerPressCanceled(InputAction.CallbackContext context) => EndActiveGesture();
 
         private void EndActiveGesture()
         {

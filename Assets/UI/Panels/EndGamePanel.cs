@@ -14,10 +14,10 @@ namespace UI.Panels
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
-        private Action _actionHandler = delegate { };
-        private Action _continueAction = delegate { };
-        private Action _retryAction = delegate { };
-        private Action _restartAction = delegate { };
+        private Action _actionHandler;
+        private Action _continueAction;
+        private Action _retryAction;
+        private Action _restartAction;
         protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
@@ -29,30 +29,15 @@ namespace UI.Panels
             Hide();
         }
 
-        public void BindContinueAction(Action onContinueRequested)
-        {
-            _continueAction = onContinueRequested;
-        }
+        public void BindContinueAction(Action onContinueRequested) => _continueAction = onContinueRequested;
 
-        public void BindRetryAction(Action onRetryRequested)
-        {
-            _retryAction = onRetryRequested;
-        }
+        public void BindRetryAction(Action onRetryRequested) => _retryAction = onRetryRequested;
 
-        public void BindRestartAction(Action onRestartRequested)
-        {
-            _restartAction = onRestartRequested;
-        }
+        public void BindRestartAction(Action onRestartRequested) => _restartAction = onRestartRequested;
 
-        public void SubscribeToState()
-        {
-            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
-        }
+        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
-        public void UnsubscribeFromState()
-        {
-             UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
-        }
+        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
 
         private void HandleGameStateChanged(GameState state)
         {
@@ -93,7 +78,7 @@ namespace UI.Panels
 
         private void HandleActionClicked()
         {
-             AudioManager.Instance.PlayButtonClick();
+            AudioManager.Instance.PlayButtonClick();
             _actionHandler();
         }
 

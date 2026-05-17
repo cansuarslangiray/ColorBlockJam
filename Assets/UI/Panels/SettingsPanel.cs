@@ -8,7 +8,7 @@ namespace UI.Panels
 {
     public class SettingsPanel : GamePanel
     {
-        public event Action<bool> OpenStateChanged = delegate { };
+        public event Action<bool> OpenStateChanged;
 
         private VisualElement _musicToggle;
         private VisualElement _sfxToggle;
@@ -19,15 +19,9 @@ namespace UI.Panels
         private bool _isOpen;
         private bool _isReady;
 
-        public void SubscribeToState()
-        {
-            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
-        }
+        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
-        public void UnsubscribeFromState()
-        {
-            UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
-        }
+        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
 
         protected override void CacheElements()
         {
@@ -37,7 +31,7 @@ namespace UI.Panels
             _sfxToggleLabel = Root.Q<Label>("settings-sfx-toggle-label");
             _closeButton = Root.Q<Button>("settings-close");
             _scrim = Root.Q<VisualElement>("settings-scrim");
-            
+
             _closeButton.clicked += HandleCloseClicked;
             _musicToggle.RegisterCallback<ClickEvent>(HandleMusicToggleClicked);
             _sfxToggle.RegisterCallback<ClickEvent>(HandleSfxToggleClicked);
@@ -77,7 +71,7 @@ namespace UI.Panels
             base.Show();
             if (shouldNotify)
             {
-                OpenStateChanged(true);
+                OpenStateChanged?.Invoke(true);
             }
         }
 
@@ -93,7 +87,7 @@ namespace UI.Panels
             base.Hide();
             if (shouldNotify)
             {
-                OpenStateChanged(false);
+                OpenStateChanged?.Invoke(false);
             }
         }
 
@@ -124,20 +118,11 @@ namespace UI.Panels
             toggle.EnableInClassList("settings-switch-off", !isEnabled);
         }
 
-        private void HandleGameStateChanged(GameState _)
-        {
-            Hide();
-        }
+        private void HandleGameStateChanged(GameState _) => Hide();
 
-        private void HandleCloseClicked()
-        {
-            ClosePanel();
-        }
+        private void HandleCloseClicked() => ClosePanel();
 
-        private void HandleScrimClicked(ClickEvent _)
-        {
-            ClosePanel();
-        }
+        private void HandleScrimClicked(ClickEvent _) => ClosePanel();
 
         private void ClosePanel()
         {
@@ -154,18 +139,20 @@ namespace UI.Panels
         {
             AudioManager.Instance.PlayButtonClick();
             var settings = SettingsManager.Instance;
-            settings.SetMusicEnabled(!settings.MusicEnabled);
-            AudioManager.Instance.OnMusicToggleChanged();
-            RefreshFromSettings();
+            if (settings.SetMusicEnabled(!settings.MusicEnabled))
+            {
+                RefreshFromSettings();
+            }
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
             AudioManager.Instance.PlayButtonClick();
             var settings = SettingsManager.Instance;
-            settings.SetSfxEnabled(!settings.SfxEnabled);
-            AudioManager.Instance.OnSfxToggleChanged();
-            RefreshFromSettings();
+            if (settings.SetSfxEnabled(!settings.SfxEnabled))
+            {
+                RefreshFromSettings();
+            }
         }
     }
 }

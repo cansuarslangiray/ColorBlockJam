@@ -36,6 +36,7 @@ namespace Runtime.Data
 
         [NonSerialized] private List<DoorOpeningData> _cachedDoorOpenings = new();
         [NonSerialized] private bool _isDoorOpeningsCacheDirty = true;
+        [NonSerialized] private List<Vector2Int> _doorCellsBuffer = new(8);
 
         public IReadOnlyList<DoorOpeningData> GetDoorOpenings()
         {
@@ -57,13 +58,13 @@ namespace Runtime.Data
             blocks ??= new List<LevelJsonBlockData>();
             SynchronizeBlockShapeKeys();
 
-            var doorCellsBuffer = new List<Vector2Int>(8);
+            _doorCellsBuffer ??= new List<Vector2Int>(8);
             for (var i = doors.Count - 1; i >= 0; i--)
             {
                 var door = doors[i];
                 door.openingWidth = Mathf.Max(1, door.openingWidth);
 
-                if (!DoorOpeningMap.TryCollectDoorCells(door, gridDimensions, doorCellsBuffer))
+                if (!DoorOpeningMap.TryCollectDoorCells(door, gridDimensions, _doorCellsBuffer))
                 {
                     doors.RemoveAt(i);
                     continue;

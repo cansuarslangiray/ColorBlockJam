@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Runtime.Data;
 using Runtime.Domain.Enums;
 using UnityEngine;
 
@@ -10,15 +9,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private const string BlockStudRootName = "__BlockStuds";
 
-        private PooledVisual CreateGridCellObject(Transform parent, Vector2Int cell)
-        {
-            return CreateVisualObject(parent, GetRuntimeName(gridCellNamePrefix, cell.x, cell.y), gridCellPrefab, false);
-        }
+        private PooledVisual CreateGridCellObject(Transform parent, Vector2Int cell) =>
+            CreateVisualObject(parent, GetRuntimeName(GridCellNamePrefix, cell.x, cell.y), gridCellPrefab, false);
 
         private PooledVisual CreateBlockCellObject(Transform parent)
         {
             var prefab = ResolveBlockCellPrefab();
-            return CreateVisualObject(parent, GetRuntimeName(blockCellNamePrefix), prefab, true, true);
+            return CreateVisualObject(parent, BlockCellNamePrefix, prefab, true, true);
         }
 
         private PooledVisual CreateVisualObject(Transform parent, string objectName, GameObject prefab, bool cacheRenderer,
@@ -100,21 +97,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private static Renderer[] ResolveRenderers(GameObject target)
         {
-            if (!target)
-            {
-                return Array.Empty<Renderer>();
-            }
-
-            return target.GetComponentsInChildren<Renderer>(true);
+            return !target ? Array.Empty<Renderer>() : target.GetComponentsInChildren<Renderer>(true);
         }
 
         private static void DisableCollider(GameObject target)
         {
-            if (!target)
-            {
-                return;
-            }
-
             if (target.TryGetComponent<Collider>(out var collider))
             {
                 collider.enabled = false;
@@ -129,17 +116,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ApplyWorldTransform(Transform target, Vector3 position, Vector3 scale)
-        {
+        private static void ApplyWorldTransform(Transform target, Vector3 position, Vector3 scale) =>
             ApplyWorldTransform(target, position, Quaternion.identity, scale);
-        }
 
         private static void ApplyWorldTransform(Transform target, Vector3 position, Quaternion rotation, Vector3 scale)
         {
-            if (!target)
-            {
-                return;
-            }
 
             if (target.position != position)
             {
@@ -188,9 +169,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             var renderers = visual.Renderers;
-            for (var i = 0; i < renderers.Length; i++)
+            foreach (var renderer in renderers)
             {
-                var renderer = renderers[i];
                 if (!renderer || renderer.sharedMaterial == material)
                 {
                     continue;
@@ -202,7 +182,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Material GetDoorMaterial(BlockColor colorType)
         {
-            var configuredMaterial = GetConfiguredMaterial(materialsByColor, colorType);
+            var configuredMaterial = GetConfiguredMaterial(colorType);
             if (configuredMaterial != null)
             {
                 return configuredMaterial;
@@ -213,73 +193,65 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Material GetBlockMaterial(BlockColor colorType)
         {
-            var configuredMaterial = GetConfiguredMaterial(materialsByColor, colorType);
+            var configuredMaterial = GetConfiguredMaterial(colorType);
             if (configuredMaterial != null)
             {
                 return configuredMaterial;
             }
 
             var profileMaterial = visualProfile ? visualProfile.GetMaterial(colorType) : null;
-            if (profileMaterial != null)
-            {
-                return profileMaterial;
-            }
-
-            return null;
+            return profileMaterial != null ? profileMaterial : null;
         }
 
-        private static Material GetConfiguredMaterial(IReadOnlyList<BlockColorMaterialEntry> entries, BlockColor colorType)
+        private Material GetConfiguredMaterial(BlockColor colorType)
         {
-            if (entries == null)
+            EnsureConfiguredMaterialCache();
+            return _configuredMaterialByColor.GetValueOrDefault(colorType);
+        }
+
+        private void EnsureConfiguredMaterialCache()
+        {
+            if (!_isConfiguredMaterialCacheDirty)
             {
-                return null;
+                return;
             }
 
-            foreach (var entry in entries)
+            _configuredMaterialByColor.Clear();
+            if (materialsByColor == null)
             {
-                if (entry.colorType == colorType)
+                _isConfiguredMaterialCacheDirty = false;
+                return;
+            }
+
+            for (var i = 0; i < materialsByColor.Count; i++)
+            {
+                var entry = materialsByColor[i];
+                if (!entry.material || _configuredMaterialByColor.ContainsKey(entry.colorType))
                 {
-                    return entry.material;
+                    continue;
                 }
+
+                _configuredMaterialByColor[entry.colorType] = entry.material;
             }
 
-            return null;
+            _isConfiguredMaterialCacheDirty = false;
         }
 
-        private string GetRuntimeName(string fixedName)
-        {
-            return applyRuntimeNames ? fixedName : null;
-        }
 
         private string GetRuntimeName(string prefix, int index)
         {
-            if (!applyRuntimeNames)
-            {
-                return null;
-            }
-
             var resolvedPrefix = string.IsNullOrWhiteSpace(prefix) ? "Pooled" : prefix;
             return resolvedPrefix + "_" + index;
         }
 
         private string GetRuntimeName(string prefix, int x, int y)
         {
-            if (!applyRuntimeNames)
-            {
-                return null;
-            }
-
             var resolvedPrefix = string.IsNullOrWhiteSpace(prefix) ? "Pooled" : prefix;
             return resolvedPrefix + "_" + x + "_" + y;
         }
 
         private static void RenameIfConfigured(GameObject target, string nameValue)
         {
-            if (!target || string.IsNullOrWhiteSpace(nameValue))
-            {
-                return;
-            }
-
             if (target.name != nameValue)
             {
                 target.name = nameValue;

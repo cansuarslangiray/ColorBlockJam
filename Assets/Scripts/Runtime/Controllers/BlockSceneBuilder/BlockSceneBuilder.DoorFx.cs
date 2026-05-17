@@ -23,9 +23,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            for (var i = 0; i < openings.Count; i++)
+            foreach (var openingData in openings)
             {
-                _activeDoorOpenings.Add(openings[i]);
+                _activeDoorOpenings.Add(openingData);
             }
         }
 
@@ -79,7 +79,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             var doorTransform = _doorPool[doorIndex].Transform;
-            if (doorTransform == null)
+            if (!doorTransform)
             {
                 return;
             }

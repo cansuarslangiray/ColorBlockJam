@@ -1,3 +1,4 @@
+using System;
 using Runtime.Core;
 using UnityEngine;
 
@@ -8,7 +9,10 @@ namespace Runtime.Managers
     {
         public bool MusicEnabled { get; private set; } = true;
         public bool SfxEnabled { get; private set; } = true;
-        
+
+        public event Action<bool> MusicEnabledChanged;
+        public event Action<bool> SfxEnabledChanged;
+
         public bool SetMusicEnabled(bool isEnabled)
         {
             if (MusicEnabled == isEnabled)
@@ -17,6 +21,7 @@ namespace Runtime.Managers
             }
 
             MusicEnabled = isEnabled;
+            MusicEnabledChanged?.Invoke(isEnabled);
             return true;
         }
 
@@ -28,6 +33,7 @@ namespace Runtime.Managers
             }
 
             SfxEnabled = isEnabled;
+            SfxEnabledChanged?.Invoke(isEnabled);
             return true;
         }
     }

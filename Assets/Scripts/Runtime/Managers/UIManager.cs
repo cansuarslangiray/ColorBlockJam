@@ -9,14 +9,13 @@ namespace Runtime.Managers
     [DisallowMultipleComponent]
     public class UIManager : SingletonMonoBehaviour<UIManager>
     {
-        [Header("Panels")]
-        [SerializeField] private StartPanel startPanel;
+        [Header("Panels")] [SerializeField] private StartPanel startPanel;
         [SerializeField] private EndGamePanel endGamePanel;
         [SerializeField] private TopBarPanel topBarPanel;
         [SerializeField] private SettingsPanel settingsPanel;
 
-        public event Action<GameState> GameStateChanged = delegate { };
-        public event Action LevelTimerExpired = delegate { };
+        public event Action<GameState> GameStateChanged;
+        public event Action LevelTimerExpired;
 
         protected override void Awake()
         {
@@ -31,10 +30,7 @@ namespace Runtime.Managers
             settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
         }
 
-        private void Start()
-        {
-            PublishState(GameState.StartScreen);
-        }
+        private void Start() => PublishState(GameState.StartScreen);
 
         protected override void OnDestroy()
         {
@@ -47,70 +43,31 @@ namespace Runtime.Managers
             base.OnDestroy();
         }
 
-        public void BindStartAction(Action onStartRequested)
-        {
-            startPanel.BindStartAction(onStartRequested);
-        }
+        public void BindStartAction(Action onStartRequested) => startPanel.BindStartAction(onStartRequested);
 
-        public void BindContinueAction(Action onContinueRequested)
-        {
-            endGamePanel.BindContinueAction(onContinueRequested);
-        }
+        public void BindContinueAction(Action onContinueRequested) => endGamePanel.BindContinueAction(onContinueRequested);
 
-        public void BindRetryAction(Action onRetryRequested)
-        {
-            endGamePanel.BindRetryAction(onRetryRequested);
-        }
+        public void BindRetryAction(Action onRetryRequested) => endGamePanel.BindRetryAction(onRetryRequested);
 
-        public void BindRestartAction(Action onRestartRequested)
-        {
-            endGamePanel.BindRestartAction(onRestartRequested);
-        }
+        public void BindRestartAction(Action onRestartRequested) => endGamePanel.BindRestartAction(onRestartRequested);
 
-        public void BindReloadAction(Action onReloadRequested)
-        {
-            topBarPanel.BindReloadAction(onReloadRequested);
-        }
+        public void BindReloadAction(Action onReloadRequested) => topBarPanel.BindReloadAction(onReloadRequested);
 
-        public void PublishState(GameState state)
-        {
-            GameStateChanged(state);
-        }
+        public void PublishState(GameState state) => GameStateChanged?.Invoke(state);
+        
+        public void SetLevel(int levelNumber) => topBarPanel.SetLevel(levelNumber);
 
-        public void SetLevel(int levelNumber)
-        {
-            topBarPanel.SetLevel(levelNumber);
-        }
+        public void ResetTimerDisplay() => topBarPanel.SetTimer(0);
 
-        public void ResetTimerDisplay()
-        {
-            topBarPanel.SetTimer(0);
-        }
+        public void StartLevelTimer(float durationSeconds) => topBarPanel.StartTimer(durationSeconds);
 
-        public void StartLevelTimer(float durationSeconds)
-        {
-            topBarPanel.StartTimer(durationSeconds);
-        }
+        public void StopLevelTimer() => topBarPanel.StopTimer();
 
-        public void StopLevelTimer()
-        {
-            topBarPanel.StopTimer();
-        }
+        private void PauseLevelTimer() => topBarPanel.PauseTimer();
 
-        public void PauseLevelTimer()
-        {
-            topBarPanel.PauseTimer();
-        }
+        private void ResumeLevelTimer() => topBarPanel.ResumeTimer();
 
-        public void ResumeLevelTimer()
-        {
-            topBarPanel.ResumeTimer();
-        }
-
-        private void HandleTimerExpired()
-        {
-            LevelTimerExpired();
-        }
+        private void HandleTimerExpired() => LevelTimerExpired?.Invoke();
 
         private void HandleSettingsPanelOpenStateChanged(bool isOpen)
         {

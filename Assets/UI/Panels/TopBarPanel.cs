@@ -24,10 +24,13 @@ namespace UI.Panels
         private bool _isTimerRunning;
         private bool _isTimerPaused;
         private bool _isReady;
-        private Action _reloadAction = delegate { };
-        private Action _settingsAction = delegate { };
+        private WaitForSeconds _tickWaitInstruction;
+        private float _cachedTickInterval = -1f;
+        private int _resolvedWarningThreshold;
+        private Action _reloadAction;
+        private Action _settingsAction;
 
-        public event Action TimerExpired = delegate { };
+        public event Action TimerExpired;
 
         protected override void CacheElements()
         {
@@ -40,29 +43,25 @@ namespace UI.Panels
             _reloadButton.clicked += HandleReloadClicked;
             _settingsButton.clicked += HandleSettingsClicked;
             _isReady = true;
+            RefreshTimerStyleThreshold();
             SetTimer(0);
             Hide();
         }
 
-        public void SubscribeToState()
+        private void OnValidate()
         {
-            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
+            RefreshTimerStyleThreshold();
+            _cachedTickInterval = -1f;
+            _tickWaitInstruction = null;
         }
 
-        public void UnsubscribeFromState()
-        {
-            UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
-        }
+        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
-        public void BindReloadAction(Action onReloadRequested)
-        {
-            _reloadAction = onReloadRequested;
-        }
+        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
 
-        public void BindSettingsAction(Action onSettingsRequested)
-        {
-            _settingsAction = onSettingsRequested;
-        }
+        public void BindReloadAction(Action onReloadRequested) => _reloadAction = onReloadRequested;
+
+        public void BindSettingsAction(Action onSettingsRequested) => _settingsAction = onSettingsRequested;
 
         public void StartTimer(float durationSeconds)
         {
@@ -76,7 +75,7 @@ namespace UI.Panels
             if (_remainingSeconds <= 0)
             {
                 _isTimerRunning = false;
-                TimerExpired();
+                TimerExpired?.Invoke();
                 return;
             }
 
@@ -153,7 +152,7 @@ namespace UI.Panels
 
         private IEnumerator TickRoutine()
         {
-            var waitInstruction = new WaitForSeconds(Mathf.Max(0.2f, tickIntervalSeconds));
+            var waitInstruction = ResolveTickInstruction();
             while (_remainingSeconds > 0)
             {
                 yield return waitInstruction;
@@ -164,24 +163,17 @@ namespace UI.Panels
             _tickRoutine = null;
             _isTimerRunning = false;
             SetTimerState(0);
-            TimerExpired();
+            TimerExpired?.Invoke();
         }
 
         private void HandleGameStateChanged(GameState state)
         {
-            if (state == GameState.StartScreen || state == GameState.Playing)
+            Show();
+            if (state == GameState.StartScreen)
             {
-                Show();
-                if (state == GameState.StartScreen)
-                {
-                    StopTimer();
-                    SetTimer(0);
-                }
-
-                return;
+                StopTimer();
+                SetTimer(0);
             }
-
-            Hide();
         }
 
         private void SetTimerState(int totalSeconds)
@@ -191,15 +183,30 @@ namespace UI.Panels
                 return;
             }
 
-            var warningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
             var isCritical = _isTimerRunning && totalSeconds > 0 && totalSeconds <= criticalThresholdSeconds;
-            var isWarning = _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= warningThreshold;
+            var isWarning =
+                _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= _resolvedWarningThreshold;
             var shouldPulse = isCritical && totalSeconds % 2 == 0;
 
             _timerChip.EnableInClassList("timer-warning", isWarning);
             _timerChip.EnableInClassList("timer-critical", isCritical);
             _timerChip.EnableInClassList("timer-pulse", shouldPulse);
         }
+
+        private WaitForSeconds ResolveTickInstruction()
+        {
+            var resolvedInterval = Mathf.Max(0.2f, tickIntervalSeconds);
+            if (_tickWaitInstruction == null || !Mathf.Approximately(_cachedTickInterval, resolvedInterval))
+            {
+                _cachedTickInterval = resolvedInterval;
+                _tickWaitInstruction = new WaitForSeconds(resolvedInterval);
+            }
+
+            return _tickWaitInstruction;
+        }
+
+        private void RefreshTimerStyleThreshold() =>
+            _resolvedWarningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
 
         private void HandleReloadClicked()
         {
@@ -213,10 +220,7 @@ namespace UI.Panels
             _settingsAction();
         }
 
-        private void OnDisable()
-        {
-            StopTimer();
-        }
+        private void OnDisable() => StopTimer();
 
         private void OnDestroy()
         {

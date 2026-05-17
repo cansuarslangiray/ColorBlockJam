@@ -12,6 +12,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private const float BorderSegmentEpsilon = 0.0001f;
         private readonly List<BorderSpan> _borderGapBuffer = new();
         private readonly List<BorderSpan> _borderSegmentBuffer = new();
+        private readonly List<DoorOpeningData> _upEdgeOpeningsBuffer = new();
+        private readonly List<DoorOpeningData> _downEdgeOpeningsBuffer = new();
+        private readonly List<DoorOpeningData> _leftEdgeOpeningsBuffer = new();
+        private readonly List<DoorOpeningData> _rightEdgeOpeningsBuffer = new();
 
         private void EnsureBoardPool(Vector2Int gridSize)
         {
@@ -33,11 +37,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
-            _backdropObject ??= CreateVisualObject(boardContentRoot, GetRuntimeName(boardBackdropName), backdropPrefab, false);
+            _backdropObject ??= CreateVisualObject(boardContentRoot, BoardBackdropName, backdropPrefab, false);
 
             while (_borderPool.Count < 4)
             {
-                _borderPool.Add(CreateVisualObject(boardContentRoot, GetRuntimeName(borderNamePrefix, _borderPool.Count), borderPrefab, false));
+                _borderPool.Add(CreateVisualObject(boardContentRoot, GetRuntimeName(BorderNamePrefix, _borderPool.Count), borderPrefab, false));
             }
         }
 
@@ -101,9 +105,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             if (dims.x <= 0 || dims.y <= 0 || cellSize <= 0f)
             {
-                for (var i = 0; i < _borderPool.Count; i++)
+                foreach (var border in _borderPool)
                 {
-                    SetActiveIfChanged(_borderPool[i].GameObject, false);
+                    SetActiveIfChanged(border.GameObject, false);
                 }
 
                 return;
@@ -126,10 +130,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var verticalMin = -rangeExtension;
             var verticalMax = height + rangeExtension;
 
+            CacheDoorOpeningsByEdge(openings);
+
             var borderIndex = 0;
 
-            borderIndex += ApplyHorizontalEdgeSegments(
-                Direction.Up,
+            borderIndex += ApplyEdgeSegments(
+                true,
                 boardOrigin.x,
                 boardOrigin.y + height + padding + (thickness * 0.5f),
                 horizontalMin,
@@ -138,11 +144,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 depth,
                 borderZ,
                 cellSize,
-                openings,
+                _upEdgeOpeningsBuffer,
                 borderIndex);
 
-            borderIndex += ApplyHorizontalEdgeSegments(
-                Direction.Down,
+            borderIndex += ApplyEdgeSegments(
+                true,
                 boardOrigin.x,
                 boardOrigin.y - padding - (thickness * 0.5f),
                 horizontalMin,
@@ -151,11 +157,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 depth,
                 borderZ,
                 cellSize,
-                openings,
+                _downEdgeOpeningsBuffer,
                 borderIndex);
 
-            borderIndex += ApplyVerticalEdgeSegments(
-                Direction.Left,
+            borderIndex += ApplyEdgeSegments(
+                false,
                 boardOrigin.y,
                 boardOrigin.x - padding - (thickness * 0.5f),
                 verticalMin,
@@ -164,11 +170,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 depth,
                 borderZ,
                 cellSize,
-                openings,
+                _leftEdgeOpeningsBuffer,
                 borderIndex);
 
-            borderIndex += ApplyVerticalEdgeSegments(
-                Direction.Right,
+            borderIndex += ApplyEdgeSegments(
+                false,
                 boardOrigin.y,
                 boardOrigin.x + width + padding + (thickness * 0.5f),
                 verticalMin,
@@ -177,7 +183,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 depth,
                 borderZ,
                 cellSize,
-                openings,
+                _rightEdgeOpeningsBuffer,
                 borderIndex);
 
             for (var i = borderIndex; i < _borderPool.Count; i++)
@@ -186,25 +192,24 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private int ApplyHorizontalEdgeSegments(
-            Direction edgeDirection,
-            float originX,
-            float edgeWorldY,
+        private int ApplyEdgeSegments(
+            bool isHorizontalEdge,
+            float primaryOrigin,
+            float secondaryWorldAxis,
             float rangeMin,
             float rangeMax,
             float thickness,
             float depth,
             float borderZ,
             float cellSize,
-            IReadOnlyList<DoorOpeningData> openings,
+            IReadOnlyList<DoorOpeningData> edgeOpenings,
             int borderStartIndex)
         {
-            BuildBorderSegmentsForEdge(edgeDirection, rangeMin, rangeMax, cellSize, openings, _borderSegmentBuffer);
+            BuildBorderSegmentsForRange(rangeMin, rangeMax, cellSize, edgeOpenings, _borderSegmentBuffer);
 
             var appliedCount = 0;
-            for (var i = 0; i < _borderSegmentBuffer.Count; i++)
+            foreach (var segment in _borderSegmentBuffer)
             {
-                var segment = _borderSegmentBuffer[i];
                 var segmentLength = segment.Max - segment.Min;
                 if (segmentLength <= BorderSegmentEpsilon)
                 {
@@ -214,9 +219,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var poolIndex = borderStartIndex + appliedCount;
                 EnsureBorderVisual(poolIndex);
 
-                var centerX = originX + ((segment.Min + segment.Max) * 0.5f);
-                var position = new Vector3(centerX, edgeWorldY, borderZ);
-                var scale = new Vector3(segmentLength, thickness, depth);
+                var centerOnPrimaryAxis = primaryOrigin + ((segment.Min + segment.Max) * 0.5f);
+                var position = isHorizontalEdge
+                    ? new Vector3(centerOnPrimaryAxis, secondaryWorldAxis, borderZ)
+                    : new Vector3(secondaryWorldAxis, centerOnPrimaryAxis, borderZ);
+                var scale = isHorizontalEdge
+                    ? new Vector3(segmentLength, thickness, depth)
+                    : new Vector3(thickness, segmentLength, depth);
                 ApplyBorderTransform(_borderPool[poolIndex], position, scale);
                 appliedCount++;
             }
@@ -224,66 +233,26 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return appliedCount;
         }
 
-        private int ApplyVerticalEdgeSegments(
-            Direction edgeDirection,
-            float originY,
-            float edgeWorldX,
-            float rangeMin,
-            float rangeMax,
-            float thickness,
-            float depth,
-            float borderZ,
-            float cellSize,
-            IReadOnlyList<DoorOpeningData> openings,
-            int borderStartIndex)
-        {
-            BuildBorderSegmentsForEdge(edgeDirection, rangeMin, rangeMax, cellSize, openings, _borderSegmentBuffer);
-
-            var appliedCount = 0;
-            for (var i = 0; i < _borderSegmentBuffer.Count; i++)
-            {
-                var segment = _borderSegmentBuffer[i];
-                var segmentLength = segment.Max - segment.Min;
-                if (segmentLength <= BorderSegmentEpsilon)
-                {
-                    continue;
-                }
-
-                var poolIndex = borderStartIndex + appliedCount;
-                EnsureBorderVisual(poolIndex);
-
-                var centerY = originY + ((segment.Min + segment.Max) * 0.5f);
-                var position = new Vector3(edgeWorldX, centerY, borderZ);
-                var scale = new Vector3(thickness, segmentLength, depth);
-                ApplyBorderTransform(_borderPool[poolIndex], position, scale);
-                appliedCount++;
-            }
-
-            return appliedCount;
-        }
-
-        private void BuildBorderSegmentsForEdge(
-            Direction edgeDirection,
+        private void BuildBorderSegmentsForRange(
             float rangeMin,
             float rangeMax,
             float cellSize,
-            IReadOnlyList<DoorOpeningData> openings,
+            IReadOnlyList<DoorOpeningData> edgeOpenings,
             List<BorderSpan> resultSegments)
         {
             resultSegments.Clear();
             _borderGapBuffer.Clear();
 
-            if (openings != null)
+            if (rangeMax - rangeMin <= BorderSegmentEpsilon)
             {
-                for (var i = 0; i < openings.Count; i++)
-                {
-                    var opening = openings[i];
-                    if (opening.EdgeDirection != edgeDirection)
-                    {
-                        continue;
-                    }
+                return;
+            }
 
-                    var gap = ResolveDoorGapSpan(opening, edgeDirection, cellSize);
+            if (edgeOpenings != null)
+            {
+                for (var i = 0; i < edgeOpenings.Count; i++)
+                {
+                    var gap = ResolveDoorGapSpan(edgeOpenings[i], cellSize);
                     if (gap.Max - gap.Min <= BorderSegmentEpsilon)
                     {
                         continue;
@@ -299,7 +268,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            _borderGapBuffer.Sort((a, b) => a.Min.CompareTo(b.Min));
+            if (_borderGapBuffer.Count > 1)
+            {
+                _borderGapBuffer.Sort((a, b) => a.Min.CompareTo(b.Min));
+            }
 
             var cursor = rangeMin;
             for (var i = 0; i < _borderGapBuffer.Count; i++)
@@ -334,11 +306,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private BorderSpan ResolveDoorGapSpan(DoorOpeningData opening, Direction edgeDirection, float cellSize)
+        private BorderSpan ResolveDoorGapSpan(DoorOpeningData opening, float cellSize)
         {
             int minAxis;
             int maxAxis;
-            if (edgeDirection is Direction.Up or Direction.Down)
+            if (opening.EdgeDirection is Direction.Up or Direction.Down)
             {
                 minAxis = opening.MinCell.x;
                 maxAxis = opening.MaxCell.x;
@@ -355,11 +327,44 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return new BorderSpan(center - (span * 0.5f), center + (span * 0.5f));
         }
 
+        private void CacheDoorOpeningsByEdge(IReadOnlyList<DoorOpeningData> openings)
+        {
+            _upEdgeOpeningsBuffer.Clear();
+            _downEdgeOpeningsBuffer.Clear();
+            _leftEdgeOpeningsBuffer.Clear();
+            _rightEdgeOpeningsBuffer.Clear();
+
+            if (openings == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < openings.Count; i++)
+            {
+                var opening = openings[i];
+                switch (opening.EdgeDirection)
+                {
+                    case Direction.Up:
+                        _upEdgeOpeningsBuffer.Add(opening);
+                        break;
+                    case Direction.Down:
+                        _downEdgeOpeningsBuffer.Add(opening);
+                        break;
+                    case Direction.Left:
+                        _leftEdgeOpeningsBuffer.Add(opening);
+                        break;
+                    case Direction.Right:
+                        _rightEdgeOpeningsBuffer.Add(opening);
+                        break;
+                }
+            }
+        }
+
         private void EnsureBorderVisual(int index)
         {
             while (_borderPool.Count <= index)
             {
-                _borderPool.Add(CreateVisualObject(BoardRoot, GetRuntimeName(borderNamePrefix, _borderPool.Count),
+                _borderPool.Add(CreateVisualObject(BoardRoot, GetRuntimeName(BorderNamePrefix, _borderPool.Count),
                     borderPrefab, false));
             }
         }
@@ -373,7 +378,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             while (_doorPool.Count < requiredCount)
             {
                 _doorPool.Add(CreateVisualObject(doorContentRoot,
-                    GetRuntimeName(doorNamePrefix, _doorPool.Count),
+                    GetRuntimeName(DoorNamePrefix, _doorPool.Count),
                     doorPrefab,
                     true));
             }

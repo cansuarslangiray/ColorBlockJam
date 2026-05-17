@@ -66,11 +66,6 @@ namespace Runtime.Data
             return new BlockShapeRegistry(shapes);
         }
 
-        public string GetShapeKey(BlockShapeJsonData shape)
-        {
-            return shape != null ? shape.ShapeKey : string.Empty;
-        }
-
         public bool TryResolveShape(string shapeKey, out BlockShapeJsonData shape)
         {
             shape = null;

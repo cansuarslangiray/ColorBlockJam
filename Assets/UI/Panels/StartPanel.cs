@@ -15,7 +15,7 @@ namespace UI.Panels
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _startButton;
-        private Action _startAction = delegate { };
+        private Action _startAction;
         protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
@@ -32,20 +32,11 @@ namespace UI.Panels
             Show();
         }
 
-        public void BindStartAction(Action onStartRequested)
-        {
-            _startAction = onStartRequested;
-        }
+        public void BindStartAction(Action onStartRequested) => _startAction = onStartRequested;
 
-        public void SubscribeToState()
-        {
-            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
-        }
+        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
-        public void UnsubscribeFromState()
-        {
-            UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
-        }
+        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
 
         private void HandleGameStateChanged(GameState state)
         {
