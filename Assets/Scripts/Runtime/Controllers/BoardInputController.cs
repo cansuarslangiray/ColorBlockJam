@@ -11,18 +11,19 @@ namespace Runtime.Controllers
         [SerializeField] private BoardController boardController;
         [SerializeField] private Camera inputCamera;
         [SerializeField] private bool ignoreInputWhenPointerIsOverUi = true;
+        [SerializeField] private InputActionReference pointerPressActionReference;
+        [SerializeField] private InputActionReference pointerPositionActionReference;
 
         private bool _gestureActive;
-        private InputAction _pointerPressAction;
-        private InputAction _pointerPositionAction;
         private readonly List<RaycastResult> _uiRaycastResults = new();
         private PointerEventData _pointerEventData;
         private EventSystem _cachedEventSystem;
 
-        private void Awake()
-        {
-            InitializeInputActions();
-        }
+        private InputAction PointerPressAction =>
+            pointerPressActionReference != null ? pointerPressActionReference.action : null;
+
+        private InputAction PointerPositionAction =>
+            pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
 
         private void OnEnable()
         {
@@ -35,61 +36,30 @@ namespace Runtime.Controllers
             EndActiveGesture();
         }
 
-        private void OnDestroy()
-        {
-            DisposeInputActions();
-        }
-
-        private void InitializeInputActions()
-        {
-            if (_pointerPressAction != null && _pointerPositionAction != null)
-            {
-                return;
-            }
-
-            _pointerPressAction = new InputAction("BoardPointerPress", InputActionType.Button, "<Pointer>/press");
-            _pointerPositionAction =
-                new InputAction("BoardPointerPosition", InputActionType.PassThrough, "<Pointer>/position");
-
-            _pointerPressAction.started += OnPointerPressStarted;
-            _pointerPressAction.canceled += OnPointerPressCanceled;
-            _pointerPositionAction.performed += OnPointerPositionPerformed;
-        }
-
         private void EnableInputActions()
         {
-            _pointerPositionAction?.Enable();
-            _pointerPressAction?.Enable();
+            PointerPressAction.started += OnPointerPressStarted;
+            PointerPressAction.canceled += OnPointerPressCanceled;
+            PointerPositionAction.performed += OnPointerPositionPerformed;
+
+            PointerPositionAction.Enable();
+            PointerPressAction.Enable();
         }
 
         private void DisableInputActions()
         {
-            _pointerPressAction?.Disable();
-            _pointerPositionAction?.Disable();
-        }
-
-        private void DisposeInputActions()
-        {
-            if (_pointerPressAction != null)
-            {
-                _pointerPressAction.started -= OnPointerPressStarted;
-                _pointerPressAction.canceled -= OnPointerPressCanceled;
-                _pointerPressAction.Dispose();
-                _pointerPressAction = null;
-            }
-
-            if (_pointerPositionAction != null)
-            {
-                _pointerPositionAction.performed -= OnPointerPositionPerformed;
-                _pointerPositionAction.Dispose();
-                _pointerPositionAction = null;
-            }
+            PointerPressAction.started -= OnPointerPressStarted;
+            PointerPressAction.canceled -= OnPointerPressCanceled;
+            PointerPressAction.Disable();
+            
+            PointerPositionAction.performed -= OnPointerPositionPerformed;
+            PointerPositionAction.Disable();
         }
 
         private void OnPointerPressStarted(InputAction.CallbackContext context)
         {
-            var pointerPosition = _pointerPositionAction != null
-                ? _pointerPositionAction.ReadValue<Vector2>()
+            var pointerPosition = PointerPositionAction != null
+                ? PointerPositionAction.ReadValue<Vector2>()
                 : Vector2.zero;
 
             if (_gestureActive || ShouldIgnorePointer(pointerPosition))
@@ -106,7 +76,7 @@ namespace Runtime.Controllers
                 return;
             }
 
-            if (_pointerPressAction == null || !_pointerPressAction.IsPressed())
+            if (!PointerPressAction.IsPressed())
             {
                 EndActiveGesture();
                 return;

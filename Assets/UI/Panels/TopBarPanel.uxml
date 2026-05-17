@@ -3,6 +3,7 @@
         <Style src="TopBarPanel.uss" />
         <VisualElement name="topbar-shell" class="topbar-shell">
             <VisualElement name="topbar-main-bar" class="topbar-main-bar">
+                <VisualElement class="topbar-level-badge-shadow" picking-mode="Ignore" />
                 <VisualElement name="topbar-level-badge" class="topbar-level-badge">
                     <Label class="topbar-level-caption" text="Level" />
                     <Label name="topbar-level" class="topbar-level" text="1" />

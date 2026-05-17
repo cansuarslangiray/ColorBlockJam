@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Runtime.Data;
-using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -10,7 +9,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Core References")] [SerializeField]
         private BoardController boardController;
 
-        [SerializeField] private LevelData sourceLevel;
+        [SerializeField] private LevelJsonData sourceLevel;
         [SerializeField] private BlockVisualProfile visualProfile;
         [SerializeField] private BoardGameplayConfig gameplayConfig;
         [SerializeField] private Transform boardRoot;
@@ -73,8 +72,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
         private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
-        private readonly Dictionary<BlockColor, Material> _fallbackDoorMaterialByColor = new();
-        private readonly Dictionary<BlockColor, Material> _fallbackBlockMaterialByColor = new();
 
         private PooledVisual _backdropObject;
         private bool _baseGridInitialized;
@@ -127,9 +124,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             StopAllBlockRoutines();
         }
 
-        public void BuildForLevel(LevelData levelData)
+        public void BuildForLevel(LevelJsonData levelData)
         {
-            if (!levelData)
+            if (levelData == null)
             {
                 return;
             }
@@ -150,8 +147,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SubscribeBoardEvents();
         }
 
-        [ContextMenu("Build Blocks From Level Data")]
-        public void BuildBlocksFromLevelData()
+        [ContextMenu("Build Blocks From Level JSON")]
+        public void BuildBlocksFromLevelJson()
         {
             BuildForLevel(sourceLevel);
         }
@@ -169,15 +166,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 Mathf.Max(_baseGridSize.y, levelGridSize.y));
         }
 
-        private static int GetSourceBlockCount(LevelData levelData)
+        private static int GetSourceBlockCount(LevelJsonData levelData)
         {
-            return levelData && levelData.blocks != null ? levelData.blocks.Count : 0;
-        }
-
-        private void OnDestroy()
-        {
-            _fallbackDoorMaterialByColor.Clear();
-            _fallbackBlockMaterialByColor.Clear();
+            return levelData != null && levelData.blocks != null ? levelData.blocks.Count : 0;
         }
     }
 }

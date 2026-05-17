@@ -30,10 +30,10 @@
     padding-right: 40px;
     padding-top: 8px;
     padding-bottom: 8px;
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
+    border-left-width: 6px;
+    border-right-width: 6px;
+    border-top-width: 6px;
+    border-bottom-width: 6px;
     border-left-color: rgb(69, 87, 165);
     border-right-color: rgb(69, 87, 165);
     border-top-color: rgb(69, 87, 165);
@@ -44,6 +44,16 @@
     background-color: rgb(42, 176, 240);
 }
 
+.topbar-level-badge-shadow {
+    position: absolute;
+    left: -60px;
+    top: -4px;
+    width: 189px;
+    height: 189px;
+    border-radius: 999px;
+    background-color: rgba(22, 74, 126, 0.5);
+}
+
 .topbar-level-badge {
     position: absolute;
     left: -65px;
@@ -52,10 +62,10 @@
     height: 189px;
     padding-top: 10px;
     padding-bottom: 8px;
-    border-left-width: 4px;
-    border-right-width: 4px;
-    border-top-width: 4px;
-    border-bottom-width: 4px;
+    border-left-width: 7px;
+    border-right-width: 7px;
+    border-top-width: 7px;
+    border-bottom-width: 7px;
     border-left-color: rgb(69, 87, 165);
     border-right-color: rgb(69, 87, 165);
     border-top-color: rgb(69, 87, 165);
@@ -109,10 +119,10 @@
     min-height: 52px;
     padding-left: 14px;
     padding-right: 14px;
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
+    border-left-width: 6px;
+    border-right-width: 6px;
+    border-top-width: 6px;
+    border-bottom-width: 6px;
     border-left-color: rgb(78, 124, 238);
     border-right-color: rgb(78, 124, 238);
     border-top-color: rgb(78, 124, 238);
@@ -137,10 +147,10 @@
     top: 40px;
     width: 90px;
     min-height: 68px;
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
+    border-left-width: 6px;
+    border-right-width: 6px;
+    border-top-width: 6px;
+    border-bottom-width: 6px;
     border-left-color: rgb(183, 112, 22);
     border-right-color: rgb(183, 112, 22);
     border-top-color: rgb(183, 112, 22);
@@ -207,16 +217,23 @@
     border-radius: 22px;
 }
 
+.compact .topbar-level-badge-shadow {
+    left: -48px;
+    top: -7px;
+    width: 86px;
+    height: 86px;
+}
+
 .compact .topbar-level-badge {
     left: -52px;
     top: -11px;
     width: 86px;
     height: 86px;
     padding-top: 8px;
-    border-left-width: 3px;
-    border-right-width: 3px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
+    border-left-width: 6px;
+    border-right-width: 6px;
+    border-top-width: 6px;
+    border-bottom-width: 6px;
 }
 
 .compact .topbar-level-caption {
@@ -250,10 +267,10 @@
     top: 7px;
     width: 46px;
     min-height: 45px;
-    border-left-width: 2px;
-    border-right-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
+    border-left-width: 5px;
+    border-right-width: 5px;
+    border-top-width: 5px;
+    border-bottom-width: 5px;
     border-radius: 14px;
     font-size: 30px;
 }

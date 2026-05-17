@@ -12,9 +12,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a4889cfd738e34d94a8f90cbd4708a10, type: 3}
   m_Name: LevelCollection
   m_EditorClassIdentifier: 
-  levels:
-  - {fileID: 11400000, guid: 9d69042542cee42e39d654834b4cdabd, type: 2}
-  - {fileID: 11400000, guid: bb2ca48e9ed824a719593e7274fa1809, type: 2}
-  - {fileID: 11400000, guid: 438ea77f0a8114f8e82198433c4e9a76, type: 2}
-  - {fileID: 11400000, guid: 50484cf177a8544b19fbe717ce3dea34, type: 2}
-  - {fileID: 11400000, guid: 52f9e5075a611433a9c6b97bcc5b42f7, type: 2}
+  levelJsonFiles:
+  - {fileID: 4900000, guid: 68817baf97d34f829dc6527d1180a822, type: 3}
+  - {fileID: 4900000, guid: 5ba2414b654247d59776169f72f63261, type: 3}
+  - {fileID: 4900000, guid: 852c8650d52f42c684d3bb50d80b3297, type: 3}
+  - {fileID: 4900000, guid: 6b22869c51704054837d23e621e2d167, type: 3}
+  - {fileID: 4900000, guid: c1605f59e98d4a2cb13e4e07009abf56, type: 3}
+  blockShapeJsonFiles:
+  - {fileID: 4900000, guid: a45a5a9d43df44b6da1aa78bf2723ca5, type: 3}
+  - {fileID: 4900000, guid: ca1f90966e8d249078ffae98cfc9c103, type: 3}
+  - {fileID: 4900000, guid: 43c630820218848dbaaef2ccfd3bca19, type: 3}
+  - {fileID: 4900000, guid: 0f4da7ab9906f4af78a1f0ff8ee5f17d, type: 3}
+  - {fileID: 4900000, guid: dabccd432e186427d8b17da10acbfc6e, type: 3}
+  - {fileID: 4900000, guid: 316a712e7f68440fd8ee686e37a673c7, type: 3}
+  - {fileID: 4900000, guid: 33625d4dc76de4c8b8077feae12631aa, type: 3}
+  - {fileID: 4900000, guid: e45e7d40800b04417b0420376ee8632a, type: 3}

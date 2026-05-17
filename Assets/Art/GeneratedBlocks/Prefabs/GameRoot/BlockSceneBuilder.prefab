@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boardController: {fileID: 0}
-  sourceLevel: {fileID: 11400000, guid: 9d69042542cee42e39d654834b4cdabd, type: 2}
+  sourceLevel: {fileID: 0}
   visualProfile: {fileID: 11400000, guid: 276d87f5a66da4299b19a5cb94e75e29, type: 2}
   gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
   boardRoot: {fileID: 0}
@@ -72,18 +72,21 @@ MonoBehaviour:
   doorNamePrefix: Door
   blockRootNamePrefix: BlockRoot
   blockCellNamePrefix: BlockCell
-  boardCellGap: 0.03
-  boardCellDepthInCells: 0.03
-  boardCellsZOffset: 0.72
-  boardBackdropPaddingInCells: 0.2
-  boardBackdropZOffset: 0.95
-  edgeFrameThicknessInCells: 0.46
-  edgeFramePaddingInCells: 0
-  edgeFrameDepthInCells: 0.17
-  doorInsetInCells: 0.005
-  doorDepthBiasFromFrame: 0.02
-  blockCellVisualScale: 0.94
-  blockLayerForwardOffsetFromGrid: 0.22
+  boardCellGap: 0.035
+  boardCellDepthInCells: 0.04
+  boardCellsZOffset: 0.74
+  boardBackdropPaddingInCells: 0.12
+  boardBackdropZOffset: 1.02
+  edgeFrameThicknessInCells: 0.43
+  edgeFramePaddingInCells: 0.01
+  edgeFrameDepthInCells: 0.16
+  doorInsetInCells: 0.01
+  doorInnerShiftInCells: 0.08
+  doorSpanPaddingInCells: 0.08
+  doorThicknessRatio: 0.72
+  doorDepthBiasFromFrame: 0.018
+  blockCellVisualScale: 0.93
+  blockLayerForwardOffsetFromGrid: 0.24
   doorExitDuration: 0.32
   doorExitTravelInCells: 1.15
   doorExitMoveCurve:

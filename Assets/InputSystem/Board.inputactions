@@ -1,0 +1,54 @@
+{
+    "name": "Board",
+    "maps": [
+        {
+            "name": "Board",
+            "id": "c3d699d1-13ce-42ff-acd7-a40bc590a61c",
+            "actions": [
+                {
+                    "name": "PointerPress",
+                    "type": "Button",
+                    "id": "da522d62-295c-46f7-b092-f46152500c51",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "PointerPosition",
+                    "type": "PassThrough",
+                    "id": "f1a6018b-09b2-4d47-9eda-54df0e925dfd",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "f4bd30cf-fb0b-4c33-9a0a-1f8b92e66a3d",
+                    "path": "<Pointer>/press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PointerPress",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "9ff4705b-efee-43d8-8635-37bdb6cb49a9",
+                    "path": "<Pointer>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PointerPosition",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}

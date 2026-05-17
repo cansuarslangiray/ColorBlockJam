@@ -4,6 +4,8 @@ using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
+using Runtime.Helpers;
+using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers
@@ -70,7 +72,7 @@ namespace Runtime.Controllers
             RefreshCachedBoardMetrics();
         }
 
-        public void Setup(LevelData levelData)
+        public void Setup(LevelJsonData levelData, BlockShapeRegistry shapeRegistry)
         {
             IsInitialized = false;
             _runtimeBlocks.Clear();
@@ -78,7 +80,7 @@ namespace Runtime.Controllers
             _levelCompletedRaised = false;
             EndPointerGesture();
 
-            if (!levelData)
+            if (levelData == null)
             {
                 _gridDimensions = Vector2Int.zero;
                 RefreshCachedBoardMetrics();
@@ -87,7 +89,7 @@ namespace Runtime.Controllers
 
             _gridDimensions = levelData.gridDimensions;
             RefreshCachedBoardMetrics();
-            RuntimeBoardSetupBuilder.Populate(levelData, _occupancyMap, _runtimeBlocks, _doorOpenings);
+            RuntimeBoardSetupBuilder.Populate(levelData, shapeRegistry, _occupancyMap, _runtimeBlocks, _doorOpenings);
             IsInitialized = true;
 
             RefreshInputPlane();

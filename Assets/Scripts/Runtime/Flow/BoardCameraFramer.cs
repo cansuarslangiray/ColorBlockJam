@@ -5,12 +5,14 @@ namespace Runtime.Flow
 {
     public static class BoardCameraFramer
     {
-        public static bool TryFrame(Camera gameplayCamera, LevelData levelData, Vector2 boardOrigin, float boardCellSize, BoardCameraFramingSettings settings)
+        public static bool TryFrame(Camera gameplayCamera, LevelJsonData levelData, Vector2 boardOrigin, float boardCellSize, BoardCameraFramingSettings settings)
         {
-            if (levelData == null)
+            if (gameplayCamera == null || levelData == null)
             {
                 return false;
             }
+
+            settings ??= BoardCameraFramingSettings.CreateDefault();
 
             var cellSize = Mathf.Max(0.01f, boardCellSize);
             var width = levelData.gridDimensions.x * cellSize;
@@ -24,11 +26,6 @@ namespace Runtime.Flow
             var cameraTransform = gameplayCamera.transform;
             cameraTransform.position = new Vector3(center.x, center.y, cameraTransform.position.z);
 
-            if (settings.resetCameraTilt)
-            {
-                cameraTransform.rotation = Quaternion.identity;
-            }
-
             if (settings.forceOrthographicCamera)
             {
                 gameplayCamera.orthographic = true;
@@ -41,12 +38,6 @@ namespace Runtime.Flow
             }
 
             gameplayCamera.orthographic = false;
-            if (!settings.resetCameraTilt)
-            {
-                var currentEuler = cameraTransform.eulerAngles;
-                cameraTransform.rotation = Quaternion.Euler(-Mathf.Abs(settings.perspectiveTiltDegrees), currentEuler.y,
-                    currentEuler.z);
-            }
 
             var halfFovY = Mathf.Max(0.01f, gameplayCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
             var halfFovX = Mathf.Atan(Mathf.Tan(halfFovY) * Mathf.Max(0.01f, gameplayCamera.aspect));

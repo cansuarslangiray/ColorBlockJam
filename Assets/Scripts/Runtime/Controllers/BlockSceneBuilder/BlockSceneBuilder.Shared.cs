@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using UnityEngine;
@@ -156,15 +155,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Material GetDoorMaterial(BlockColor colorType)
         {
-            if (_fallbackDoorMaterialByColor.TryGetValue(colorType, out var existingMaterial) && existingMaterial != null)
+            var configuredMaterial = GetConfiguredMaterial(materialsByColor, colorType);
+            if (configuredMaterial != null)
             {
-                return existingMaterial;
+                return configuredMaterial;
             }
 
-            var doorColor = ResolveColor(colorType);
-            var material = CreateColorMaterial(doorColor, "MAT_Runtime_Door_" + colorType);
-            _fallbackDoorMaterialByColor[colorType] = material;
-            return material;
+            return visualProfile ? visualProfile.GetMaterial(colorType) : null;
         }
 
         private Material GetBlockMaterial(BlockColor colorType)
@@ -181,19 +178,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return profileMaterial;
             }
 
-            if (_fallbackBlockMaterialByColor.TryGetValue(colorType, out var existingMaterial) && existingMaterial != null)
-            {
-                return existingMaterial;
-            }
-
-            var material = CreateColorMaterial(ResolveColor(colorType), "MAT_Runtime_Block_" + colorType);
-            _fallbackBlockMaterialByColor[colorType] = material;
-            return material;
-        }
-
-        private Color ResolveColor(BlockColor colorType)
-        {
-            return BlockColorUtility.GetColor(colorType);
+            return null;
         }
 
         private static Material GetConfiguredMaterial(IReadOnlyList<BlockColorMaterialEntry> entries, BlockColor colorType)
@@ -212,23 +197,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             return null;
-        }
-
-        private static Material CreateColorMaterial(Color color, string materialName)
-        {
-            var shader = Shader.Find("Unlit/Color");
-            if (!shader)
-            {
-                shader = Shader.Find("Sprites/Default");
-            }
-
-            var material = new Material(shader)
-            {
-                name = materialName,
-                color = color,
-                enableInstancing = true
-            };
-            return material;
         }
 
         private string GetRuntimeName(string fixedName)

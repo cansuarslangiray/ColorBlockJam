@@ -1,7 +1,7 @@
 using System.Collections;
-using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Models;
+using Runtime.Helpers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -24,7 +24,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private void ApplyBlockVisuals(LevelData levelData)
+        private void ApplyBlockVisuals(LevelJsonData levelData)
         {
             _activeBlockRootById.Clear();
 
@@ -137,41 +137,39 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var startPosition = blockTransform.position;
             var startScale = blockTransform.localScale;
             var exitVector = new Vector3(resolvedExitDirection.x, resolvedExitDirection.y, 0f);
-            var pullDistance = Mathf.Max(0.1f, Mathf.Min(0.55f, ExitTravelInCells * 0.32f) * CellSize);
-            var passDistance = Mathf.Max(0.2f, ExitTravelInCells * CellSize);
 
             var blockLocalCenter = ResolveBlockLocalCenter(blockView);
             var doorWorldCenter = ResolveDoorWorldCenter(matchedDoor);
             var doorWorldZ = ResolveDoorWorldZ();
 
-            var pullTargetPosition = new Vector3(
+            var doorCenterTargetPosition = new Vector3(
                 doorWorldCenter.x - blockLocalCenter.x,
                 doorWorldCenter.y - blockLocalCenter.y,
                 Mathf.Max(startPosition.z, doorWorldZ + (CellSize * 0.05f)));
-            pullTargetPosition += exitVector * pullDistance;
 
-            var finalTargetPosition = pullTargetPosition + (exitVector * passDistance);
-            finalTargetPosition.z = pullTargetPosition.z + (CellSize * 0.22f);
+            var passThroughDistance = Mathf.Clamp(ExitTravelInCells * CellSize * 1.56f, CellSize * 0.72f,
+                CellSize * 2.46f);
+            var finalTargetPosition = doorCenterTargetPosition + (exitVector * passThroughDistance);
+            finalTargetPosition.z = doorCenterTargetPosition.z + (CellSize * 0.16f);
 
             var totalDuration = ExitDuration;
-            var pullDuration = Mathf.Clamp(totalDuration * 0.42f, 0.05f, totalDuration);
-            var passDuration = Mathf.Max(0.05f, totalDuration - pullDuration);
-            var suctionScale = startScale * 0.84f;
+            var approachDuration = Mathf.Clamp(totalDuration * 0.58f, 0.05f, totalDuration);
+            var passDuration = Mathf.Max(0.05f, totalDuration - approachDuration);
             var minScale = startScale * ExitMinScaleMultiplier;
             var elapsed = 0f;
 
-            while (elapsed < pullDuration)
+            while (elapsed < approachDuration)
             {
                 elapsed += Time.deltaTime;
-                var normalized = Mathf.Clamp01(elapsed / pullDuration);
+                var normalized = Mathf.Clamp01(elapsed / approachDuration);
                 var pullT = normalized * normalized;
-                blockTransform.position = Vector3.LerpUnclamped(startPosition, pullTargetPosition, pullT);
-                blockTransform.localScale = Vector3.LerpUnclamped(startScale, suctionScale, normalized);
+                blockTransform.position = Vector3.LerpUnclamped(startPosition, doorCenterTargetPosition, pullT);
+                blockTransform.localScale = startScale;
                 yield return null;
             }
 
-            blockTransform.position = pullTargetPosition;
-            blockTransform.localScale = suctionScale;
+            blockTransform.position = doorCenterTargetPosition;
+            blockTransform.localScale = startScale;
 
             elapsed = 0f;
 
@@ -180,12 +178,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 elapsed += Time.deltaTime;
                 var normalized = Mathf.Clamp01(elapsed / passDuration);
                 var moveT = ExitMoveCurve != null ? Mathf.Clamp01(ExitMoveCurve.Evaluate(normalized)) : normalized;
+                var shrinkNormalized = Mathf.Clamp01((normalized - 0.55f) / 0.45f);
                 var scaleT = ExitScaleCurve != null
-                    ? Mathf.Clamp01(ExitScaleCurve.Evaluate(normalized))
-                    : 1f - normalized;
+                    ? Mathf.Clamp01(ExitScaleCurve.Evaluate(shrinkNormalized))
+                    : 1f - shrinkNormalized;
 
-                blockTransform.position = Vector3.LerpUnclamped(pullTargetPosition, finalTargetPosition, moveT);
-                blockTransform.localScale = Vector3.LerpUnclamped(minScale, suctionScale, scaleT);
+                blockTransform.position = Vector3.LerpUnclamped(doorCenterTargetPosition, finalTargetPosition, moveT);
+                blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleT);
                 yield return null;
             }
 
@@ -208,10 +207,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private float ResolveDoorWorldZ()
         {
-            var cellSize = CellSize;
-            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
             var borderZ = Mathf.Abs((float)boardCellsZOffset) - 0.01f;
-            var doorDepth = frameDepth * 1.08f;
             return borderZ - Mathf.Max(0.005f, doorDepthBiasFromFrame);
         }
 

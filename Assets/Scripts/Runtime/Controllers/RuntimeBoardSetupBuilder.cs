@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Models;
+using UnityEngine;
 
 namespace Runtime.Controllers
 {
     internal static class RuntimeBoardSetupBuilder
     {
-        public static void Populate(LevelData levelData, BoardOccupancyMap occupancyMap,
+        public static void Populate(LevelJsonData levelData, BlockShapeRegistry shapeRegistry, BoardOccupancyMap occupancyMap,
             Dictionary<int, RuntimeBlockState> runtimeBlocks, List<DoorOpeningData> doorOpenings)
         {
             occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
@@ -31,7 +32,14 @@ namespace Runtime.Controllers
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
-                var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockData.GetLocalCells(),
+                if (!string.IsNullOrWhiteSpace(blockData.shapeKey) &&
+                    (shapeRegistry == null || !shapeRegistry.TryResolveShape(blockData.shapeKey, out _)))
+                {
+                    Debug.LogWarning(
+                        $"Level '{levelData.levelKey}' has unresolved shape key '{blockData.shapeKey}' on block index {i}. Falling back to 1x1.");
+                }
+
+                var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockData.GetLocalCells(shapeRegistry),
                     blockData.movementConstraint, blockData.colorType);
 
                 if (!occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))

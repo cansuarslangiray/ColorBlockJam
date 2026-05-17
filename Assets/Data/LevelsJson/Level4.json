@@ -1,0 +1,113 @@
+{
+  "levelNumber": 4,
+  "timeLimit": 240.0,
+  "gridDimensions": {
+    "x": 7,
+    "y": 8
+  },
+  "blockedCells": [],
+  "availableColors": [
+    1,
+    4,
+    3
+  ],
+  "availableShapeKeys": [
+    "Shape_2x2",
+    "Shape_1x2"
+  ],
+  "doors": [
+    {
+      "position": {
+        "x": 4,
+        "y": 0
+      },
+      "colorType": 1,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 5,
+        "y": 0
+      },
+      "colorType": 1,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 6,
+        "y": 2
+      },
+      "colorType": 4,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 6,
+        "y": 1
+      },
+      "colorType": 4,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 0,
+        "y": 6
+      },
+      "colorType": 4,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 0,
+        "y": 5
+      },
+      "colorType": 4,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 1,
+        "y": 7
+      },
+      "colorType": 3,
+      "openingWidth": 1
+    },
+    {
+      "position": {
+        "x": 2,
+        "y": 7
+      },
+      "colorType": 3,
+      "openingWidth": 1
+    }
+  ],
+  "blocks": [
+    {
+      "position": {
+        "x": 4,
+        "y": 2
+      },
+      "shapeKey": "Shape_2x2",
+      "movementConstraint": 0,
+      "colorType": 3
+    },
+    {
+      "position": {
+        "x": 1,
+        "y": 4
+      },
+      "shapeKey": "Shape_2x2",
+      "movementConstraint": 0,
+      "colorType": 1
+    },
+    {
+      "position": {
+        "x": 3,
+        "y": 3
+      },
+      "shapeKey": "Shape_1x2",
+      "movementConstraint": 0,
+      "colorType": 4
+    }
+  ]
+}
