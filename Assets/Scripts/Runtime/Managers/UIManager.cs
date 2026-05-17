@@ -16,6 +16,9 @@ namespace Runtime.Managers
 
         public event Action<GameState> GameStateChanged;
         public event Action LevelTimerExpired;
+        public event Action StartRequested;
+        public event Action<GameState> EndGameActionRequested;
+        public event Action ReloadRequested;
 
         protected override void Awake()
         {
@@ -25,8 +28,11 @@ namespace Runtime.Managers
             topBarPanel.SubscribeToState();
             settingsPanel.SubscribeToState();
 
+            startPanel.StartRequested += HandleStartRequested;
+            endGamePanel.ActionRequested += HandleEndGameActionRequested;
+            topBarPanel.ReloadRequested += HandleReloadRequested;
+            topBarPanel.SettingsRequested += HandleSettingsRequested;
             topBarPanel.TimerExpired += HandleTimerExpired;
-            topBarPanel.BindSettingsAction(settingsPanel.Toggle);
             settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
         }
 
@@ -36,22 +42,16 @@ namespace Runtime.Managers
         {
             topBarPanel.TimerExpired -= HandleTimerExpired;
             settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
+            topBarPanel.SettingsRequested -= HandleSettingsRequested;
+            topBarPanel.ReloadRequested -= HandleReloadRequested;
+            endGamePanel.ActionRequested -= HandleEndGameActionRequested;
+            startPanel.StartRequested -= HandleStartRequested;
             settingsPanel.UnsubscribeFromState();
             topBarPanel.UnsubscribeFromState();
             endGamePanel.UnsubscribeFromState();
             startPanel.UnsubscribeFromState();
             base.OnDestroy();
         }
-
-        public void BindStartAction(Action onStartRequested) => startPanel.BindStartAction(onStartRequested);
-
-        public void BindContinueAction(Action onContinueRequested) => endGamePanel.BindContinueAction(onContinueRequested);
-
-        public void BindRetryAction(Action onRetryRequested) => endGamePanel.BindRetryAction(onRetryRequested);
-
-        public void BindRestartAction(Action onRestartRequested) => endGamePanel.BindRestartAction(onRestartRequested);
-
-        public void BindReloadAction(Action onReloadRequested) => topBarPanel.BindReloadAction(onReloadRequested);
 
         public void PublishState(GameState state) => GameStateChanged?.Invoke(state);
         
@@ -67,15 +67,18 @@ namespace Runtime.Managers
 
         private void ResumeLevelTimer() => topBarPanel.ResumeTimer();
 
+        private void HandleStartRequested() => StartRequested?.Invoke();
+
+        private void HandleEndGameActionRequested() => EndGameActionRequested?.Invoke(StateManager.Instance.CurrentState);
+
+        private void HandleReloadRequested() => ReloadRequested?.Invoke();
+
+        private void HandleSettingsRequested() => settingsPanel.Toggle();
+
         private void HandleTimerExpired() => LevelTimerExpired?.Invoke();
 
         private void HandleSettingsPanelOpenStateChanged(bool isOpen)
         {
-            if (!StateManager.Instance || StateManager.Instance.CurrentState != GameState.Playing)
-            {
-                return;
-            }
-
             if (isOpen)
             {
                 PauseLevelTimer();

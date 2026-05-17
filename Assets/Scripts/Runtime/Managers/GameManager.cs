@@ -1,10 +1,10 @@
+using System;
 using System.Collections;
 using Runtime.Controllers;
 using Runtime.Controllers.BlockSceneBuilder;
 using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Enums;
-using Runtime.Flow;
 using UnityEngine;
 
 namespace Runtime.Managers
@@ -17,64 +17,27 @@ namespace Runtime.Managers
 
         [SerializeField] private BoardController boardController;
         [SerializeField] private BlockSceneBuilder blockSceneBuilder;
-
-        [Header("Camera Framing")] [SerializeField]
-        private Camera gameplayCamera;
-
-        [SerializeField] private BoardCameraFramingSettings boardCameraFramingSettings =
-            BoardCameraFramingSettings.CreateDefault();
+        [SerializeField] private Camera gameplayCamera;
 
         [Header("Flow Settings")] [SerializeField]
-        private bool initializeOnStart = true;
-
-        [SerializeField] private bool lockToPortraitOrientation = true;
-        [SerializeField] private float levelCompletePanelDelay = 0.4f;
+        private float levelCompletePanelDelay = 0.4f;
 
         private int _currentLevelIndex;
         private bool _transitionInProgress;
-        private bool _boardEventsRegistered;
-        private bool _stateEventsRegistered;
-        private bool _uiEventsRegistered;
-        private bool _uiActionsBound;
-        private bool _startupInitialized;
+        private bool _eventsRegistered;
         private WaitForSeconds _levelCompletedDelayWait;
         private float _cachedLevelCompleteDelay = -1f;
 
         protected override void Awake()
         {
             base.Awake();
-            ApplyDisplaySettings();
             RefreshLevelCompleteDelayInstruction();
         }
 
         private void Start()
         {
             TryRegisterEvents();
-            TryBindUiActions();
-
-            if (!initializeOnStart || _startupInitialized)
-            {
-                return;
-            }
-
             InitializeRun();
-            _startupInitialized = true;
-        }
-
-        private void OnApplicationFocus(bool hasFocus)
-        {
-            if (hasFocus)
-            {
-                ApplyDisplaySettings();
-            }
-        }
-
-        private void OnApplicationPause(bool pauseStatus)
-        {
-            if (!pauseStatus)
-            {
-                ApplyDisplaySettings();
-            }
         }
 
         private void OnValidate()
@@ -85,82 +48,45 @@ namespace Runtime.Managers
         private void OnEnable()
         {
             TryRegisterEvents();
-            TryBindUiActions();
         }
 
         private void OnDisable()
         {
             UnregisterEvents();
-            _uiActionsBound = false;
-        }
-
-        private void ApplyDisplaySettings()
-        {
-            if (!lockToPortraitOrientation || !Application.isMobilePlatform)
-            {
-                return;
-            }
-
-            Screen.autorotateToLandscapeLeft = false;
-            Screen.autorotateToLandscapeRight = false;
-            Screen.autorotateToPortrait = true;
-            Screen.autorotateToPortraitUpsideDown = false;
-            Screen.orientation = ScreenOrientation.Portrait;
         }
 
         private void TryRegisterEvents()
         {
-            if (!_boardEventsRegistered && boardController)
+            if (_eventsRegistered)
             {
-                boardController.LevelCompleted += OnLevelCompleted;
-                _boardEventsRegistered = true;
+                return;
             }
 
-            if (!_stateEventsRegistered && StateManager.Instance)
-            {
-                StateManager.Instance.OnStateChanged += HandleStateChanged;
-                _stateEventsRegistered = true;
-            }
+            boardController.LevelCompleted += OnLevelCompleted;
 
-            if (!_uiEventsRegistered && UIManager.Instance)
-            {
-                UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
-                _uiEventsRegistered = true;
-            }
+            StateManager.Instance.OnStateChanged += HandleStateChanged;
+
+            UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
+            UIManager.Instance.StartRequested += HandleStartRequested;
+            UIManager.Instance.EndGameActionRequested += HandleEndGameActionRequested;
+            UIManager.Instance.ReloadRequested += HandleReloadRequested;
+            _eventsRegistered = true;
         }
 
         private void UnregisterEvents()
         {
-            if (_boardEventsRegistered && boardController)
+            if (!_eventsRegistered)
             {
-                boardController.LevelCompleted -= OnLevelCompleted;
-                _boardEventsRegistered = false;
-            }
-
-            if (_stateEventsRegistered && StateManager.Instance)
-            {
-                StateManager.Instance.OnStateChanged -= HandleStateChanged;
-            }
-
-            if (_uiEventsRegistered && UIManager.Instance)
-            {
-                UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
-            }
-
-            _stateEventsRegistered = false;
-            _uiEventsRegistered = false;
-        }
-
-        private void TryBindUiActions()
-        {
-            if (_uiActionsBound || !UIManager.Instance)
                 return;
-            UIManager.Instance.BindStartAction(HandleStartPanelInput);
-            UIManager.Instance.BindContinueAction(HandleContinueInput);
-            UIManager.Instance.BindRetryAction(HandleRetryInput);
-            UIManager.Instance.BindRestartAction(HandleRestartInput);
-            UIManager.Instance.BindReloadAction(HandleReloadInput);
-            _uiActionsBound = true;
+            }
+
+            boardController.LevelCompleted -= OnLevelCompleted;
+            StateManager.Instance.OnStateChanged -= HandleStateChanged;
+            UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
+            UIManager.Instance.StartRequested -= HandleStartRequested;
+            UIManager.Instance.EndGameActionRequested -= HandleEndGameActionRequested;
+            UIManager.Instance.ReloadRequested -= HandleReloadRequested;
+            _eventsRegistered = false;
         }
 
         private void InitializeRun()
@@ -180,15 +106,10 @@ namespace Runtime.Managers
             {
                 return false;
             }
-            
+
             boardController.Setup(levelData, levelCollection.RuntimeShapeRegistry);
             blockSceneBuilder.BuildForLevel(levelData);
-
-            if (!FitCameraToLevel(levelData))
-            {
-                StateManager.Instance.ChangeState(GameState.StartScreen);
-                return false;
-            }
+            CenterCameraToLevel(levelData);
 
             StateManager.Instance.ChangeState(GameState.Playing);
             RefreshStaticUI();
@@ -211,21 +132,17 @@ namespace Runtime.Managers
 
         private void HandleTimerExpired()
         {
-            if (StateManager.Instance.CurrentState != GameState.Playing)
-            {
+            if (_transitionInProgress)
                 return;
-            }
 
             FailRun();
         }
 
         private void OnLevelCompleted()
         {
-            if (StateManager.Instance.CurrentState != GameState.Playing || _transitionInProgress)
-            {
+            if (_transitionInProgress)
                 return;
-            }
-
+            
             StartCoroutine(ShowLevelCompletedRoutine());
         }
 
@@ -271,13 +188,13 @@ namespace Runtime.Managers
         private void RefreshStaticUI()
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
-            var levelNumber = levelData != null ? levelData.levelNumber : _currentLevelIndex + 1;
+            var levelNumber = levelData?.levelNumber ?? _currentLevelIndex + 1;
             UIManager.Instance.SetLevel(levelNumber);
         }
 
-        private void HandleStartPanelInput()
+        private void HandleStartRequested()
         {
-            if (StateManager.Instance.CurrentState != GameState.StartScreen || _transitionInProgress)
+            if (_transitionInProgress || !IsCurrentState(GameState.StartScreen))
             {
                 return;
             }
@@ -285,19 +202,36 @@ namespace Runtime.Managers
             StartCurrentLevel();
         }
 
-        private void HandleContinueInput()
+        private void HandleEndGameActionRequested(GameState newState)
         {
-            if (StateManager.Instance.CurrentState != GameState.LevelCompleted || _transitionInProgress)
+            if (_transitionInProgress)
             {
                 return;
             }
 
-            StartNextLevelOrCompleteRun();
+            switch (newState)
+            {
+                case GameState.LevelCompleted:
+                    StartNextLevelOrCompleteRun();
+                    break;
+                case GameState.LevelFailed:
+                    StartCurrentLevel();
+                    break;
+                case GameState.GameCompleted:
+                    InitializeRun();
+                    break;
+                case GameState.StartScreen:
+                    break;
+                case GameState.Playing:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(newState), newState, null);
+            }
         }
 
-        private void HandleRetryInput()
+        private void HandleReloadRequested()
         {
-            if (StateManager.Instance.CurrentState != GameState.LevelFailed || _transitionInProgress)
+            if (_transitionInProgress || !IsCurrentState(GameState.Playing))
             {
                 return;
             }
@@ -305,30 +239,28 @@ namespace Runtime.Managers
             StartCurrentLevel();
         }
 
-        private void HandleRestartInput()
+        private bool IsCurrentState(GameState state) => StateManager.Instance.CurrentState == state;
+
+        private void CenterCameraToLevel(LevelJsonData levelData)
         {
-            if (StateManager.Instance.CurrentState != GameState.GameCompleted || _transitionInProgress)
+            if (!gameplayCamera || levelData == null)
             {
                 return;
             }
 
-            InitializeRun();
-        }
-
-        private void HandleReloadInput()
-        {
-            if (StateManager.Instance.CurrentState != GameState.Playing || _transitionInProgress)
-            {
-                return;
-            }
-
-            StartCurrentLevel();
-        }
-
-        private bool FitCameraToLevel(LevelJsonData levelData)
-        {
-            return BoardCameraFramer.TryFrame(gameplayCamera, levelData, boardController.BoardOrigin,
-                boardController.CellSize, boardCameraFramingSettings);
+            var cellSize = Mathf.Max(0.01f, boardController.CellSize);
+            var width = Mathf.Max(0, levelData.gridDimensions.x) * cellSize;
+            var height = Mathf.Max(0, levelData.gridDimensions.y) * cellSize;
+            var center = boardController.BoardOrigin +
+                         new Vector2(width * 0.5f, height * 0.5f);
+            var cameraTransform = gameplayCamera.transform;
+            var forward = cameraTransform.forward.normalized;
+            var boardPlaneZ = boardController.transform.position.z;
+            var forwardZ = Mathf.Abs(forward.z) < 0.001f
+                ? (forward.z >= 0f ? 0.001f : -0.001f)
+                : forward.z;
+            var distanceToBoardPlane = Mathf.Abs((cameraTransform.position.z - boardPlaneZ) / forwardZ);
+            cameraTransform.position = new Vector3(center.x, center.y, boardPlaneZ) - (forward * distanceToBoardPlane);
         }
 
         private void RefreshLevelCompleteDelayInstruction()

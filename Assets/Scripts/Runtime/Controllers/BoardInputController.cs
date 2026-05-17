@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Runtime.Domain.Enums;
+using Runtime.Managers;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -9,149 +11,112 @@ namespace Runtime.Controllers
     public class BoardInputController : MonoBehaviour
     {
         [SerializeField] private BoardController boardController;
-        [SerializeField] private Camera inputCamera;
-        [SerializeField] private bool ignoreInputWhenPointerIsOverUi = true;
+        [SerializeField] private EventSystem uiEventSystem;
         [SerializeField] private InputActionReference pointerPressActionReference;
         [SerializeField] private InputActionReference pointerPositionActionReference;
 
-        private bool _gestureActive;
-        private bool _inputActionsReady;
         private bool _inputActionsBound;
-        private InputAction _pointerPressAction;
-        private InputAction _pointerPositionAction;
         private readonly List<RaycastResult> _uiRaycastResults = new();
-        private PointerEventData _pointerEventData;
-        private EventSystem _cachedEventSystem;
-
-        private void Awake() => ResolveInputActions();
 
         private void OnEnable()
         {
-            if (!_inputActionsReady)
-            {
-                ResolveInputActions();
-            }
-
-            if (!_inputActionsReady || _inputActionsBound)
-            {
-                return;
-            }
-
-            EnableInputActions();
+            RegisterStateEvents();
         }
 
         private void OnDisable()
         {
-            if (_inputActionsBound)
-            {
-                DisableInputActions();
-            }
-
+            UnregisterStateEvents();
+            DisableInputActions();
             EndActiveGesture();
-        }
-
-        private void ResolveInputActions()
-        {
-            _pointerPressAction = pointerPressActionReference ? pointerPressActionReference.action : null;
-            _pointerPositionAction = pointerPositionActionReference ? pointerPositionActionReference.action : null;
-            _inputActionsReady = boardController != null && _pointerPressAction != null && _pointerPositionAction != null;
-
-            if (_inputActionsReady)
-            {
-                return;
-            }
-
-            Debug.LogError($"{nameof(BoardInputController)} is missing required references.", this);
         }
 
         private void EnableInputActions()
         {
-            _pointerPressAction.started += OnPointerPressStarted;
-            _pointerPressAction.canceled += OnPointerPressCanceled;
-            _pointerPositionAction.performed += OnPointerPositionPerformed;
+            if (_inputActionsBound)
+            {
+                return;
+            }
 
-            _pointerPositionAction.Enable();
-            _pointerPressAction.Enable();
+            pointerPressActionReference.action.started += OnPointerPressStarted;
+            pointerPressActionReference.action.canceled += OnPointerPressCanceled;
+            pointerPositionActionReference.action.performed += OnPointerPositionPerformed;
+
+            pointerPositionActionReference.action.Enable();
+            pointerPressActionReference.action.Enable();
             _inputActionsBound = true;
         }
 
         private void DisableInputActions()
         {
-            _pointerPressAction.started -= OnPointerPressStarted;
-            _pointerPressAction.canceled -= OnPointerPressCanceled;
-            _pointerPressAction.Disable();
+            if (!_inputActionsBound)
+            {
+                return;
+            }
 
-            _pointerPositionAction.performed -= OnPointerPositionPerformed;
-            _pointerPositionAction.Disable();
+            pointerPressActionReference.action.started -= OnPointerPressStarted;
+            pointerPressActionReference.action.canceled -= OnPointerPressCanceled;
+            pointerPressActionReference.action.Disable();
+
+            pointerPositionActionReference.action.performed -= OnPointerPositionPerformed;
+            pointerPositionActionReference.action.Disable();
             _inputActionsBound = false;
+        }
+
+        private void RegisterStateEvents()
+        {
+            if (StateManager.Instance == null)
+                return;
+            StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+            StateManager.Instance.OnStateChanged += HandleGameStateChanged;
+            HandleGameStateChanged(StateManager.Instance.CurrentState);
+        }
+
+        private void UnregisterStateEvents()
+        {
+            if (StateManager.Instance == null)
+                return;
+            StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+        }
+
+        private void HandleGameStateChanged(GameState state)
+        {
+            if (state == GameState.Playing)
+            {
+                EnableInputActions();
+                return;
+            }
+
+            DisableInputActions();
+            EndActiveGesture();
         }
 
         private void OnPointerPressStarted(InputAction.CallbackContext context)
         {
-            var pointerPosition = _pointerPositionAction.ReadValue<Vector2>();
+            var pointerPosition = pointerPositionActionReference.action.ReadValue<Vector2>();
 
-            if (_gestureActive || ShouldIgnorePointer(pointerPosition))
+            if (ShouldIgnorePointer(pointerPosition))
             {
                 return;
             }
-            _gestureActive = boardController.TryBeginPointerGesture(pointerPosition, inputCamera);
+
+            boardController.TryBeginPointerGesture(pointerPosition);
         }
 
         private void OnPointerPositionPerformed(InputAction.CallbackContext context)
         {
-            if (!_gestureActive)
-            {
-                return;
-            }
-
-            if (!_pointerPressAction.IsPressed())
-            {
-                EndActiveGesture();
-                return;
-            }
-
             var pointerPosition = context.ReadValue<Vector2>();
-            boardController.TryUpdatePointerGesture(pointerPosition, inputCamera);
+            boardController.TryUpdatePointerGesture(pointerPosition);
         }
 
         private void OnPointerPressCanceled(InputAction.CallbackContext context) => EndActiveGesture();
 
-        private void EndActiveGesture()
-        {
-            if (_gestureActive)
-            {
-                boardController.EndPointerGesture();
-            }
-
-            _gestureActive = false;
-        }
+        private void EndActiveGesture() => boardController.EndPointerGesture();
 
         private bool ShouldIgnorePointer(Vector2 pointerPosition)
         {
-            if (!ignoreInputWhenPointerIsOverUi)
-            {
-                return false;
-            }
-
-            var eventSystem = EventSystem.current;
-            if (eventSystem == null)
-            {
-                return false;
-            }
-
-            if (_pointerEventData == null || _cachedEventSystem != eventSystem)
-            {
-                _pointerEventData = new PointerEventData(eventSystem);
-                _cachedEventSystem = eventSystem;
-            }
-            else
-            {
-                _pointerEventData.Reset();
-            }
-
-            _pointerEventData.position = pointerPosition;
+            var pointerEventData = new PointerEventData(uiEventSystem) { position = pointerPosition };
             _uiRaycastResults.Clear();
-            eventSystem.RaycastAll(_pointerEventData, _uiRaycastResults);
+            uiEventSystem.RaycastAll(pointerEventData, _uiRaycastResults);
             return _uiRaycastResults.Count > 0;
         }
     }

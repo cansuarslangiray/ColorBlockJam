@@ -13,12 +13,11 @@ namespace Runtime.Controllers
     [DisallowMultipleComponent]
     public class BoardController : MonoBehaviour
     {
-        private const float DragActivationInCells = 0.35f;
-        private const float DirectionDeadZone = 0.0001f;
-
         [SerializeField] private float cellSize = 1f;
         [SerializeField] private Vector2 boardOrigin;
         [SerializeField] private BoardGameplayConfig gameplayConfig;
+        [SerializeField, Range(0.01f, 1f)] private float dragActivationInCells = 0.35f;
+        [SerializeField, Min(0f)] private float directionDeadZone = 0.0001f;
 
         [SerializeField] private Camera inputCamera;
 
@@ -42,17 +41,12 @@ namespace Runtime.Controllers
         private float _resolvedCellSize = 1f;
         private float _inverseCellSize = 1f;
         private bool _levelCompletedRaised;
-        private bool _isGameplayState;
-        private bool _stateEventsRegistered;
 
         private Plane _boardPlane = new(Vector3.forward, Vector3.zero);
         private int _activeGestureBlockId = -1;
         private Vector2 _activeGestureStartBoardPoint;
         private GestureAxis _activeGestureAxis;
         private int _activeGestureAppliedStepCount;
-        private Camera _activeGestureCamera;
-
-        private bool IsBoardReadyForInput => IsInitialized && _isGameplayState;
 
         private void Awake()
         {
@@ -60,11 +54,8 @@ namespace Runtime.Controllers
             RefreshCachedBoardMetrics();
         }
 
-        private void OnEnable() => TryRegisterStateEvents();
-
         private void OnDisable()
         {
-            UnregisterStateEvents();
             EndPointerGesture();
         }
 
@@ -94,60 +85,13 @@ namespace Runtime.Controllers
             RuntimeBoardSetupBuilder.Populate(levelData, shapeRegistry, _occupancyMap, _runtimeBlocks, _doorOpenings);
             IsInitialized = true;
 
-            TryRegisterStateEvents();
             RefreshInputPlane();
         }
 
-        private void TryRegisterStateEvents()
+        public bool TryBeginPointerGesture(Vector2 pointerPosition)
         {
-            if (_stateEventsRegistered)
-            {
-                return;
-            }
-
-            var stateManager = StateManager.Instance;
-            if (!stateManager)
-            {
-                return;
-            }
-
-            stateManager.OnStateChanged += HandleStateChanged;
-            _isGameplayState = stateManager.CurrentState == GameState.Playing;
-            _stateEventsRegistered = true;
-        }
-
-        private void UnregisterStateEvents()
-        {
-            if (!_stateEventsRegistered)
-            {
-                _isGameplayState = false;
-                return;
-            }
-
-            var stateManager = StateManager.Instance;
-            if (stateManager)
-            {
-                stateManager.OnStateChanged -= HandleStateChanged;
-            }
-
-            _stateEventsRegistered = false;
-            _isGameplayState = false;
-        }
-
-        private void HandleStateChanged(GameState newState)
-        {
-            _isGameplayState = newState == GameState.Playing;
-            if (!_isGameplayState)
-            {
-                EndPointerGesture();
-            }
-        }
-
-        public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera pointerCamera)
-        {
-            if (!IsBoardReadyForInput ||
-                !TryResolveGestureBoardPoint(pointerPosition, pointerCamera, null, out var boardWorldPoint,
-                    out var resolvedCamera) ||
+            if (!IsInitialized ||
+                !TryResolveGestureBoardPoint(pointerPosition, out var boardWorldPoint) ||
                 !TryWorldToCell(boardWorldPoint, out var touchedCell) ||
                 !TryGetBlockAtCell(touchedCell, out var blockId))
             {
@@ -158,20 +102,18 @@ namespace Runtime.Controllers
             _activeGestureStartBoardPoint = boardWorldPoint;
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
-            _activeGestureCamera = resolvedCamera;
             AudioManager.Instance.PlayBlockSelect();
             return true;
         }
 
-        public bool TryUpdatePointerGesture(Vector2 pointerPosition, Camera pointerCamera)
+        public bool TryUpdatePointerGesture(Vector2 pointerPosition)
         {
-            if (!IsBoardReadyForInput || _activeGestureBlockId < 0)
+            if (_activeGestureBlockId < 0)
             {
                 return false;
             }
 
-            if (!TryResolveGestureBoardPoint(pointerPosition, pointerCamera, _activeGestureCamera, out var boardWorldPoint,
-                    out _))
+            if (!TryResolveGestureBoardPoint(pointerPosition, out var boardWorldPoint))
             {
                 return false;
             }
@@ -259,12 +201,10 @@ namespace Runtime.Controllers
             return movedAny;
         }
 
-        private bool TryResolveGestureBoardPoint(Vector2 pointerPosition, Camera preferredCamera, Camera secondaryCamera,
-            out Vector2 boardWorldPoint, out Camera resolvedCamera)
+        private bool TryResolveGestureBoardPoint(Vector2 pointerPosition, out Vector2 boardWorldPoint)
         {
             boardWorldPoint = default;
-            resolvedCamera = preferredCamera ? preferredCamera : secondaryCamera ? secondaryCamera : inputCamera;
-            return resolvedCamera && TryResolveBoardPoint(pointerPosition, resolvedCamera, out boardWorldPoint);
+            return inputCamera && TryResolveBoardPoint(pointerPosition, inputCamera, out boardWorldPoint);
         }
 
         private bool TryMoveActiveGestureBlock(Direction direction, int requestedCellCount, out int movedCellCount)
@@ -285,7 +225,6 @@ namespace Runtime.Controllers
         public void EndPointerGesture()
         {
             _activeGestureBlockId = -1;
-            _activeGestureCamera = null;
             _activeGestureStartBoardPoint = default;
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
@@ -388,6 +327,7 @@ namespace Runtime.Controllers
                 _runtimeBlocks.Remove(blockId);
                 var exitDirection = ResolveExitDirectionForDoor(matchedDoor);
                 BlockCleared?.Invoke(blockId, block.Position, exitDirection, matchedDoor);
+                
                 if (_activeGestureBlockId == blockId)
                 {
                     _activeGestureBlockId = -1;
@@ -433,7 +373,7 @@ namespace Runtime.Controllers
             return matchedDoor.EdgeDirection.ToVector();
         }
 
-        private static bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,
+        private bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,
             out GestureAxis axis)
         {
             axis = movementConstraint switch
@@ -469,7 +409,7 @@ namespace Runtime.Controllers
             return sign >= 0 ? Direction.Up : Direction.Down;
         }
 
-        private static bool TryResolveDominantDirection(Vector2 delta, out Direction direction)
+        private bool TryResolveDominantDirection(Vector2 delta, out Direction direction)
         {
             direction = default;
             var absX = Mathf.Abs(delta.x);
@@ -489,9 +429,9 @@ namespace Runtime.Controllers
             return true;
         }
 
-        private static bool IsBelowDirectionDeadZone(float absX, float absY)
+        private bool IsBelowDirectionDeadZone(float absX, float absY)
         {
-            return absX < DirectionDeadZone && absY < DirectionDeadZone;
+            return absX < directionDeadZone && absY < directionDeadZone;
         }
 
         private static bool IsDirectionAllowed(BlockMovementConstraint movementConstraint, Direction direction)
@@ -566,7 +506,7 @@ namespace Runtime.Controllers
             _inverseCellSize = 1f / _resolvedCellSize;
             _boardWidthWorld = Mathf.Max(0, _gridDimensions.x) * _resolvedCellSize;
             _boardHeightWorld = Mathf.Max(0, _gridDimensions.y) * _resolvedCellSize;
-            var dragActivationDistance = _resolvedCellSize * DragActivationInCells;
+            var dragActivationDistance = _resolvedCellSize * Mathf.Max(0.01f, dragActivationInCells);
             _dragActivationDistanceSqr = dragActivationDistance * dragActivationDistance;
         }
     }

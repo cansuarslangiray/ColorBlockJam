@@ -43,24 +43,21 @@ namespace Runtime.Data
         public static BlockShapeRegistry FromJsonAssets(IReadOnlyList<TextAsset> shapeJsonFiles)
         {
             var shapes = new List<BlockShapeJsonData>();
-            if (shapeJsonFiles != null)
+            if (shapeJsonFiles == null) return new BlockShapeRegistry(shapes);
+            foreach (var file in shapeJsonFiles)
             {
-                for (var i = 0; i < shapeJsonFiles.Count; i++)
+                if (!file)
                 {
-                    var file = shapeJsonFiles[i];
-                    if (file == null)
-                    {
-                        continue;
-                    }
-
-                    var shape = BlockShapeJsonSerialization.Deserialize(file.text, file.name);
-                    if (shape == null)
-                    {
-                        continue;
-                    }
-
-                    shapes.Add(shape);
+                    continue;
                 }
+
+                var shape = BlockShapeJsonSerialization.Deserialize(file.text, file.name);
+                if (shape == null)
+                {
+                    continue;
+                }
+
+                shapes.Add(shape);
             }
 
             return new BlockShapeRegistry(shapes);

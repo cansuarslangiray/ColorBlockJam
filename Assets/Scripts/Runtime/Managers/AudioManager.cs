@@ -22,25 +22,26 @@ namespace Runtime.Managers
         [SerializeField] private AudioClip blockSelect;
         [SerializeField] private AudioClip blockMatchSuccess;
 
-        private GameState _lastSyncedState;
-        private bool _hasSyncedState;
-        private bool _settingsEventsRegistered;
-        private bool _musicEnabled = true;
-        private bool _sfxEnabled = true;
-
         private void OnEnable()
         {
-            TryRegisterSettingsEvents();
-            RefreshSettingsSnapshot();
+            RegisterSettingsEvents();
         }
 
         private void OnDisable() => UnregisterSettingsEvents();
 
         public void SyncMusicToState(GameState state)
         {
-            TryRegisterSettingsEvents();
-            _lastSyncedState = state;
-            _hasSyncedState = true;
+            RegisterSettingsEvents();
+            ApplyMusicState(state);
+        }
+
+        private void ApplyMusicState(GameState state)
+        {
+            if (musicSource != null && musicSource.mute)
+            {
+                StopMusic();
+                return;
+            }
 
             switch (state)
             {
@@ -57,67 +58,44 @@ namespace Runtime.Managers
             }
         }
 
-        private void TryRegisterSettingsEvents()
+        private void RegisterSettingsEvents()
         {
-            if (_settingsEventsRegistered || !SettingsManager.Instance)
-            {
-                return;
-            }
-
+            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
             SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged += HandleSfxEnabledChanged;
-            _settingsEventsRegistered = true;
-            _musicEnabled = SettingsManager.Instance.MusicEnabled;
-            _sfxEnabled = SettingsManager.Instance.SfxEnabled;
         }
 
         private void UnregisterSettingsEvents()
         {
-            if (!_settingsEventsRegistered || !SettingsManager.Instance)
-            {
-                _settingsEventsRegistered = false;
-                return;
-            }
-
             SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
-            _settingsEventsRegistered = false;
-        }
-
-        private void RefreshSettingsSnapshot()
-        {
-            if (!SettingsManager.Instance)
-            {
-                _musicEnabled = true;
-                _sfxEnabled = true;
-                return;
-            }
-
-            _musicEnabled = SettingsManager.Instance.MusicEnabled;
-            _sfxEnabled = SettingsManager.Instance.SfxEnabled;
-            HandleMusicEnabledChanged(_musicEnabled);
-            HandleSfxEnabledChanged(_sfxEnabled);
         }
 
         private void HandleMusicEnabledChanged(bool isEnabled)
         {
-            _musicEnabled = isEnabled;
-            if (!_musicEnabled)
+            if (musicSource)
+            {
+                musicSource.mute = !isEnabled;
+            }
+
+            if (!isEnabled)
             {
                 StopMusic();
                 return;
             }
 
-            if (_hasSyncedState)
-            {
-                SyncMusicToState(_lastSyncedState);
-            }
+            ApplyMusicState(StateManager.Instance.CurrentState);
         }
 
         private void HandleSfxEnabledChanged(bool isEnabled)
         {
-            _sfxEnabled = isEnabled;
-            if (!_sfxEnabled)
+            if (sfxSource)
+            {
+                sfxSource.mute = !isEnabled;
+            }
+
+            if (!isEnabled)
             {
                 StopAllSfx();
             }
@@ -133,14 +111,8 @@ namespace Runtime.Managers
 
         private void PlayMusic(AudioClip clip)
         {
-            if (!_settingsEventsRegistered)
+            if (musicSource == null || clip == null)
             {
-                TryRegisterSettingsEvents();
-            }
-
-            if (!_musicEnabled || clip == null || musicSource == null)
-            {
-                StopMusic();
                 return;
             }
 
@@ -172,12 +144,9 @@ namespace Runtime.Managers
 
         private void PlaySfx(AudioClip clip)
         {
-            if (!_settingsEventsRegistered)
-            {
-                TryRegisterSettingsEvents();
-            }
+            RegisterSettingsEvents();
 
-            if (!_sfxEnabled || clip == null || sfxSource == null)
+            if (clip == null || sfxSource == null || sfxSource.mute)
             {
                 return;
             }

@@ -48,6 +48,4 @@ MonoBehaviour:
   boardController: {fileID: 0}
   blockSceneBuilder: {fileID: 0}
   gameplayCamera: {fileID: 0}
-  initializeOnStart: 1
-  lockToPortraitOrientation: 1
   levelCompletePanelDelay: 0.4

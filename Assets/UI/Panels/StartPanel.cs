@@ -15,7 +15,7 @@ namespace UI.Panels
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _startButton;
-        private Action _startAction;
+        public event Action StartRequested;
         protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
@@ -31,8 +31,6 @@ namespace UI.Panels
             _startButton.clicked += HandleStartClicked;
             Show();
         }
-
-        public void BindStartAction(Action onStartRequested) => _startAction = onStartRequested;
 
         public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
@@ -52,15 +50,12 @@ namespace UI.Panels
         private void HandleStartClicked()
         {
             AudioManager.Instance.PlayButtonClick();
-            _startAction();
+            StartRequested?.Invoke();
         }
 
         private void OnDestroy()
         {
-            if (_startButton != null)
-            {
-                _startButton.clicked -= HandleStartClicked;
-            }
+            _startButton.clicked -= HandleStartClicked;
         }
     }
 }

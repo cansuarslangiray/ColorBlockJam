@@ -14,10 +14,8 @@ namespace UI.Panels
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
-        private Action _actionHandler;
-        private Action _continueAction;
-        private Action _retryAction;
-        private Action _restartAction;
+
+        public event Action ActionRequested;
         protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
@@ -29,12 +27,6 @@ namespace UI.Panels
             Hide();
         }
 
-        public void BindContinueAction(Action onContinueRequested) => _continueAction = onContinueRequested;
-
-        public void BindRetryAction(Action onRetryRequested) => _retryAction = onRetryRequested;
-
-        public void BindRestartAction(Action onRestartRequested) => _restartAction = onRestartRequested;
-
         public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
         public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
@@ -44,13 +36,9 @@ namespace UI.Panels
             switch (state)
             {
                 case GameState.LevelCompleted:
-                    ConfigureForState(state, _continueAction);
-                    break;
                 case GameState.LevelFailed:
-                    ConfigureForState(state, _retryAction);
-                    break;
                 case GameState.GameCompleted:
-                    ConfigureForState(state, _restartAction);
+                    ConfigureForState(state);
                     break;
                 case GameState.StartScreen:
                 case GameState.Playing:
@@ -60,34 +48,30 @@ namespace UI.Panels
             }
         }
 
-        private void ConfigureForState(GameState state, Action onAction)
+        private void ConfigureForState(GameState state)
         {
             var stateText = uiTextProfile.GetEndGamePanelText(state);
-            ConfigureAction(stateText.actionLabel, stateText.title, stateText.subtitle, onAction);
+            ConfigureAction(stateText.actionLabel, stateText.title, stateText.subtitle);
         }
 
 
-        private void ConfigureAction(string actionLabel, string title, string subtitle, Action onAction)
+        private void ConfigureAction(string actionLabel, string title, string subtitle)
         {
             _titleLabel.text = title;
             _subtitleLabel.text = subtitle;
             _actionButton.text = actionLabel;
-            _actionHandler = onAction;
             Show();
         }
 
         private void HandleActionClicked()
         {
             AudioManager.Instance.PlayButtonClick();
-            _actionHandler();
+            ActionRequested?.Invoke();
         }
 
         private void OnDestroy()
         {
-            if (_actionButton != null)
-            {
-                _actionButton.clicked -= HandleActionClicked;
-            }
+            _actionButton.clicked -= HandleActionClicked;
         }
     }
 }

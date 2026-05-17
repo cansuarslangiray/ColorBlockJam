@@ -75,10 +75,9 @@ namespace Runtime.Data
                 return;
             }
 
-            for (var i = 0; i < levelJsonFiles.Count; i++)
+            foreach (var levelJson in levelJsonFiles)
             {
-                var levelJson = levelJsonFiles[i];
-                if (levelJson == null)
+                if (!levelJson)
                 {
                     continue;
                 }

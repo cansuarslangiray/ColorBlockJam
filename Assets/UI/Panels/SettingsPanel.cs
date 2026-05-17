@@ -17,7 +17,6 @@ namespace UI.Panels
         private Button _closeButton;
         private VisualElement _scrim;
         private bool _isOpen;
-        private bool _isReady;
 
         public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
@@ -37,18 +36,14 @@ namespace UI.Panels
             _sfxToggle.RegisterCallback<ClickEvent>(HandleSfxToggleClicked);
             _scrim.RegisterCallback<ClickEvent>(HandleScrimClicked);
 
-            _isReady = true;
-            RefreshFromSettings();
+            RegisterSettingsEvents();
+            ApplyToggleState(_musicToggle, _musicToggleLabel, true);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, true);
             Hide();
         }
 
         public void Toggle()
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             if (_isOpen)
             {
                 Hide();
@@ -60,12 +55,6 @@ namespace UI.Panels
 
         public override void Show()
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
-            RefreshFromSettings();
             var shouldNotify = !_isOpen;
             _isOpen = true;
             base.Show();
@@ -77,11 +66,6 @@ namespace UI.Panels
 
         public override void Hide()
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             var shouldNotify = _isOpen;
             _isOpen = false;
             base.Hide();
@@ -93,23 +77,30 @@ namespace UI.Panels
 
         private void OnDestroy()
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             _closeButton.clicked -= HandleCloseClicked;
             _musicToggle.UnregisterCallback<ClickEvent>(HandleMusicToggleClicked);
             _sfxToggle.UnregisterCallback<ClickEvent>(HandleSfxToggleClicked);
             _scrim.UnregisterCallback<ClickEvent>(HandleScrimClicked);
+            UnregisterSettingsEvents();
         }
 
-        private void RefreshFromSettings()
+        private void RegisterSettingsEvents()
         {
-            var settings = SettingsManager.Instance;
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settings.MusicEnabled);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settings.SfxEnabled);
+            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
+            SettingsManager.Instance.SfxEnabledChanged += HandleSfxEnabledChanged;
         }
+
+        private void UnregisterSettingsEvents()
+        {
+            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
+        }
+
+        private void HandleMusicEnabledChanged(bool isEnabled) => ApplyToggleState(_musicToggle, _musicToggleLabel, isEnabled);
+       
+        private void HandleSfxEnabledChanged(bool isEnabled) => ApplyToggleState(_sfxToggle, _sfxToggleLabel, isEnabled);
 
         private static void ApplyToggleState(VisualElement toggle, Label toggleLabel, bool isEnabled)
         {
@@ -138,21 +129,15 @@ namespace UI.Panels
         private void HandleMusicToggleClicked(ClickEvent _)
         {
             AudioManager.Instance.PlayButtonClick();
-            var settings = SettingsManager.Instance;
-            if (settings.SetMusicEnabled(!settings.MusicEnabled))
-            {
-                RefreshFromSettings();
-            }
+            SettingsManager.Instance.SetMusicEnabled(!IsToggleEnabled(_musicToggle));
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
             AudioManager.Instance.PlayButtonClick();
-            var settings = SettingsManager.Instance;
-            if (settings.SetSfxEnabled(!settings.SfxEnabled))
-            {
-                RefreshFromSettings();
-            }
+            SettingsManager.Instance.SetSfxEnabled(!IsToggleEnabled(_sfxToggle));
         }
+
+        private static bool IsToggleEnabled(VisualElement toggle) => toggle.ClassListContains("settings-switch-on");
     }
 }

@@ -23,13 +23,12 @@ namespace UI.Panels
         private Coroutine _tickRoutine;
         private bool _isTimerRunning;
         private bool _isTimerPaused;
-        private bool _isReady;
         private WaitForSeconds _tickWaitInstruction;
         private float _cachedTickInterval = -1f;
         private int _resolvedWarningThreshold;
-        private Action _reloadAction;
-        private Action _settingsAction;
-
+        
+        public event Action ReloadRequested;
+        public event Action SettingsRequested;
         public event Action TimerExpired;
 
         protected override void CacheElements()
@@ -42,7 +41,6 @@ namespace UI.Panels
 
             _reloadButton.clicked += HandleReloadClicked;
             _settingsButton.clicked += HandleSettingsClicked;
-            _isReady = true;
             RefreshTimerStyleThreshold();
             SetTimer(0);
             Hide();
@@ -59,10 +57,6 @@ namespace UI.Panels
 
         public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
 
-        public void BindReloadAction(Action onReloadRequested) => _reloadAction = onReloadRequested;
-
-        public void BindSettingsAction(Action onSettingsRequested) => _settingsAction = onSettingsRequested;
-
         public void StartTimer(float durationSeconds)
         {
             StopTimer();
@@ -75,7 +69,7 @@ namespace UI.Panels
             if (_remainingSeconds <= 0)
             {
                 _isTimerRunning = false;
-                TimerExpired?.Invoke();
+                RaiseTimerExpired();
                 return;
             }
 
@@ -126,23 +120,10 @@ namespace UI.Panels
             _tickRoutine = StartCoroutine(TickRoutine());
         }
 
-        public void SetLevel(int levelNumber)
-        {
-            if (!_isReady)
-            {
-                return;
-            }
-
-            _levelLabel.text = Mathf.Max(1, levelNumber).ToString();
-        }
+        public void SetLevel(int levelNumber) => _levelLabel.text = Mathf.Max(1, levelNumber).ToString();
 
         public void SetTimer(int remainingSeconds)
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             var totalSeconds = Mathf.Max(0, remainingSeconds);
             var minutes = totalSeconds / 60;
             var seconds = totalSeconds % 60;
@@ -163,29 +144,29 @@ namespace UI.Panels
             _tickRoutine = null;
             _isTimerRunning = false;
             SetTimerState(0);
-            TimerExpired?.Invoke();
+            RaiseTimerExpired();
         }
 
         private void HandleGameStateChanged(GameState state)
         {
             Show();
-            if (state == GameState.StartScreen)
+            switch (state)
             {
-                StopTimer();
-                SetTimer(0);
+                case GameState.StartScreen:
+                    StopTimer();
+                    SetTimer(0);
+                    break;
+                case GameState.Playing:
+                    _reloadButton.SetEnabled(true);
+                    break;
             }
         }
 
+
         private void SetTimerState(int totalSeconds)
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             var isCritical = _isTimerRunning && totalSeconds > 0 && totalSeconds <= criticalThresholdSeconds;
-            var isWarning =
-                _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= _resolvedWarningThreshold;
+            var isWarning = _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= _resolvedWarningThreshold;
             var shouldPulse = isCritical && totalSeconds % 2 == 0;
 
             _timerChip.EnableInClassList("timer-warning", isWarning);
@@ -196,39 +177,35 @@ namespace UI.Panels
         private WaitForSeconds ResolveTickInstruction()
         {
             var resolvedInterval = Mathf.Max(0.2f, tickIntervalSeconds);
-            if (_tickWaitInstruction == null || !Mathf.Approximately(_cachedTickInterval, resolvedInterval))
-            {
-                _cachedTickInterval = resolvedInterval;
-                _tickWaitInstruction = new WaitForSeconds(resolvedInterval);
-            }
+            if (_tickWaitInstruction != null && Mathf.Approximately(_cachedTickInterval, resolvedInterval))
+                return _tickWaitInstruction;
+            
+            _cachedTickInterval = resolvedInterval;
+            _tickWaitInstruction = new WaitForSeconds(resolvedInterval);
 
             return _tickWaitInstruction;
         }
 
-        private void RefreshTimerStyleThreshold() =>
-            _resolvedWarningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
+        private void RefreshTimerStyleThreshold() => _resolvedWarningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
+
+        private void RaiseTimerExpired() => TimerExpired?.Invoke();
 
         private void HandleReloadClicked()
         {
             AudioManager.Instance.PlayButtonClick();
-            _reloadAction();
+            ReloadRequested?.Invoke();
         }
 
         private void HandleSettingsClicked()
         {
             AudioManager.Instance.PlayButtonClick();
-            _settingsAction();
+            SettingsRequested?.Invoke();
         }
 
         private void OnDisable() => StopTimer();
 
         private void OnDestroy()
         {
-            if (!_isReady)
-            {
-                return;
-            }
-
             _reloadButton.clicked -= HandleReloadClicked;
             _settingsButton.clicked -= HandleSettingsClicked;
         }
