@@ -2,6 +2,7 @@ using System.Collections;
 using Runtime.Data;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
+using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -122,6 +123,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     MoveCurve);
             }
 
+            AudioManager.Instance.PlayBlockMatchSuccess();
             PlayDoorMatchFx(matchedDoor);
 
             var resolvedExitDirection = ResolveExitDirectionForDoor(matchedDoor, exitDirection);
@@ -387,10 +389,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var localPosition = new Vector3((localCell.x + 0.5f) * cellSize, (localCell.y + 0.5f) * cellSize, 0f);
                 ApplyLocalTransform(cellVisual.Transform, localPosition, targetScale);
 
-                if (cellVisual.Renderer && cellVisual.Renderer.sharedMaterial != resolvedMaterial)
-                {
-                    cellVisual.Renderer.sharedMaterial = resolvedMaterial;
-                }
+                ApplySharedMaterial(cellVisual, resolvedMaterial);
             }
         }
 

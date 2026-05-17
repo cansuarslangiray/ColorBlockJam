@@ -7,7 +7,6 @@ namespace Runtime.Core
         private static T _instance;
 
         public static T Instance => _instance;
-        public static bool HasInstance => _instance != null;
 
         protected virtual bool DestroyDuplicateInstances => true;
 

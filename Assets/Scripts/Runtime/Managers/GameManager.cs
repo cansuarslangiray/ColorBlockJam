@@ -9,6 +9,7 @@ using UnityEngine;
 
 namespace Runtime.Managers
 {
+    [DisallowMultipleComponent]
     public class GameManager : SingletonMonoBehaviour<GameManager>
     {
         [Header("Core References")] [SerializeField]
@@ -20,22 +21,22 @@ namespace Runtime.Managers
         [Header("Camera Framing")] [SerializeField]
         private Camera gameplayCamera;
 
-        [SerializeField]
-        private BoardCameraFramingSettings boardCameraFramingSettings = BoardCameraFramingSettings.CreateDefault();
+        [SerializeField] private BoardCameraFramingSettings boardCameraFramingSettings =
+            BoardCameraFramingSettings.CreateDefault();
 
         [Header("Flow Settings")] [SerializeField]
         private bool initializeOnStart = true;
 
         [SerializeField] private bool lockToPortraitOrientation = true;
-
         [SerializeField] private float levelCompletePanelDelay = 0.4f;
 
         private int _currentLevelIndex;
         private bool _transitionInProgress;
-        private bool _eventsRegistered;
+        private bool _boardEventsRegistered;
+        private bool _stateEventsRegistered;
+        private bool _uiEventsRegistered;
         private bool _uiActionsBound;
         private bool _startupInitialized;
-        private Coroutine _bootstrapRoutine;
         private WaitForSeconds _levelCompletedDelayWait;
         private float _cachedLevelCompleteDelay = -1f;
 
@@ -46,6 +47,36 @@ namespace Runtime.Managers
             RefreshLevelCompleteDelayInstruction();
         }
 
+        private void Start()
+        {
+            TryRegisterEvents();
+            TryBindUiActions();
+
+            if (!initializeOnStart || _startupInitialized)
+            {
+                return;
+            }
+
+            InitializeRun();
+            _startupInitialized = true;
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (hasFocus)
+            {
+                ApplyDisplaySettings();
+            }
+        }
+
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (!pauseStatus)
+            {
+                ApplyDisplaySettings();
+            }
+        }
+
         private void OnValidate()
         {
             RefreshLevelCompleteDelayInstruction();
@@ -53,18 +84,14 @@ namespace Runtime.Managers
 
         private void OnEnable()
         {
-            _bootstrapRoutine ??= StartCoroutine(BootstrapWhenReady());
+            TryRegisterEvents();
+            TryBindUiActions();
         }
 
         private void OnDisable()
         {
-            if (_bootstrapRoutine != null)
-            {
-                StopCoroutine(_bootstrapRoutine);
-                _bootstrapRoutine = null;
-            }
-
             UnregisterEvents();
+            _uiActionsBound = false;
         }
 
         private void ApplyDisplaySettings()
@@ -81,71 +108,59 @@ namespace Runtime.Managers
             Screen.orientation = ScreenOrientation.Portrait;
         }
 
-        private void RegisterEvents()
+        private void TryRegisterEvents()
         {
-            if (_eventsRegistered || !HasRequiredRuntimeReferences())
+            if (!_boardEventsRegistered && boardController)
             {
-                return;
+                boardController.LevelCompleted += OnLevelCompleted;
+                _boardEventsRegistered = true;
             }
 
-            boardController.LevelCompleted += OnLevelCompleted;
-            StateManager.Instance.OnStateChanged += HandleStateChanged;
-            UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
-            _eventsRegistered = true;
+            if (!_stateEventsRegistered && StateManager.Instance)
+            {
+                StateManager.Instance.OnStateChanged += HandleStateChanged;
+                _stateEventsRegistered = true;
+            }
+
+            if (!_uiEventsRegistered && UIManager.Instance)
+            {
+                UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
+                _uiEventsRegistered = true;
+            }
         }
 
         private void UnregisterEvents()
         {
-            if (!_eventsRegistered)
+            if (_boardEventsRegistered && boardController)
             {
-                return;
+                boardController.LevelCompleted -= OnLevelCompleted;
+                _boardEventsRegistered = false;
             }
 
-            boardController.LevelCompleted -= OnLevelCompleted;
-            StateManager.Instance.OnStateChanged -= HandleStateChanged;
-            UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
-            _eventsRegistered = false;
+            if (_stateEventsRegistered && StateManager.Instance)
+            {
+                StateManager.Instance.OnStateChanged -= HandleStateChanged;
+            }
+
+            if (_uiEventsRegistered && UIManager.Instance)
+            {
+                UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
+            }
+
+            _stateEventsRegistered = false;
+            _uiEventsRegistered = false;
         }
 
-        private void BindUiActions()
+        private void TryBindUiActions()
         {
-            if (_uiActionsBound)
-            {
+            if (_uiActionsBound || !UIManager.Instance)
                 return;
-            }
-
             UIManager.Instance.BindStartAction(HandleStartPanelInput);
             UIManager.Instance.BindContinueAction(HandleContinueInput);
             UIManager.Instance.BindRetryAction(HandleRetryInput);
             UIManager.Instance.BindRestartAction(HandleRestartInput);
             UIManager.Instance.BindReloadAction(HandleReloadInput);
             _uiActionsBound = true;
-        }
-
-        private IEnumerator BootstrapWhenReady()
-        {
-            while (enabled && !HasRequiredRuntimeReferences())
-            {
-                yield return null;
-            }
-
-            _bootstrapRoutine = null;
-            if (!enabled || !HasRequiredRuntimeReferences())
-            {
-                yield break;
-            }
-
-            RegisterEvents();
-            BindUiActions();
-
-            if (!initializeOnStart || _startupInitialized) yield break;
-            InitializeRun();
-            _startupInitialized = true;
-        }
-
-        private bool HasRequiredRuntimeReferences()
-        {
-            return boardController != null && StateManager.HasInstance && UIManager.HasInstance;
         }
 
         private void InitializeRun()
@@ -165,7 +180,7 @@ namespace Runtime.Managers
             {
                 return false;
             }
-
+            
             boardController.Setup(levelData, levelCollection.RuntimeShapeRegistry);
             blockSceneBuilder.BuildForLevel(levelData);
 
@@ -238,11 +253,13 @@ namespace Runtime.Managers
         private void FailRun()
         {
             UIManager.Instance.StopLevelTimer();
+            AudioManager.Instance.PlayLevelFail();
             StateManager.Instance.ChangeState(GameState.LevelFailed);
         }
 
         private void HandleStateChanged(GameState newState)
         {
+            AudioManager.Instance.SyncMusicToState(newState);
             UIManager.Instance.PublishState(newState);
 
             if (newState != GameState.Playing)

@@ -2,10 +2,11 @@ using System;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using Runtime.UI.Panels;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Runtime.UI.Panels
+namespace UI.Panels
 {
     public class StartPanel : GamePanel
     {
@@ -22,12 +23,6 @@ namespace Runtime.UI.Panels
             _titleLabel = Root.Q<Label>("start-title");
             _subtitleLabel = Root.Q<Label>("start-subtitle");
             _startButton = Root.Q<Button>("start-button");
-            if (_titleLabel == null || _subtitleLabel == null || _startButton == null)
-            {
-                Debug.LogError(
-                    "StartPanel could not find required elements: start-title, start-subtitle, or start-button.", this);
-                return;
-            }
 
             var startText = uiTextProfile.startPanel;
             _titleLabel.text = startText.title;
@@ -42,14 +37,14 @@ namespace Runtime.UI.Panels
             _startAction = onStartRequested;
         }
 
-        public void SubscribeToState(UIManager uiManager)
+        public void SubscribeToState()
         {
-            uiManager.GameStateChanged += HandleGameStateChanged;
+            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
         }
 
-        public void UnsubscribeFromState(UIManager uiManager)
+        public void UnsubscribeFromState()
         {
-            uiManager.GameStateChanged -= HandleGameStateChanged;
+            UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
         }
 
         private void HandleGameStateChanged(GameState state)
@@ -65,6 +60,7 @@ namespace Runtime.UI.Panels
 
         private void HandleStartClicked()
         {
+            AudioManager.Instance.PlayButtonClick();
             _startAction();
         }
 

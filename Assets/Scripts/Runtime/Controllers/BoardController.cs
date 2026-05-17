@@ -50,7 +50,7 @@ namespace Runtime.Controllers
         private int _activeGestureAppliedStepCount;
         private Camera _activeGestureCamera;
 
-        private bool IsBoardReadyForInput => IsInitialized && StateManager.HasInstance &&
+        private bool IsBoardReadyForInput => IsInitialized &&
                                              StateManager.Instance.CurrentState == GameState.Playing;
 
         private void Awake()
@@ -117,6 +117,7 @@ namespace Runtime.Controllers
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
             _activeGestureCamera = resolvedCamera;
+            AudioManager.Instance.PlayBlockSelect();
             return true;
         }
 
@@ -352,6 +353,7 @@ namespace Runtime.Controllers
 
             _runtimeBlocks[blockId] = block;
             _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
+            AudioManager.Instance.PlayBlockMove();
             BlockMoved?.Invoke(blockId, startPosition, currentPosition);
             return true;
         }

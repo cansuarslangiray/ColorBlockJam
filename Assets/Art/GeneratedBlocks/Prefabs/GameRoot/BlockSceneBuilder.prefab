@@ -50,7 +50,7 @@ MonoBehaviour:
   gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
   boardRoot: {fileID: 0}
   blocksRoot: {fileID: 0}
-  gridCellPrefab: {fileID: 8640720651343568273, guid: d719bf6ee45294941a59795768f9f902, type: 3}
+  gridCellPrefab: {fileID: 3000000000000000001, guid: baffa1a679274abca6d095541ec59b4d, type: 3}
   borderPrefab: {fileID: 6295717403206342220, guid: 4febc3e5f60d747d8a2f2168e8580e69, type: 3}
   backdropPrefab: {fileID: 6950727987144244198, guid: 84cca90ef9b204e52966625e14cc82db, type: 3}
   doorPrefab: {fileID: 2012413518598514465, guid: 603380ab311b24c2cb72e212dbb9585e, type: 3}
@@ -72,21 +72,27 @@ MonoBehaviour:
   doorNamePrefix: Door
   blockRootNamePrefix: BlockRoot
   blockCellNamePrefix: BlockCell
-  boardCellGap: 0.035
-  boardCellDepthInCells: 0.04
+  boardCellGap: 0.022
+  boardCellDepthInCells: 0.05
   boardCellsZOffset: 0.74
-  boardBackdropPaddingInCells: 0.12
-  boardBackdropZOffset: 1.02
-  edgeFrameThicknessInCells: 0.43
+  boardBackdropPaddingInCells: 0.06
+  boardBackdropZOffset: 0.18
+  edgeFrameThicknessInCells: 0.52
   edgeFramePaddingInCells: 0.01
-  edgeFrameDepthInCells: 0.16
+  edgeFrameDepthInCells: 0.18
   doorInsetInCells: 0.01
   doorInnerShiftInCells: 0.08
   doorSpanPaddingInCells: 0.08
   doorThicknessRatio: 0.72
   doorDepthBiasFromFrame: 0.018
-  blockCellVisualScale: 0.93
+  blockCellVisualScale: 0.96
   blockLayerForwardOffsetFromGrid: 0.24
+  addStudsToBlockCells: 1
+  studsPerCellAxis: 2
+  studDiameterRatio: 0.2
+  studHeightRatio: 0.11
+  studInsetRatio: 0.23
+  studLiftRatio: 0.01
   doorExitDuration: 0.32
   doorExitTravelInCells: 1.15
   doorExitMoveCurve:

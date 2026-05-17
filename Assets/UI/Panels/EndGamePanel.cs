@@ -2,10 +2,11 @@ using System;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using Runtime.UI.Panels;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Runtime.UI.Panels
+namespace UI.Panels
 {
     public class EndGamePanel : GamePanel
     {
@@ -43,14 +44,14 @@ namespace Runtime.UI.Panels
             _restartAction = onRestartRequested;
         }
 
-        public void SubscribeToState(UIManager uiManager)
+        public void SubscribeToState()
         {
-            uiManager.GameStateChanged += HandleGameStateChanged;
+            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
         }
 
-        public void UnsubscribeFromState(UIManager uiManager)
+        public void UnsubscribeFromState()
         {
-            uiManager.GameStateChanged -= HandleGameStateChanged;
+             UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
         }
 
         private void HandleGameStateChanged(GameState state)
@@ -92,12 +93,16 @@ namespace Runtime.UI.Panels
 
         private void HandleActionClicked()
         {
+             AudioManager.Instance.PlayButtonClick();
             _actionHandler();
         }
 
         private void OnDestroy()
         {
-            _actionButton.clicked -= HandleActionClicked;
+            if (_actionButton != null)
+            {
+                _actionButton.clicked -= HandleActionClicked;
+            }
         }
     }
 }

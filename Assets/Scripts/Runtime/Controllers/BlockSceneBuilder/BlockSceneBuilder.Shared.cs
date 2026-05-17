@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
@@ -7,6 +8,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
+        private const string BlockStudRootName = "__BlockStuds";
+
         private PooledVisual CreateGridCellObject(Transform parent, Vector2Int cell)
         {
             return CreateVisualObject(parent, GetRuntimeName(gridCellNamePrefix, cell.x, cell.y), gridCellPrefab, false);
@@ -15,37 +18,31 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private PooledVisual CreateBlockCellObject(Transform parent)
         {
             var prefab = ResolveBlockCellPrefab();
-            return CreateVisualObject(parent, GetRuntimeName(blockCellNamePrefix), prefab, true);
+            return CreateVisualObject(parent, GetRuntimeName(blockCellNamePrefix), prefab, true, true);
         }
 
-        private PooledVisual CreateVisualObject(Transform parent, string objectName, GameObject prefab, bool cacheRenderer)
+        private PooledVisual CreateVisualObject(Transform parent, string objectName, GameObject prefab, bool cacheRenderer,
+            bool decorateBlockCell = false)
         {
-            var visualParent = parent ? parent : transform;
-            GameObject visualObject;
-            if (prefab)
+            if (!prefab)
             {
-                visualObject = Instantiate(prefab, visualParent);
+                return new PooledVisual(null, (Renderer[])null);
             }
-            else
-            {
-                if (!_loggedPrimitiveFallback)
-                {
-                    Debug.LogError(
-                        "BlockSceneBuilder could not resolve a prefab and is creating a primitive fallback. Reassign missing prefab references.",
-                        this);
-                    _loggedPrimitiveFallback = true;
-                }
 
-                visualObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                visualObject.transform.SetParent(visualParent, false);
-            }
+            var visualParent = parent ? parent : transform;
+            var visualObject = Instantiate(prefab, visualParent);
 
             RenameIfConfigured(visualObject, objectName);
             visualObject.transform.localRotation = Quaternion.identity;
             DisableCollider(visualObject);
 
-            var renderer = cacheRenderer ? ResolveRenderer(visualObject) : null;
-            return new PooledVisual(visualObject, renderer);
+            if (decorateBlockCell)
+            {
+                EnsureBlockCellSurface(visualObject);
+            }
+
+            var renderers = cacheRenderer ? ResolveRenderers(visualObject) : null;
+            return new PooledVisual(visualObject, renderers);
         }
 
         private GameObject ResolveBlockCellPrefab()
@@ -55,30 +52,60 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return visualProfile.defaultBlockPrefab;
             }
 
-            if (gridCellPrefab)
-            {
-                if (!_loggedMissingBlockCellPrefab)
-                {
-                    Debug.LogWarning(
-                        "BlockVisualProfile.defaultBlockPrefab is missing. BlockSceneBuilder is using gridCellPrefab as fallback.",
-                        this);
-                    _loggedMissingBlockCellPrefab = true;
-                }
-
-                return gridCellPrefab;
-            }
-
             return null;
         }
 
-        private static Renderer ResolveRenderer(GameObject target)
+        private void EnsureBlockCellSurface(GameObject blockCellObject)
+        {
+            if (!addStudsToBlockCells || !blockCellObject)
+            {
+                return;
+            }
+
+            if (blockCellObject.transform.Find(BlockStudRootName) != null)
+            {
+                return;
+            }
+
+            var studRoot = new GameObject(BlockStudRootName);
+            studRoot.transform.SetParent(blockCellObject.transform, false);
+            studRoot.transform.localPosition = Vector3.zero;
+            studRoot.transform.localRotation = Quaternion.identity;
+            studRoot.transform.localScale = Vector3.one;
+
+            var studCount = Mathf.Max(1, studsPerCellAxis);
+            var inset = Mathf.Clamp(studInsetRatio, 0.02f, 0.46f);
+            var spacing = studCount > 1 ? (1f - (inset * 2f)) / (studCount - 1) : 0f;
+            var start = studCount > 1 ? (-0.5f + inset) : 0f;
+            var studScale = new Vector3(
+                Mathf.Clamp(studDiameterRatio, 0.04f, 0.42f),
+                Mathf.Clamp(studDiameterRatio, 0.04f, 0.42f),
+                Mathf.Clamp(studHeightRatio, 0.02f, 0.24f));
+            var studCenterZ = 0.5f + (studScale.z * 0.15f) + Mathf.Clamp(studLiftRatio, 0f, 0.08f);
+
+            for (var y = 0; y < studCount; y++)
+            {
+                for (var x = 0; x < studCount; x++)
+                {
+                    var studObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    studObject.transform.SetParent(studRoot.transform, false);
+                    studObject.transform.localRotation = Quaternion.identity;
+                    studObject.transform.localPosition = new Vector3(start + (x * spacing), start + (y * spacing), studCenterZ);
+                    studObject.transform.localScale = studScale;
+                    RenameIfConfigured(studObject, GetRuntimeName("Stud", y * studCount + x));
+                    DisableCollider(studObject);
+                }
+            }
+        }
+
+        private static Renderer[] ResolveRenderers(GameObject target)
         {
             if (!target)
             {
-                return null;
+                return Array.Empty<Renderer>();
             }
 
-            return target.TryGetComponent<Renderer>(out var renderer) ? renderer : target.GetComponentInChildren<Renderer>(true);
+            return target.GetComponentsInChildren<Renderer>(true);
         }
 
         private static void DisableCollider(GameObject target)
@@ -150,6 +177,26 @@ namespace Runtime.Controllers.BlockSceneBuilder
             if (target.localScale != localScale)
             {
                 target.localScale = localScale;
+            }
+        }
+
+        private static void ApplySharedMaterial(PooledVisual visual, Material material)
+        {
+            if (visual == null)
+            {
+                return;
+            }
+
+            var renderers = visual.Renderers;
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (!renderer || renderer.sharedMaterial == material)
+                {
+                    continue;
+                }
+
+                renderer.sharedMaterial = material;
             }
         }
 

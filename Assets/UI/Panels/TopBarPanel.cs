@@ -2,25 +2,30 @@ using System;
 using System.Collections;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using Runtime.UI.Panels;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Runtime.UI.Panels
+namespace UI.Panels
 {
     public class TopBarPanel : GamePanel
     {
         [SerializeField, Min(0.2f)] private float tickIntervalSeconds = 1f;
         [SerializeField, Min(1)] private int warningThresholdSeconds = 30;
         [SerializeField, Min(1)] private int criticalThresholdSeconds = 10;
-        
+
         private Label _levelLabel;
         private Label _timerLabel;
         private VisualElement _timerChip;
         private Button _reloadButton;
+        private Button _settingsButton;
         private int _remainingSeconds;
         private Coroutine _tickRoutine;
         private bool _isTimerRunning;
+        private bool _isTimerPaused;
+        private bool _isReady;
         private Action _reloadAction = delegate { };
+        private Action _settingsAction = delegate { };
 
         public event Action TimerExpired = delegate { };
 
@@ -30,25 +35,23 @@ namespace Runtime.UI.Panels
             _timerLabel = Root.Q<Label>("topbar-timer");
             _timerChip = Root.Q<VisualElement>("topbar-timer-chip");
             _reloadButton = Root.Q<Button>("topbar-reload");
-            if (_levelLabel == null || _timerLabel == null || _timerChip == null || _reloadButton == null)
-            {
-                Debug.LogError("TopBarPanel could not find required elements: topbar-level, topbar-timer, topbar-timer-chip, or topbar-reload.", this);
-                return;
-            }
+            _settingsButton = Root.Q<Button>("topbar-settings");
 
             _reloadButton.clicked += HandleReloadClicked;
+            _settingsButton.clicked += HandleSettingsClicked;
+            _isReady = true;
             SetTimer(0);
             Hide();
         }
 
-        public void SubscribeToState(UIManager uiManager)
+        public void SubscribeToState()
         {
-            uiManager.GameStateChanged += HandleGameStateChanged;
+            UIManager.Instance.GameStateChanged += HandleGameStateChanged;
         }
 
-        public void UnsubscribeFromState(UIManager uiManager)
+        public void UnsubscribeFromState()
         {
-            uiManager.GameStateChanged -= HandleGameStateChanged;
+            UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
         }
 
         public void BindReloadAction(Action onReloadRequested)
@@ -56,11 +59,17 @@ namespace Runtime.UI.Panels
             _reloadAction = onReloadRequested;
         }
 
+        public void BindSettingsAction(Action onSettingsRequested)
+        {
+            _settingsAction = onSettingsRequested;
+        }
+
         public void StartTimer(float durationSeconds)
         {
             StopTimer();
 
             _remainingSeconds = Mathf.Max(0, Mathf.CeilToInt(durationSeconds));
+            _isTimerPaused = false;
             _isTimerRunning = _remainingSeconds > 0;
             SetTimer(_remainingSeconds);
 
@@ -83,12 +92,44 @@ namespace Runtime.UI.Panels
             }
 
             _isTimerRunning = false;
+            _isTimerPaused = false;
             SetTimerState(_remainingSeconds);
+        }
+
+        public void PauseTimer()
+        {
+            if (!_isTimerRunning || _isTimerPaused)
+            {
+                return;
+            }
+
+            if (_tickRoutine != null)
+            {
+                StopCoroutine(_tickRoutine);
+                _tickRoutine = null;
+            }
+
+            _isTimerRunning = false;
+            _isTimerPaused = true;
+            SetTimerState(_remainingSeconds);
+        }
+
+        public void ResumeTimer()
+        {
+            if (!_isTimerPaused || _remainingSeconds <= 0 || _tickRoutine != null)
+            {
+                return;
+            }
+
+            _isTimerPaused = false;
+            _isTimerRunning = true;
+            SetTimerState(_remainingSeconds);
+            _tickRoutine = StartCoroutine(TickRoutine());
         }
 
         public void SetLevel(int levelNumber)
         {
-            if (_levelLabel == null)
+            if (!_isReady)
             {
                 return;
             }
@@ -98,7 +139,7 @@ namespace Runtime.UI.Panels
 
         public void SetTimer(int remainingSeconds)
         {
-            if (_timerLabel == null)
+            if (!_isReady)
             {
                 return;
             }
@@ -128,24 +169,24 @@ namespace Runtime.UI.Panels
 
         private void HandleGameStateChanged(GameState state)
         {
-            if (state == GameState.Playing)
+            if (state == GameState.StartScreen || state == GameState.Playing)
             {
                 Show();
+                if (state == GameState.StartScreen)
+                {
+                    StopTimer();
+                    SetTimer(0);
+                }
+
                 return;
             }
 
             Hide();
-
-            if (state == GameState.StartScreen)
-            {
-                StopTimer();
-                SetTimer(0);
-            }
         }
 
         private void SetTimerState(int totalSeconds)
         {
-            if (_timerChip == null)
+            if (!_isReady)
             {
                 return;
             }
@@ -162,7 +203,14 @@ namespace Runtime.UI.Panels
 
         private void HandleReloadClicked()
         {
+            AudioManager.Instance.PlayButtonClick();
             _reloadAction();
+        }
+
+        private void HandleSettingsClicked()
+        {
+            AudioManager.Instance.PlayButtonClick();
+            _settingsAction();
         }
 
         private void OnDisable()
@@ -172,10 +220,13 @@ namespace Runtime.UI.Panels
 
         private void OnDestroy()
         {
-            if (_reloadButton != null)
+            if (!_isReady)
             {
-                _reloadButton.clicked -= HandleReloadClicked;
+                return;
             }
+
+            _reloadButton.clicked -= HandleReloadClicked;
+            _settingsButton.clicked -= HandleSettingsClicked;
         }
     }
 }

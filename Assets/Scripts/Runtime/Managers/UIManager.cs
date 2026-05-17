@@ -1,17 +1,19 @@
 using System;
 using Runtime.Core;
 using Runtime.Domain.Enums;
-using Runtime.UI.Panels;
+using UI.Panels;
 using UnityEngine;
 
 namespace Runtime.Managers
 {
+    [DisallowMultipleComponent]
     public class UIManager : SingletonMonoBehaviour<UIManager>
     {
         [Header("Panels")]
         [SerializeField] private StartPanel startPanel;
         [SerializeField] private EndGamePanel endGamePanel;
         [SerializeField] private TopBarPanel topBarPanel;
+        [SerializeField] private SettingsPanel settingsPanel;
 
         public event Action<GameState> GameStateChanged = delegate { };
         public event Action LevelTimerExpired = delegate { };
@@ -19,11 +21,14 @@ namespace Runtime.Managers
         protected override void Awake()
         {
             base.Awake();
+            startPanel.SubscribeToState();
+            endGamePanel.SubscribeToState();
+            topBarPanel.SubscribeToState();
+            settingsPanel.SubscribeToState();
 
-            startPanel.SubscribeToState(this);
-            endGamePanel.SubscribeToState(this);
-            topBarPanel.SubscribeToState(this);
             topBarPanel.TimerExpired += HandleTimerExpired;
+            topBarPanel.BindSettingsAction(settingsPanel.Toggle);
+            settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
         }
 
         private void Start()
@@ -33,12 +38,12 @@ namespace Runtime.Managers
 
         protected override void OnDestroy()
         {
-
             topBarPanel.TimerExpired -= HandleTimerExpired;
-            topBarPanel.UnsubscribeFromState(this);
-            endGamePanel.UnsubscribeFromState(this);
-            startPanel.UnsubscribeFromState(this);
-            
+            settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
+            settingsPanel.UnsubscribeFromState();
+            topBarPanel.UnsubscribeFromState();
+            endGamePanel.UnsubscribeFromState();
+            startPanel.UnsubscribeFromState();
             base.OnDestroy();
         }
 
@@ -92,9 +97,35 @@ namespace Runtime.Managers
             topBarPanel.StopTimer();
         }
 
+        public void PauseLevelTimer()
+        {
+            topBarPanel.PauseTimer();
+        }
+
+        public void ResumeLevelTimer()
+        {
+            topBarPanel.ResumeTimer();
+        }
+
         private void HandleTimerExpired()
         {
             LevelTimerExpired();
+        }
+
+        private void HandleSettingsPanelOpenStateChanged(bool isOpen)
+        {
+            if (!StateManager.Instance || StateManager.Instance.CurrentState != GameState.Playing)
+            {
+                return;
+            }
+
+            if (isOpen)
+            {
+                PauseLevelTimer();
+                return;
+            }
+
+            ResumeLevelTimer();
         }
     }
 }

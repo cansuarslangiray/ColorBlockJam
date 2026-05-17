@@ -1,0 +1,32 @@
+<UXML xmlns="UnityEngine.UIElements">
+    <VisualElement name="settings-root" class="settings-root">
+        <Style src="SettingsPanel.uss" />
+        <VisualElement name="settings-overlay" class="settings-overlay">
+            <VisualElement name="settings-scrim" class="settings-scrim" />
+            <VisualElement name="settings-drawer" class="settings-drawer">
+                <VisualElement class="settings-header">
+                    <Label class="settings-title" text="Settings" />
+                    <Button name="settings-close" class="settings-close" text="X" />
+                </VisualElement>
+
+                <VisualElement class="settings-section">
+                    <VisualElement class="settings-audio-row">
+                        <Label class="settings-section-title" text="Music" />
+                        <VisualElement name="settings-music-toggle" class="settings-switch settings-switch-on">
+                            <Label name="settings-music-toggle-label" class="settings-switch-knob" text="On" />
+                        </VisualElement>
+                    </VisualElement>
+                </VisualElement>
+
+                <VisualElement class="settings-section">
+                    <VisualElement class="settings-audio-row">
+                        <Label class="settings-section-title" text="SFX" />
+                        <VisualElement name="settings-sfx-toggle" class="settings-switch settings-switch-on">
+                            <Label name="settings-sfx-toggle-label" class="settings-switch-knob" text="On" />
+                        </VisualElement>
+                    </VisualElement>
+                </VisualElement>
+            </VisualElement>
+        </VisualElement>
+    </VisualElement>
+</UXML>

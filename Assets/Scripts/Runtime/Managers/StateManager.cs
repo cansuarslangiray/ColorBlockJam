@@ -1,9 +1,11 @@
 using System;
 using Runtime.Core;
 using Runtime.Domain.Enums;
+using UnityEngine;
 
 namespace Runtime.Managers
 {
+    [DisallowMultipleComponent]
     public class StateManager : SingletonMonoBehaviour<StateManager>
     {
         public event Action<GameState> OnStateChanged;

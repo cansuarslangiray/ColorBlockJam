@@ -53,6 +53,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
 
+        [Header("Block Surface")] [SerializeField]
+        private bool addStudsToBlockCells = true;
+
+        [SerializeField, Range(1, 3)] private int studsPerCellAxis = 2;
+        [SerializeField, Range(0.08f, 0.34f)] private float studDiameterRatio = 0.2f;
+        [SerializeField, Range(0.04f, 0.2f)] private float studHeightRatio = 0.11f;
+        [SerializeField, Range(0.12f, 0.36f)] private float studInsetRatio = 0.23f;
+        [SerializeField, Range(0f, 0.04f)] private float studLiftRatio = 0.01f;
+
         [Header("Animation Fallback")] [SerializeField, Min(0.05f)]
         private float blockMoveDuration = 0.14f;
 
@@ -76,8 +85,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private PooledVisual _backdropObject;
         private bool _baseGridInitialized;
         private Vector2Int _baseGridSize;
-        private bool _loggedMissingBlockCellPrefab;
-        private bool _loggedPrimitiveFallback;
 
         private Transform BoardRoot => boardRoot;
         private Transform BlocksRoot => blocksRoot;

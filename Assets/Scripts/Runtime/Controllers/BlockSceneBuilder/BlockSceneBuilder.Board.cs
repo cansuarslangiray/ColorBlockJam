@@ -410,12 +410,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var scale = isHorizontal ? new Vector3(span, frameThickness, doorDepth) : new Vector3(frameThickness, span, doorDepth);
                 ApplyWorldTransform(doorVisual.Transform, position, scale);
 
-                if (doorVisual.Renderer == null) continue;
                 var doorMaterial = GetDoorMaterial(opening.ColorType);
-                if (doorVisual.Renderer.sharedMaterial != doorMaterial)
-                {
-                    doorVisual.Renderer.sharedMaterial = doorMaterial;
-                }
+                ApplySharedMaterial(doorVisual, doorMaterial);
             }
         }
 
