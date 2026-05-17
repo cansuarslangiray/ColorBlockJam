@@ -10,42 +10,24 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Core References")] [SerializeField]
         private BoardController boardController;
 
-        [SerializeField] private LevelJsonData sourceLevel;
         [SerializeField] private BlockVisualProfile visualProfile;
-        [SerializeField] private BoardGameplayConfig gameplayConfig;
-        [SerializeField] private Transform boardRoot;
-        [SerializeField] private Transform blocksRoot;
-
-        [Header("Prefab References")] [SerializeField]
-        private GameObject gridCellPrefab;
-
-        [SerializeField] private GameObject borderPrefab;
-        [SerializeField] private GameObject backdropPrefab;
-        [SerializeField] private GameObject doorPrefab;
+        [SerializeField] private BlockScenePoolManager poolManager;
 
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
 
         private readonly Dictionary<BlockColor, Material> _configuredMaterialByColor = new();
         private bool _isConfiguredMaterialCacheDirty = true;
-        
-        private const string BoardBackdropName = "BoardBackdrop";
-        private const string GridCellNamePrefix = "GridCell";
-        private const string BorderNamePrefix = "Border";
-        private const string DoorNamePrefix = "Door";
-        private const string BlockRootNamePrefix = "BlockRoot";
-        private const string BlockCellNamePrefix = "BlockCell";
 
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
 
-        [SerializeField, Min(0.01f)] private float boardCellDepthInCells = 0.05f;
         [SerializeField] private float boardCellsZOffset = 0.75f;
         [SerializeField] private float boardBackdropPaddingInCells = 0.4f;
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
         [SerializeField, Min(0f)] private float edgeFramePaddingInCells = 0.03f;
-        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.14f;
+        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
         [SerializeField, Min(0f)] private float doorInsetInCells = 0.02f;
         [SerializeField, Min(0f)] private float doorDepthBiasFromFrame = 0.02f;
 
@@ -54,81 +36,65 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
 
-        [Header("Block Surface")] [SerializeField]
-        private bool addStudsToBlockCells = true;
-
-        [SerializeField, Range(1, 3)] private int studsPerCellAxis = 2;
-        [SerializeField, Range(0.08f, 0.34f)] private float studDiameterRatio = 0.2f;
-        [SerializeField, Range(0.04f, 0.2f)] private float studHeightRatio = 0.11f;
-        [SerializeField, Range(0.12f, 0.36f)] private float studInsetRatio = 0.23f;
-        [SerializeField, Range(0f, 0.04f)] private float studLiftRatio = 0.01f;
-
-        [Header("Animation Fallback")] [SerializeField, Min(0.05f)]
-        private float blockMoveDuration = 0.14f;
-
-        [SerializeField] private AnimationCurve blockMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-
-        [SerializeField, Min(0.05f)] private float doorExitDuration = 0.32f;
-        [SerializeField, Min(0.2f)] private float doorExitTravelInCells = 1.15f;
-        [SerializeField] private AnimationCurve doorExitMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-        [SerializeField] private AnimationCurve doorExitScaleCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
-        [SerializeField, Range(0f, 1f)] private float doorExitMinScaleMultiplier = 0.05f;
-
-        private readonly Dictionary<Vector2Int, PooledVisual> _gridCellPoolByCell = new();
-        private readonly List<PooledVisual> _borderPool = new();
-        private readonly List<PooledVisual> _doorPool = new();
-        private readonly List<BlockRootView> _blockRootPool = new();
+        private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
+        private readonly List<GameObject> _doorPool = new();
+        private readonly Dictionary<BlockShapeType, List<BlockRootView>> _inactiveBlockRootsByType = new();
+        private readonly Dictionary<BlockShapeType, int> _requiredBlockRootCountByType = new();
 
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
         private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
 
-        private PooledVisual _backdropObject;
-        private bool _baseGridInitialized;
-        private Vector2Int _baseGridSize;
+        private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
+        private GameObject _backdropObject;
+        private GameObject _sharedBlockCellTemplate;
+        private BoardGameplayConfig _gameplayConfig;
+        private LayoutMetrics _currentLayout;
+        private bool _hasCurrentLayout;
 
-        private Transform BoardRoot => boardRoot;
-        private Transform BlocksRoot => blocksRoot;
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
 
-        private BoardGameplayConfig ResolvedGameplayConfig =>
-            gameplayConfig ? gameplayConfig : boardController.GameplayConfig;
+        private float MoveDuration => Mathf.Max(0.05f, _gameplayConfig.blockMoveDuration);
+        private AnimationCurve MoveCurve => _gameplayConfig.blockMoveCurve;
+        private float ExitDuration => _gameplayConfig.doorExitDuration;
+        private float ExitTravelInCells => _gameplayConfig.doorExitTravelInCells;
+        private AnimationCurve ExitMoveCurve => _gameplayConfig.doorExitMoveCurve;
+        private AnimationCurve ExitScaleCurve => _gameplayConfig.doorExitScaleCurve;
+        private float ExitMinScaleMultiplier => _gameplayConfig.doorExitMinScaleMultiplier;
 
-        private float MoveDuration => Mathf.Max(0.05f,
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.blockMoveDuration : blockMoveDuration);
+        private LayoutMetrics ResolveLayoutMetrics()
+        {
+            var cellSize = CellSize;
+            var gridZ = Mathf.Abs(boardCellsZOffset);
+            var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
+            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
+            var framePadding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
+            var borderZ = gridZ - 0.01f;
+            var doorDepth = frameDepth * 1.08f;
+            var doorDepthBias = Mathf.Max(0.005f, doorDepthBiasFromFrame);
 
-        private AnimationCurve MoveCurve => ResolvedGameplayConfig && ResolvedGameplayConfig.blockMoveCurve != null
-            ? ResolvedGameplayConfig.blockMoveCurve
-            : blockMoveCurve;
-
-        private float ExitDuration => Mathf.Max(0.05f,
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitDuration : doorExitDuration);
-
-        private float ExitTravelInCells => Mathf.Max(0.2f,
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitTravelInCells : doorExitTravelInCells);
-
-        private AnimationCurve ExitMoveCurve =>
-            ResolvedGameplayConfig && ResolvedGameplayConfig.doorExitMoveCurve != null
-                ? ResolvedGameplayConfig.doorExitMoveCurve
-                : doorExitMoveCurve;
-
-        private AnimationCurve ExitScaleCurve =>
-            ResolvedGameplayConfig && ResolvedGameplayConfig.doorExitScaleCurve != null
-                ? ResolvedGameplayConfig.doorExitScaleCurve
-                : doorExitScaleCurve;
-
-        private float ExitMinScaleMultiplier => Mathf.Clamp01(
-            ResolvedGameplayConfig ? ResolvedGameplayConfig.doorExitMinScaleMultiplier : doorExitMinScaleMultiplier);
+            return new LayoutMetrics(BoardOrigin, cellSize, gridZ,
+                gridZ - Mathf.Max(0.01f, blockLayerForwardOffsetFromGrid), frameThickness,
+                frameDepth, framePadding, borderZ, doorDepth, borderZ - doorDepthBias);
+        }
 
         private void OnEnable() => SubscribeBoardEvents();
 
-        private void OnValidate() => _isConfiguredMaterialCacheDirty = true;
+        private void OnValidate()
+        {
+            _isConfiguredMaterialCacheDirty = true;
+            _hasCurrentLayout = false;
+        }
 
         private void OnDisable()
         {
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
+            _sharedBlockCellTemplate = null;
+            _gameplayConfig = null;
+            _rendererCacheByObjectId.Clear();
+            _hasCurrentLayout = false;
         }
 
         public void BuildForLevel(LevelJsonData levelData)
@@ -138,39 +104,276 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            sourceLevel = levelData;
+            _gameplayConfig = boardController.GameplayConfig;
+
+            CacheRequiredBlockRootCounts(levelData);
             StopAllBlockRoutines();
-            _activeBlockRootById.Clear();
             UnsubscribeBoardEvents();
 
-            EnsureBaseGridSize(levelData.gridDimensions);
-            EnsureBoardPool(_baseGridSize);
-            ApplyBoardVisuals(levelData);
+            ConfigurePoolsFromManager(levelData);
 
-            var sourceBlockCount = GetSourceBlockCount(levelData);
-            EnsureBlockPool(sourceBlockCount);
-            ApplyBlockVisuals(levelData);
+            var layout = ResolveLayoutMetrics();
+            CacheCurrentLayout(layout);
+
+            ApplyBoardVisuals(levelData, layout);
+
+            ApplyBlockVisuals(levelData, layout);
 
             SubscribeBoardEvents();
         }
 
-        [ContextMenu("Build Blocks From Level JSON")]
-        public void BuildBlocksFromLevelJson() => BuildForLevel(sourceLevel);
-
-        private void EnsureBaseGridSize(Vector2Int levelGridSize)
+        private void ConfigurePoolsFromManager(LevelJsonData levelData)
         {
-            if (!_baseGridInitialized)
+            poolManager.RefreshPools();
+            EnsurePoolCoverage(levelData);
+            BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
+            BindBoardVisualReferences(poolManager.BorderObjects, poolManager.BackdropObject);
+            BindDoorPool(poolManager.DoorObjects);
+            BindBlockRootPools();
+        }
+
+        private void EnsurePoolCoverage(LevelJsonData levelData)
+        {
+            var gridSize = levelData.gridDimensions;
+            var requiredGridCellCount = Mathf.Max(0, gridSize.x * gridSize.y);
+            poolManager.EnsureGridCellPoolSize(requiredGridCellCount);
+
+            var openings = levelData.GetDoorOpenings();
+            poolManager.EnsureDoorPoolSize(openings?.Count ?? 0);
+
+            poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByType);
+        }
+
+        private void BindGridCellPool(IReadOnlyList<GameObject> gridCellObjects, Vector2Int levelGridSize)
+        {
+            _gridCellPoolByCell.Clear();
+            if (gridCellObjects == null || gridCellObjects.Count == 0)
             {
-                _baseGridSize = levelGridSize;
-                _baseGridInitialized = true;
                 return;
             }
 
-            _baseGridSize = new Vector2Int(Mathf.Max(_baseGridSize.x, levelGridSize.x),
-                Mathf.Max(_baseGridSize.y, levelGridSize.y));
+            for (var i = 0; i < gridCellObjects.Count; i++)
+            {
+                var pooledCell = gridCellObjects[i];
+                if (pooledCell)
+                {
+                    SetActiveIfChanged(pooledCell, false);
+                }
+            }
+
+            var width = levelGridSize.x;
+            var height = levelGridSize.y;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            var maxCellCount = width * height;
+            var poolCount = Mathf.Min(maxCellCount, gridCellObjects.Count);
+
+            for (var index = 0; index < poolCount; index++)
+            {
+                var gridCellObject = gridCellObjects[index];
+                if (!gridCellObject)
+                {
+                    continue;
+                }
+
+                var cell = new Vector2Int(index % width, index / width);
+                _gridCellPoolByCell[cell] = gridCellObject;
+            }
+        }
+
+        private void BindBoardVisualReferences(IReadOnlyList<GameObject> borderObjects, GameObject backdropObject)
+        {
+            _borderObjects = borderObjects ?? System.Array.Empty<GameObject>();
+            for (var i = 0; i < _borderObjects.Count; i++)
+            {
+                var borderObject = _borderObjects[i];
+                if (borderObject)
+                {
+                    SetActiveIfChanged(borderObject, true);
+                }
+            }
+
+            _backdropObject = backdropObject;
+            if (_backdropObject)
+            {
+                SetActiveIfChanged(_backdropObject, false);
+            }
+        }
+
+        private void BindDoorPool(IReadOnlyList<GameObject> doorObjects)
+        {
+            _doorPool.Clear();
+            var doorCount = doorObjects?.Count ?? 0;
+            for (var i = 0; i < doorCount; i++)
+            {
+                var doorObject = doorObjects[i];
+                if (!doorObject)
+                {
+                    continue;
+                }
+
+                _doorPool.Add(doorObject);
+                SetActiveIfChanged(doorObject, false);
+            }
+        }
+
+        private void BindBlockRootPools()
+        {
+            _activeBlockRootById.Clear();
+            _inactiveBlockRootsByType.Clear();
+            _sharedBlockCellTemplate = null;
+
+            var pooledRootIds = new HashSet<int>();
+            foreach (var pair in poolManager.BlockObjectsByType)
+            {
+                AddBlockViewsFromPool(pair.Key, pair.Value, pooledRootIds);
+            }
+        }
+
+        private void AddBlockViewsFromPool(
+            BlockShapeType blockType,
+            IReadOnlyList<GameObject> sourcePool,
+            HashSet<int> pooledRootIds)
+        {
+            if (sourcePool == null)
+            {
+                return;
+            }
+
+            var sourceCount = sourcePool.Count;
+            for (var i = 0; i < sourceCount; i++)
+            {
+                var rootObject = sourcePool[i];
+                if (!rootObject)
+                {
+                    continue;
+                }
+
+                var rootId = rootObject.GetInstanceID();
+                if (!pooledRootIds.Add(rootId))
+                {
+                    continue;
+                }
+
+                var blockView = new BlockRootView(rootObject)
+                {
+                    BlockType = blockType
+                };
+                CacheBlockCellPool(blockView);
+                CacheBlockCellTemplate(blockView);
+                GetOrCreateInactivePool(blockType).Add(blockView);
+
+                SetActiveIfChanged(rootObject, false);
+            }
+        }
+
+        private List<BlockRootView> GetOrCreateInactivePool(BlockShapeType blockType)
+        {
+            if (_inactiveBlockRootsByType.TryGetValue(blockType, out var pool))
+            {
+                return pool;
+            }
+
+            pool = new List<BlockRootView>(16);
+            _inactiveBlockRootsByType[blockType] = pool;
+            return pool;
+        }
+
+        private void CacheBlockCellPool(BlockRootView blockView)
+        {
+            blockView.Cells.Clear();
+            if (blockView.RootTransform == null)
+            {
+                return;
+            }
+
+            var childCount = blockView.RootTransform.childCount;
+            if (childCount <= 0)
+            {
+                var fallbackRootObject = blockView.RootObject;
+                blockView.Cells.Add(fallbackRootObject);
+                return;
+            }
+
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = blockView.RootTransform.GetChild(i);
+                if (!child)
+                {
+                    continue;
+                }
+
+                var cellObject = child.gameObject;
+                blockView.Cells.Add(cellObject);
+                SetActiveIfChanged(cellObject, false);
+            }
+        }
+
+        private void CacheBlockCellTemplate(BlockRootView blockView)
+        {
+            if (_sharedBlockCellTemplate)
+            {
+                return;
+            }
+
+            if (blockView == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < blockView.Cells.Count; i++)
+            {
+                var cellObject = blockView.Cells[i];
+                if (cellObject && cellObject != blockView.RootObject)
+                {
+                    _sharedBlockCellTemplate = cellObject;
+                    return;
+                }
+            }
         }
 
         private static int GetSourceBlockCount(LevelJsonData levelData) =>
             levelData != null && levelData.blocks != null ? levelData.blocks.Count : 0;
+
+        private void CacheRequiredBlockRootCounts(LevelJsonData levelData)
+        {
+            _requiredBlockRootCountByType.Clear();
+            var sourceBlocks = levelData != null ? levelData.blocks : null;
+            if (sourceBlocks == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < sourceBlocks.Count; i++)
+            {
+                if (!boardController.TryGetRuntimeBlock(i, out var runtimeBlock))
+                {
+                    continue;
+                }
+
+                var blockType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
+                _requiredBlockRootCountByType[blockType] =
+                    _requiredBlockRootCountByType.GetValueOrDefault(blockType) + 1;
+            }
+        }
+
+        private void CacheCurrentLayout(in LayoutMetrics layout)
+        {
+            _currentLayout = layout;
+            _hasCurrentLayout = true;
+        }
+
+        private LayoutMetrics GetCurrentLayout()
+        {
+            if (!_hasCurrentLayout)
+            {
+                CacheCurrentLayout(ResolveLayoutMetrics());
+            }
+
+            return _currentLayout;
+        }
     }
 }

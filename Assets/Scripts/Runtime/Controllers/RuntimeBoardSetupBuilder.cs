@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
+using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using UnityEngine;
 
@@ -32,11 +33,18 @@ namespace Runtime.Controllers
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
-                if (!string.IsNullOrWhiteSpace(blockData.shapeKey) &&
-                    (shapeRegistry == null || !shapeRegistry.TryResolveShape(blockData.shapeKey, out _)))
+                var resolvedBlockType = blockData.ResolveBlockType();
+                var resolvedShapeKey = string.IsNullOrWhiteSpace(blockData.shapeKey)
+                    ? BlockShapeTypeUtility.ToShapeKey(resolvedBlockType)
+                    : blockData.shapeKey;
+                blockData.shapeKey = resolvedShapeKey;
+                blockData.blockType = resolvedBlockType;
+
+                if (!string.IsNullOrWhiteSpace(resolvedShapeKey) &&
+                    (shapeRegistry == null || !shapeRegistry.TryResolveShape(resolvedShapeKey, out _)))
                 {
                     Debug.LogWarning(
-                        $"Level '{levelData.levelKey}' has unresolved shape key '{blockData.shapeKey}' on block index {i}. Falling back to 1x1.");
+                        $"Level '{levelData.levelKey}' has unresolved shape key '{resolvedShapeKey}' on block index {i}. Falling back to 1x1.");
                 }
 
                 var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockData.GetLocalCells(shapeRegistry),
@@ -51,5 +59,6 @@ namespace Runtime.Controllers
                 occupancyMap.FillBlock(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells);
             }
         }
+
     }
 }

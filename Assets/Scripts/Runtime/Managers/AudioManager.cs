@@ -60,6 +60,8 @@ namespace Runtime.Managers
 
         private void RegisterSettingsEvents()
         {
+            if (SettingsManager.Instance == null)
+                return;
             SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
             SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
@@ -68,6 +70,8 @@ namespace Runtime.Managers
 
         private void UnregisterSettingsEvents()
         {
+            if (SettingsManager.Instance == null)
+                return;
             SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
         }

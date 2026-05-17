@@ -2,7 +2,6 @@ using System;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
-using Runtime.UI.Panels;
 using UnityEngine;
 using UnityEngine.UIElements;
 

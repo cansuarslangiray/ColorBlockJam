@@ -1,5 +1,5 @@
 <UXML xmlns="UnityEngine.UIElements">
-    <VisualElement name="settings-root" class="settings-root">
+    <VisualElement name="settings-root" class="settings-root is-hidden">
         <Style src="SettingsPanel.uss" />
         <VisualElement name="settings-overlay" class="settings-overlay">
             <VisualElement name="settings-scrim" class="settings-scrim" />

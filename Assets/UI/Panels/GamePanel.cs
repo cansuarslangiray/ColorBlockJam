@@ -1,17 +1,19 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace Runtime.UI.Panels
+namespace UI.Panels
 {
     public abstract class GamePanel : MonoBehaviour
     {
         private const float CompactShortEdgeThresholdPixels = 280f;
         private const float LogScaleBase = 2f;
+        private const string HiddenClassName = "is-hidden";
         private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
        
         [SerializeField] private UIDocument uiDocument;
 
         protected VisualElement Root { get; private set; }
+        private VisualElement PanelRoot { get; set; }
         protected virtual bool UseSafeAreaPadding => true;
 
         protected virtual void Awake()
@@ -26,6 +28,7 @@ namespace Runtime.UI.Panels
 
             ConfigurePanelSettings(uiDocument.panelSettings);
             Root.style.flexGrow = 1f;
+            PanelRoot = ResolvePanelRoot();
             Root.RegisterCallback<GeometryChangedEvent>(HandleGeometryChanged);
             ApplySafeAreaPadding();
             RefreshResponsiveClasses();
@@ -122,22 +125,32 @@ namespace Runtime.UI.Panels
 
         public virtual void Show()
         {
-            if (Root == null)
+            if (PanelRoot == null)
             {
                 return;
             }
 
-            Root.style.display = DisplayStyle.Flex;
+            PanelRoot.RemoveFromClassList(HiddenClassName);
         }
 
         public virtual void Hide()
         {
-            if (Root == null)
+            if (PanelRoot == null)
             {
                 return;
             }
 
-            Root.style.display = DisplayStyle.None;
+            PanelRoot.AddToClassList(HiddenClassName);
+        }
+
+        private VisualElement ResolvePanelRoot()
+        {
+            if (Root == null || Root.childCount <= 0)
+            {
+                return Root;
+            }
+
+            return Root.ElementAt(0) ?? Root;
         }
 
     }

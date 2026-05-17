@@ -155,8 +155,8 @@ namespace Runtime.Controllers
 
             var stepSign = stepDelta > 0 ? 1 : -1;
             var requestedCellCount = Mathf.Abs(stepDelta);
-            if (!TryMoveActiveGestureBlock(ResolveDirectionForAxis(_activeGestureAxis, stepSign), requestedCellCount,
-                    out var movedCellCount))
+            var direction = ResolveDirectionForAxis(_activeGestureAxis, stepSign);
+            if (!TryMoveActiveGestureBlock(direction, requestedCellCount, out var movedCellCount))
             {
                 return false;
             }

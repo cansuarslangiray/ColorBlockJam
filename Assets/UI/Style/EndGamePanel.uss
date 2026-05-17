@@ -1,3 +1,7 @@
+.is-hidden {
+    display: none;
+}
+
 .endgame-root {
     position: absolute;
     left: 0;

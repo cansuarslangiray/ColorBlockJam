@@ -1,3 +1,7 @@
+.is-hidden {
+    display: none;
+}
+
 .settings-root {
     position: absolute;
     left: 0;

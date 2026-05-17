@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Runtime.Domain.Enums;
 using UnityEngine;
@@ -7,106 +6,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private const string BlockStudRootName = "__BlockStuds";
-
-        private PooledVisual CreateGridCellObject(Transform parent, Vector2Int cell) =>
-            CreateVisualObject(parent, GetRuntimeName(GridCellNamePrefix, cell.x, cell.y), gridCellPrefab, false);
-
-        private PooledVisual CreateBlockCellObject(Transform parent)
-        {
-            var prefab = ResolveBlockCellPrefab();
-            return CreateVisualObject(parent, BlockCellNamePrefix, prefab, true, true);
-        }
-
-        private PooledVisual CreateVisualObject(Transform parent, string objectName, GameObject prefab, bool cacheRenderer,
-            bool decorateBlockCell = false)
-        {
-            if (!prefab)
-            {
-                return new PooledVisual(null, (Renderer[])null);
-            }
-
-            var visualParent = parent ? parent : transform;
-            var visualObject = Instantiate(prefab, visualParent);
-
-            RenameIfConfigured(visualObject, objectName);
-            visualObject.transform.localRotation = Quaternion.identity;
-            DisableCollider(visualObject);
-
-            if (decorateBlockCell)
-            {
-                EnsureBlockCellSurface(visualObject);
-            }
-
-            var renderers = cacheRenderer ? ResolveRenderers(visualObject) : null;
-            return new PooledVisual(visualObject, renderers);
-        }
-
-        private GameObject ResolveBlockCellPrefab()
-        {
-            if (visualProfile && visualProfile.defaultBlockPrefab)
-            {
-                return visualProfile.defaultBlockPrefab;
-            }
-
-            return null;
-        }
-
-        private void EnsureBlockCellSurface(GameObject blockCellObject)
-        {
-            if (!addStudsToBlockCells || !blockCellObject)
-            {
-                return;
-            }
-
-            if (blockCellObject.transform.Find(BlockStudRootName) != null)
-            {
-                return;
-            }
-
-            var studRoot = new GameObject(BlockStudRootName);
-            studRoot.transform.SetParent(blockCellObject.transform, false);
-            studRoot.transform.localPosition = Vector3.zero;
-            studRoot.transform.localRotation = Quaternion.identity;
-            studRoot.transform.localScale = Vector3.one;
-
-            var studCount = Mathf.Max(1, studsPerCellAxis);
-            var inset = Mathf.Clamp(studInsetRatio, 0.02f, 0.46f);
-            var spacing = studCount > 1 ? (1f - (inset * 2f)) / (studCount - 1) : 0f;
-            var start = studCount > 1 ? (-0.5f + inset) : 0f;
-            var studScale = new Vector3(
-                Mathf.Clamp(studDiameterRatio, 0.04f, 0.42f),
-                Mathf.Clamp(studDiameterRatio, 0.04f, 0.42f),
-                Mathf.Clamp(studHeightRatio, 0.02f, 0.24f));
-            var studCenterZ = 0.5f + (studScale.z * 0.15f) + Mathf.Clamp(studLiftRatio, 0f, 0.08f);
-
-            for (var y = 0; y < studCount; y++)
-            {
-                for (var x = 0; x < studCount; x++)
-                {
-                    var studObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                    studObject.transform.SetParent(studRoot.transform, false);
-                    studObject.transform.localRotation = Quaternion.identity;
-                    studObject.transform.localPosition = new Vector3(start + (x * spacing), start + (y * spacing), studCenterZ);
-                    studObject.transform.localScale = studScale;
-                    RenameIfConfigured(studObject, GetRuntimeName("Stud", y * studCount + x));
-                    DisableCollider(studObject);
-                }
-            }
-        }
-
-        private static Renderer[] ResolveRenderers(GameObject target)
-        {
-            return !target ? Array.Empty<Renderer>() : target.GetComponentsInChildren<Renderer>(true);
-        }
-
-        private static void DisableCollider(GameObject target)
-        {
-            if (target.TryGetComponent<Collider>(out var collider))
-            {
-                collider.enabled = false;
-            }
-        }
+        private readonly Dictionary<int, Renderer[]> _rendererCacheByObjectId = new();
 
         private static void SetActiveIfChanged(GameObject target, bool isActive)
         {
@@ -116,20 +16,32 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ApplyWorldTransform(Transform target, Vector3 position, Vector3 scale) =>
-            ApplyWorldTransform(target, position, Quaternion.identity, scale);
-
-        private static void ApplyWorldTransform(Transform target, Vector3 position, Quaternion rotation, Vector3 scale)
+        private static float SmoothStep01(float value)
         {
+            var t = Mathf.Clamp01(value);
+            return t * t * (3f - (2f * t));
+        }
+
+        private static float EvaluateCurve01(AnimationCurve curve, float normalized, float fallbackValue)
+        {
+            return curve != null ? Mathf.Clamp01(curve.Evaluate(normalized)) : fallbackValue;
+        }
+
+        private static void ApplyWorldTransform(Transform target, Vector3 position, Vector3 scale)
+        {
+            if (!target)
+            {
+                return;
+            }
 
             if (target.position != position)
             {
                 target.position = position;
             }
 
-            if (target.rotation != rotation)
+            if (target.rotation != Quaternion.identity)
             {
-                target.rotation = rotation;
+                target.rotation = Quaternion.identity;
             }
 
             if (target.localScale != scale)
@@ -161,14 +73,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ApplySharedMaterial(PooledVisual visual, Material material)
+        private void ApplySharedMaterial(GameObject target, Material material)
         {
-            if (visual == null)
+            if (!target)
             {
                 return;
             }
 
-            var renderers = visual.Renderers;
+            var renderers = GetCachedRenderers(target);
             foreach (var renderer in renderers)
             {
                 if (!renderer || renderer.sharedMaterial == material)
@@ -180,7 +92,20 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private Material GetDoorMaterial(BlockColor colorType)
+        private Renderer[] GetCachedRenderers(GameObject target)
+        {
+            var objectId = target.GetInstanceID();
+            if (_rendererCacheByObjectId.TryGetValue(objectId, out var cachedRenderers) && cachedRenderers != null)
+            {
+                return cachedRenderers;
+            }
+
+            cachedRenderers = target.GetComponentsInChildren<Renderer>(true);
+            _rendererCacheByObjectId[objectId] = cachedRenderers;
+            return cachedRenderers;
+        }
+
+        private Material GetMaterial(BlockColor colorType)
         {
             var configuredMaterial = GetConfiguredMaterial(colorType);
             if (configuredMaterial != null)
@@ -189,18 +114,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             return visualProfile ? visualProfile.GetMaterial(colorType) : null;
-        }
-
-        private Material GetBlockMaterial(BlockColor colorType)
-        {
-            var configuredMaterial = GetConfiguredMaterial(colorType);
-            if (configuredMaterial != null)
-            {
-                return configuredMaterial;
-            }
-
-            var profileMaterial = visualProfile ? visualProfile.GetMaterial(colorType) : null;
-            return profileMaterial != null ? profileMaterial : null;
         }
 
         private Material GetConfiguredMaterial(BlockColor colorType)
@@ -235,27 +148,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _isConfiguredMaterialCacheDirty = false;
-        }
-
-
-        private string GetRuntimeName(string prefix, int index)
-        {
-            var resolvedPrefix = string.IsNullOrWhiteSpace(prefix) ? "Pooled" : prefix;
-            return resolvedPrefix + "_" + index;
-        }
-
-        private string GetRuntimeName(string prefix, int x, int y)
-        {
-            var resolvedPrefix = string.IsNullOrWhiteSpace(prefix) ? "Pooled" : prefix;
-            return resolvedPrefix + "_" + x + "_" + y;
-        }
-
-        private static void RenameIfConfigured(GameObject target, string nameValue)
-        {
-            if (target.name != nameValue)
-            {
-                target.name = nameValue;
-            }
         }
     }
 }

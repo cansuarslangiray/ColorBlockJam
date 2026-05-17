@@ -1,3 +1,7 @@
+.is-hidden {
+    display: none;
+}
+
 .start-root {
     position: absolute;
     left: 0;

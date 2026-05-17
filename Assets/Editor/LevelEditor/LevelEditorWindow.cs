@@ -29,6 +29,13 @@ namespace Editor.LevelEditor
         private BlockMovementConstraint _selectedBlockMovementConstraint = BlockMovementConstraint.Free;
         private BlockShapeJsonData _selectedBlockShape;
         private readonly List<Vector2Int> _doorCellsBuffer = new List<Vector2Int>(8);
+       
+        private readonly HashSet<Vector2Int> _blockedCellLookup = new HashSet<Vector2Int>();
+        private readonly Dictionary<Vector2Int, int> _doorIndexByCell = new Dictionary<Vector2Int, int>();
+        private readonly Dictionary<Vector2Int, int> _blockIndexByCell = new Dictionary<Vector2Int, int>();
+        private readonly List<string> _layoutValidationIssues = new List<string>(16);
+        private readonly BoardOccupancyMap _validationOccupancyMap = new BoardOccupancyMap();
+        private bool _gridLookupCacheDirty = true;
 
         [MenuItem("Tools/Color Block Jam/Level Editor")]
         private static void OpenWindow()
@@ -60,6 +67,8 @@ namespace Editor.LevelEditor
             DrawModeSettings();
             EditorGUILayout.Space(8f);
             DrawGridEditor();
+            EditorGUILayout.Space(8f);
+            DrawLayoutValidationReport();
             EditorGUILayout.Space(12f);
             DrawBlockList();
 
@@ -344,6 +353,7 @@ namespace Editor.LevelEditor
         {
             EditorGUILayout.BeginVertical("box");
             EditorGUILayout.LabelField("Grid", EditorStyles.boldLabel);
+            EnsureGridLookupCache();
 
             Vector2Int grid = _activeLevel.gridDimensions;
             float rowWidth = grid.x * GridCellPixelSize;
@@ -382,6 +392,171 @@ namespace Editor.LevelEditor
         {
             EditorGUILayout.LabelField("Legend:");
             EditorGUILayout.LabelField("X = Blocked, D = Door, B = Block coverage");
+        }
+
+        private void DrawLayoutValidationReport()
+        {
+            EnsureGridLookupCache();
+            if (_layoutValidationIssues.Count == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("Layout Validation", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                $"Yerlesimde {_layoutValidationIssues.Count} sorun bulundu. Bu kayitlar runtime sirasinda atlanabilir.",
+                MessageType.Warning);
+
+            int visibleIssueCount = Mathf.Min(5, _layoutValidationIssues.Count);
+            for (int i = 0; i < visibleIssueCount; i++)
+            {
+                EditorGUILayout.LabelField($"- {_layoutValidationIssues[i]}");
+            }
+
+            if (_layoutValidationIssues.Count > visibleIssueCount)
+            {
+                EditorGUILayout.LabelField($"... +{_layoutValidationIssues.Count - visibleIssueCount} ek kayit");
+            }
+
+            if (GUILayout.Button("Raporu Console'a Yaz", GUILayout.Height(22f)))
+            {
+                string levelKey = string.IsNullOrWhiteSpace(_activeLevel.levelKey) ? "<unnamed>" : _activeLevel.levelKey;
+                for (int i = 0; i < _layoutValidationIssues.Count; i++)
+                {
+                    Debug.LogWarning($"[LevelEditor][{levelKey}] {_layoutValidationIssues[i]}");
+                }
+            }
+
+            EditorGUILayout.EndVertical();
+        }
+
+        private void EnsureGridLookupCache()
+        {
+            if (!_gridLookupCacheDirty || _activeLevel == null)
+            {
+                return;
+            }
+
+            _gridLookupCacheDirty = false;
+            _blockedCellLookup.Clear();
+            _doorIndexByCell.Clear();
+            _blockIndexByCell.Clear();
+            _layoutValidationIssues.Clear();
+
+            if (_activeLevel.blockedCells != null)
+            {
+                for (int i = 0; i < _activeLevel.blockedCells.Count; i++)
+                {
+                    _blockedCellLookup.Add(_activeLevel.blockedCells[i]);
+                }
+            }
+
+            BuildDoorLookup();
+            BuildBlockLookupAndValidation();
+        }
+
+        private void BuildDoorLookup()
+        {
+            if (_activeLevel.doors == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _activeLevel.doors.Count; i++)
+            {
+                DoorData door = _activeLevel.doors[i];
+                _doorCellsBuffer.Clear();
+                if (!DoorOpeningMap.TryCollectDoorCells(door, _activeLevel.gridDimensions, _doorCellsBuffer))
+                {
+                    _layoutValidationIssues.Add(
+                        $"Door #{i} gecersiz: Pos={door.position}, Width={Mathf.Max(1, door.openingWidth)}");
+                    continue;
+                }
+
+                for (int cellIndex = 0; cellIndex < _doorCellsBuffer.Count; cellIndex++)
+                {
+                    Vector2Int doorCell = _doorCellsBuffer[cellIndex];
+                    if (_doorIndexByCell.ContainsKey(doorCell))
+                    {
+                        _layoutValidationIssues.Add($"Door #{i} hucre cakismasi: {doorCell}");
+                        continue;
+                    }
+
+                    _doorIndexByCell.Add(doorCell, i);
+                }
+            }
+        }
+
+        private void BuildBlockLookupAndValidation()
+        {
+            Vector2Int grid = _activeLevel.gridDimensions;
+            _validationOccupancyMap.Configure(grid.x, grid.y);
+            _validationOccupancyMap.MarkBlockedCells(_activeLevel.blockedCells);
+
+            if (_activeLevel.blocks == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _activeLevel.blocks.Count; i++)
+            {
+                LevelJsonBlockData block = _activeLevel.blocks[i];
+
+                if (!string.IsNullOrWhiteSpace(block.shapeKey) &&
+                    (_shapeRegistry == null || !_shapeRegistry.TryResolveShape(block.shapeKey, out _)))
+                {
+                    _layoutValidationIssues.Add(
+                        $"Blok #{i} cozulemeyen shape '{block.shapeKey.Trim()}'. Runtime 1x1 fallback uygular.");
+                }
+
+                Vector2Int[] localCells = block.GetLocalCells(_shapeRegistry);
+                if (!_validationOccupancyMap.CanPlace(i, block.position, localCells))
+                {
+                    string shapeLabel = string.IsNullOrWhiteSpace(block.shapeKey) ? "1x1(default)" : block.shapeKey.Trim();
+                    _layoutValidationIssues.Add(
+                        $"Blok #{i} yerlestirilemedi: Shape={shapeLabel}, Pos={block.position}, Cells={FormatWorldCells(block.position, localCells)}");
+                    continue;
+                }
+
+                _validationOccupancyMap.FillBlock(i, block.position, localCells);
+                for (int cellIndex = 0; cellIndex < localCells.Length; cellIndex++)
+                {
+                    Vector2Int worldCell = block.position + localCells[cellIndex];
+                    if (!_blockIndexByCell.ContainsKey(worldCell))
+                    {
+                        _blockIndexByCell.Add(worldCell, i);
+                    }
+                }
+            }
+        }
+
+        private bool IsBlockedCell(Vector2Int cell)
+        {
+            EnsureGridLookupCache();
+            return _blockedCellLookup.Contains(cell);
+        }
+
+        private void MarkGridLookupCacheDirty()
+        {
+            _gridLookupCacheDirty = true;
+        }
+
+        private static string FormatWorldCells(Vector2Int anchorPosition, Vector2Int[] localCells)
+        {
+            if (localCells == null || localCells.Length == 0)
+            {
+                return "[]";
+            }
+
+            var worldCells = new string[localCells.Length];
+            for (int i = 0; i < localCells.Length; i++)
+            {
+                Vector2Int worldCell = anchorPosition + localCells[i];
+                worldCells[i] = $"({worldCell.x},{worldCell.y})";
+            }
+
+            return $"[{string.Join(", ", worldCells)}]";
         }
 
         private void DrawBlockList()
@@ -532,6 +707,7 @@ namespace Editor.LevelEditor
             {
                 position = anchorCell,
                 shapeKey = _selectedBlockShape.ShapeKey,
+                blockType = BlockShapeTypeUtility.FromShapeKey(_selectedBlockShape.ShapeKey),
                 movementConstraint = _selectedBlockMovementConstraint,
                 colorType = _selectedBlockColor
             };
@@ -559,7 +735,7 @@ namespace Editor.LevelEditor
                     return false;
                 }
 
-                if (_activeLevel.blockedCells.Contains(worldCell))
+                if (IsBlockedCell(worldCell))
                 {
                     return false;
                 }
@@ -575,7 +751,7 @@ namespace Editor.LevelEditor
 
         private Color GetCellColor(Vector2Int cell)
         {
-            if (_activeLevel.blockedCells.Contains(cell))
+            if (IsBlockedCell(cell))
             {
                 return new Color(0.22f, 0.22f, 0.22f);
             }
@@ -602,7 +778,7 @@ namespace Editor.LevelEditor
 
         private string GetCellLabel(Vector2Int cell)
         {
-            if (_activeLevel.blockedCells.Contains(cell))
+            if (IsBlockedCell(cell))
             {
                 return "X";
             }
@@ -622,15 +798,8 @@ namespace Editor.LevelEditor
 
         private int GetDoorIndexAtCell(Vector2Int cell)
         {
-            for (int i = 0; i < _activeLevel.doors.Count; i++)
-            {
-                if (DoesDoorContainCell(_activeLevel.doors[i], cell))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
+            EnsureGridLookupCache();
+            return _doorIndexByCell.TryGetValue(cell, out int index) ? index : -1;
         }
 
         private int GetBlockByAnchor(Vector2Int anchor)
@@ -648,16 +817,8 @@ namespace Editor.LevelEditor
 
         private int GetBlockAtCell(Vector2Int cell)
         {
-            for (int i = 0; i < _activeLevel.blocks.Count; i++)
-            {
-                LevelJsonBlockData block = _activeLevel.blocks[i];
-                if (IsCellInsideBlock(block, cell))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
+            EnsureGridLookupCache();
+            return _blockIndexByCell.TryGetValue(cell, out int index) ? index : -1;
         }
 
         private void RemoveDoorsOnCell(Vector2Int cell)
@@ -671,6 +832,7 @@ namespace Editor.LevelEditor
                 }
 
                 _activeLevel.doors.RemoveAt(index);
+                MarkGridLookupCacheDirty();
             }
         }
 
@@ -684,13 +846,16 @@ namespace Editor.LevelEditor
 
         private void RemoveBlocksIntersectingCell(Vector2Int cell)
         {
-            for (int i = _activeLevel.blocks.Count - 1; i >= 0; i--)
+            while (true)
             {
-                LevelJsonBlockData block = _activeLevel.blocks[i];
-                if (IsCellInsideBlock(block, cell))
+                int index = GetBlockAtCell(cell);
+                if (index < 0)
                 {
-                    _activeLevel.blocks.RemoveAt(i);
+                    return;
                 }
+
+                _activeLevel.blocks.RemoveAt(index);
+                MarkGridLookupCacheDirty();
             }
         }
 
@@ -746,21 +911,8 @@ namespace Editor.LevelEditor
                     _activeLevel.blocks.RemoveAt(i);
                 }
             }
-        }
 
-        private bool IsCellInsideBlock(LevelJsonBlockData block, Vector2Int worldCell)
-        {
-            Vector2Int[] localCells = block.GetLocalCells(_shapeRegistry);
-            for (int i = 0; i < localCells.Length; i++)
-            {
-                Vector2Int cell = block.position + localCells[i];
-                if (cell == worldCell)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            MarkGridLookupCacheDirty();
         }
 
         private bool IsBlockWithinGrid(LevelJsonBlockData block, Vector2Int gridSize)
@@ -792,25 +944,6 @@ namespace Editor.LevelEditor
             return DoorOpeningMap.IsCornerCell(cell, _activeLevel.gridDimensions);
         }
 
-        private bool DoesDoorContainCell(DoorData door, Vector2Int cell)
-        {
-            _doorCellsBuffer.Clear();
-            if (!DoorOpeningMap.TryCollectDoorCells(door, _activeLevel.gridDimensions, _doorCellsBuffer))
-            {
-                return false;
-            }
-
-            for (int i = 0; i < _doorCellsBuffer.Count; i++)
-            {
-                if (_doorCellsBuffer[i] == cell)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private void RecordLevelChange(string action)
         {
             if (_activeLevel == null)
@@ -829,6 +962,7 @@ namespace Editor.LevelEditor
             }
 
             _activeLevel.Sanitize();
+            MarkGridLookupCacheDirty();
             WriteActiveLevelToJson();
             Repaint();
         }
@@ -851,6 +985,7 @@ namespace Editor.LevelEditor
                 levelKey = Path.GetFileNameWithoutExtension(path)
             };
             _activeLevel.Sanitize();
+            MarkGridLookupCacheDirty();
 
             _activeLevelJsonPath = path;
             WriteActiveLevelToJson();
@@ -873,10 +1008,12 @@ namespace Editor.LevelEditor
             if (jsonAsset == null)
             {
                 _activeLevel = null;
+                MarkGridLookupCacheDirty();
                 return;
             }
 
             _activeLevel = LevelJsonSerialization.Deserialize(jsonAsset.text, jsonAsset.name);
+            MarkGridLookupCacheDirty();
         }
 
         private void WriteActiveLevelToJson()
@@ -928,6 +1065,7 @@ namespace Editor.LevelEditor
             }
 
             _shapeRegistry = BlockShapeRegistry.FromJsonAssets(shapeJsonFiles);
+            MarkGridLookupCacheDirty();
 
             BlockShapeJsonData resolvedShape = null;
             if (_selectedBlockShape != null && !_shapeRegistry.TryResolveShape(_selectedBlockShape.ShapeKey, out resolvedShape))

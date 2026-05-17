@@ -97,3 +97,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  doorMatchDropDistanceInCells: 0.16
+  doorMatchLowerDuration: 0.09
+  doorMatchHoldDuration: 0.12
+  doorMatchRaiseDuration: 0.11

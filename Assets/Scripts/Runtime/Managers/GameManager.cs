@@ -64,12 +64,17 @@ namespace Runtime.Managers
 
             boardController.LevelCompleted += OnLevelCompleted;
 
-            StateManager.Instance.OnStateChanged += HandleStateChanged;
+            if (StateManager.Instance != null)
+                StateManager.Instance.OnStateChanged += HandleStateChanged;
 
-            UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
-            UIManager.Instance.StartRequested += HandleStartRequested;
-            UIManager.Instance.EndGameActionRequested += HandleEndGameActionRequested;
-            UIManager.Instance.ReloadRequested += HandleReloadRequested;
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
+                UIManager.Instance.StartRequested += HandleStartRequested;
+                UIManager.Instance.EndGameActionRequested += HandleEndGameActionRequested;
+                UIManager.Instance.ReloadRequested += HandleReloadRequested;
+            }
+
             _eventsRegistered = true;
         }
 
@@ -99,12 +104,12 @@ namespace Runtime.Managers
             StateManager.Instance.ChangeState(GameState.StartScreen);
         }
 
-        private bool StartCurrentLevel()
+        private void StartCurrentLevel()
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
             if (levelData == null)
             {
-                return false;
+                return;
             }
 
             boardController.Setup(levelData, levelCollection.RuntimeShapeRegistry);
@@ -114,7 +119,6 @@ namespace Runtime.Managers
             StateManager.Instance.ChangeState(GameState.Playing);
             RefreshStaticUI();
             UIManager.Instance.StartLevelTimer(levelData.timeLimit);
-            return true;
         }
 
         private void StartNextLevelOrCompleteRun()
@@ -142,7 +146,7 @@ namespace Runtime.Managers
         {
             if (_transitionInProgress)
                 return;
-            
+
             StartCoroutine(ShowLevelCompletedRoutine());
         }
 

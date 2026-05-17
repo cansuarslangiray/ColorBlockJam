@@ -8,19 +8,13 @@ namespace Runtime.Data
     {
         public static string Serialize(BlockShapeJsonData shape, bool prettyPrint = true)
         {
-            var model = ToJsonModel(shape);
-            return JsonUtility.ToJson(model, prettyPrint);
-        }
-
-        public static BlockShapeJsonData ToJsonModel(BlockShapeJsonData shape)
-        {
             if (shape == null)
             {
-                return new BlockShapeJsonData();
+                return JsonUtility.ToJson(new BlockShapeJsonData(), prettyPrint);
             }
 
             shape.Sanitize();
-            return new BlockShapeJsonData
+            var model = new BlockShapeJsonData
             {
                 shapeKey = shape.ShapeKey,
                 width = shape.width,
@@ -30,6 +24,8 @@ namespace Runtime.Data
                     ? new List<Vector2Int>(shape.customCells)
                     : new List<Vector2Int> { Vector2Int.zero }
             };
+
+            return JsonUtility.ToJson(model, prettyPrint);
         }
 
         public static BlockShapeJsonData Deserialize(string json, string fallbackShapeKey)
@@ -47,11 +43,6 @@ namespace Runtime.Data
                 }
             }
 
-            return ToShapeData(model, fallbackShapeKey);
-        }
-
-        public static BlockShapeJsonData ToShapeData(BlockShapeJsonData model, string fallbackShapeKey)
-        {
             model ??= new BlockShapeJsonData();
 
             var shape = new BlockShapeJsonData

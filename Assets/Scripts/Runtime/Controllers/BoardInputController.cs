@@ -23,6 +23,11 @@ namespace Runtime.Controllers
             RegisterStateEvents();
         }
 
+        private void Start()
+        {
+            RegisterStateEvents();
+        }
+
         private void OnDisable()
         {
             UnregisterStateEvents();
@@ -66,7 +71,6 @@ namespace Runtime.Controllers
         {
             if (StateManager.Instance == null)
                 return;
-            StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
             StateManager.Instance.OnStateChanged += HandleGameStateChanged;
             HandleGameStateChanged(StateManager.Instance.CurrentState);
         }

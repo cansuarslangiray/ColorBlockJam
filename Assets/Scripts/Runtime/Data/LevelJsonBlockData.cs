@@ -11,8 +11,31 @@ namespace Runtime.Data
 
         public Vector2Int position;
         public string shapeKey;
+        public BlockShapeType blockType;
         public BlockMovementConstraint movementConstraint;
         public BlockColor colorType;
+
+        public BlockShapeType ResolveBlockType(int fallbackCellCount = 1)
+        {
+            return blockType != BlockShapeType.Unknown
+                ? blockType
+                : BlockShapeTypeUtility.FromShapeKey(shapeKey, fallbackCellCount);
+        }
+
+        public void NormalizeBlockType()
+        {
+            var resolvedType = ResolveBlockType();
+            blockType = resolvedType;
+
+            if (string.IsNullOrWhiteSpace(shapeKey))
+            {
+                var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
+                if (!string.IsNullOrWhiteSpace(resolvedShapeKey))
+                {
+                    shapeKey = resolvedShapeKey;
+                }
+            }
+        }
 
         public Vector2Int[] GetLocalCells(BlockShapeRegistry shapeRegistry)
         {

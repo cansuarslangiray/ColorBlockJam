@@ -79,7 +79,7 @@ MonoBehaviour:
   boardBackdropZOffset: 0.18
   edgeFrameThicknessInCells: 0.52
   edgeFramePaddingInCells: 0.01
-  edgeFrameDepthInCells: 0.18
+  edgeFrameDepthInCells: 0.32
   doorInsetInCells: 0.01
   doorInnerShiftInCells: 0.08
   doorSpanPaddingInCells: 0.08

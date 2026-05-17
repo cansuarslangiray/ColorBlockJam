@@ -1,20 +1,21 @@
 using System.Collections.Generic;
+using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class BlockRootView
     {
-        public BlockRootView(int blockId, GameObject rootObject)
+        public BlockRootView(GameObject rootObject)
         {
-            BlockId = blockId;
             RootObject = rootObject;
             RootTransform = rootObject.transform;
         }
 
-        public int BlockId { get; }
         public GameObject RootObject { get; }
         public Transform RootTransform { get; }
-        public List<PooledVisual> Cells { get; } = new();
+        public BlockShapeType BlockType { get; set; }
+        public List<GameObject> Cells { get; } = new();
+        public Vector2 LocalCenter { get; set; }
     }
 }

@@ -1,7 +1,6 @@
 using System;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
-using Runtime.UI.Panels;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
@@ -86,6 +85,8 @@ namespace UI.Panels
 
         private void RegisterSettingsEvents()
         {
+            if (SettingsManager.Instance == null)
+                return;
             SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
             SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
@@ -94,13 +95,17 @@ namespace UI.Panels
 
         private void UnregisterSettingsEvents()
         {
+            if (SettingsManager.Instance == null)
+                return;
             SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
             SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
         }
 
-        private void HandleMusicEnabledChanged(bool isEnabled) => ApplyToggleState(_musicToggle, _musicToggleLabel, isEnabled);
-       
-        private void HandleSfxEnabledChanged(bool isEnabled) => ApplyToggleState(_sfxToggle, _sfxToggleLabel, isEnabled);
+        private void HandleMusicEnabledChanged(bool isEnabled) =>
+            ApplyToggleState(_musicToggle, _musicToggleLabel, isEnabled);
+
+        private void HandleSfxEnabledChanged(bool isEnabled) =>
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, isEnabled);
 
         private static void ApplyToggleState(VisualElement toggle, Label toggleLabel, bool isEnabled)
         {
