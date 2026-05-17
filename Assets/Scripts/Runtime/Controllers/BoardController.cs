@@ -50,13 +50,6 @@ namespace Runtime.Controllers
         private int _activeGestureAppliedStepCount;
         private Camera _activeGestureCamera;
 
-        private enum GestureAxis : byte
-        {
-            None = 0,
-            Horizontal = 1,
-            Vertical = 2
-        }
-
         private bool IsBoardReadyForInput => IsInitialized && StateManager.HasInstance &&
                                              StateManager.Instance.CurrentState == GameState.Playing;
 

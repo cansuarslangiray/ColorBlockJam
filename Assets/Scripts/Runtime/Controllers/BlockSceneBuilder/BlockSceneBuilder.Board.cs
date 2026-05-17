@@ -425,16 +425,5 @@ namespace Runtime.Controllers.BlockSceneBuilder
             ApplyWorldTransform(borderVisual.Transform, position, scale);
         }
 
-        private readonly struct BorderSpan
-        {
-            public readonly float Min;
-            public readonly float Max;
-
-            public BorderSpan(float min, float max)
-            {
-                Min = min;
-                Max = max;
-            }
-        }
     }
 }

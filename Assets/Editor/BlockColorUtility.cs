@@ -1,7 +1,7 @@
 using Runtime.Domain.Enums;
 using UnityEngine;
 
-namespace Runtime.Helpers
+namespace Editor
 {
     public static class BlockColorUtility
     {

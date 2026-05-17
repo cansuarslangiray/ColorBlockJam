@@ -241,7 +241,7 @@ namespace Runtime.Managers
             StateManager.Instance.ChangeState(GameState.LevelFailed);
         }
 
-        private void HandleStateChanged(GameState oldState, GameState newState)
+        private void HandleStateChanged(GameState newState)
         {
             UIManager.Instance.PublishState(newState);
 
@@ -255,7 +255,7 @@ namespace Runtime.Managers
         {
             var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
             var levelNumber = levelData != null ? levelData.levelNumber : _currentLevelIndex + 1;
-            UIManager.Instance.SetLevel(levelNumber, _currentLevelIndex, levelCollection.Count);
+            UIManager.Instance.SetLevel(levelNumber);
         }
 
         private void HandleStartPanelInput()

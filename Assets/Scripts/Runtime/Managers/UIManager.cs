@@ -72,9 +72,9 @@ namespace Runtime.Managers
             GameStateChanged(state);
         }
 
-        public void SetLevel(int levelNumber, int levelIndex, int totalLevels)
+        public void SetLevel(int levelNumber)
         {
-            topBarPanel.SetLevel(levelNumber, levelIndex, totalLevels);
+            topBarPanel.SetLevel(levelNumber);
         }
 
         public void ResetTimerDisplay()

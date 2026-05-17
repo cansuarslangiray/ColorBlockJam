@@ -1,73 +1,74 @@
 {
-  "levelNumber": 2,
-  "timeLimit": 240.0,
-  "gridDimensions": {
-    "x": 5,
-    "y": 7
-  },
-  "blockedCells": [],
-  "availableColors": [
-    2,
-    3
-  ],
-  "availableShapeKeys": [
-    "Shape_L_3x2",
-    "Shape_LO_3x2",
-    "Shape_3x1",
-    "Shape_1x3"
-  ],
-  "doors": [
-    {
-      "position": {
-        "x": 2,
-        "y": 6
-      },
-      "colorType": 2,
-      "openingWidth": 1
+    "levelKey": "Level2",
+    "levelNumber": 2,
+    "timeLimit": 60.0,
+    "gridDimensions": {
+        "x": 5,
+        "y": 7
     },
-    {
-      "position": {
-        "x": 3,
-        "y": 6
-      },
-      "colorType": 2,
-      "openingWidth": 1
-    },
-    {
-      "position": {
-        "x": 1,
-        "y": 0
-      },
-      "colorType": 3,
-      "openingWidth": 1
-    },
-    {
-      "position": {
-        "x": 2,
-        "y": 0
-      },
-      "colorType": 3,
-      "openingWidth": 1
-    }
-  ],
-  "blocks": [
-    {
-      "position": {
-        "x": 3,
-        "y": 2
-      },
-      "shapeKey": "Shape_1x3",
-      "movementConstraint": 0,
-      "colorType": 3
-    },
-    {
-      "position": {
-        "x": 1,
-        "y": 2
-      },
-      "shapeKey": "Shape_1x3",
-      "movementConstraint": 0,
-      "colorType": 2
-    }
-  ]
+    "blockedCells": [],
+    "availableColors": [
+        2,
+        3
+    ],
+    "availableShapeKeys": [
+        "Shape_L_3x2",
+        "Shape_LO_3x2",
+        "Shape_3x1",
+        "Shape_1x3"
+    ],
+    "doors": [
+        {
+            "position": {
+                "x": 2,
+                "y": 6
+            },
+            "colorType": 2,
+            "openingWidth": 1
+        },
+        {
+            "position": {
+                "x": 3,
+                "y": 6
+            },
+            "colorType": 2,
+            "openingWidth": 1
+        },
+        {
+            "position": {
+                "x": 1,
+                "y": 0
+            },
+            "colorType": 3,
+            "openingWidth": 1
+        },
+        {
+            "position": {
+                "x": 2,
+                "y": 0
+            },
+            "colorType": 3,
+            "openingWidth": 1
+        }
+    ],
+    "blocks": [
+        {
+            "position": {
+                "x": 3,
+                "y": 2
+            },
+            "shapeKey": "Shape_1x3",
+            "movementConstraint": 0,
+            "colorType": 3
+        },
+        {
+            "position": {
+                "x": 1,
+                "y": 2
+            },
+            "shapeKey": "Shape_1x3",
+            "movementConstraint": 0,
+            "colorType": 2
+        }
+    ]
 }

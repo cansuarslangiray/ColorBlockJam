@@ -86,15 +86,14 @@ namespace Runtime.UI.Panels
             SetTimerState(_remainingSeconds);
         }
 
-        public void SetLevel(int levelNumber, int levelIndex, int totalLevels)
+        public void SetLevel(int levelNumber)
         {
             if (_levelLabel == null)
             {
                 return;
             }
 
-            var displayLevel = levelNumber > 0 ? levelNumber : levelIndex + 1;
-            _levelLabel.text = displayLevel.ToString();
+            _levelLabel.text = Mathf.Max(1, levelNumber).ToString();
         }
 
         public void SetTimer(int remainingSeconds)

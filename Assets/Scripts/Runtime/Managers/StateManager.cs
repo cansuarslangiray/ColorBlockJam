@@ -6,7 +6,7 @@ namespace Runtime.Managers
 {
     public class StateManager : SingletonMonoBehaviour<StateManager>
     {
-        public event Action<GameState, GameState> OnStateChanged;
+        public event Action<GameState> OnStateChanged;
 
         public GameState CurrentState { get; private set; }
         private bool _hasState;
@@ -18,11 +18,10 @@ namespace Runtime.Managers
                 return;
             }
 
-            var oldState = CurrentState;
             CurrentState = newState;
             _hasState = true;
 
-            OnStateChanged?.Invoke(oldState, newState);
+            OnStateChanged?.Invoke(newState);
         }
     }
 }
