@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Models;
@@ -7,6 +9,8 @@ namespace Editor.LevelEditor
 {
     public partial class LevelEditorWindow
     {
+        private readonly List<string> _validatorIssueBuffer = new(32);
+
         private void EnsureGridLookupCache()
         {
             if (!_gridLookupCacheDirty || _activeLevel == null)
@@ -30,6 +34,7 @@ namespace Editor.LevelEditor
 
             BuildDoorLookup();
             BuildBlockLookupAndValidation();
+            AppendValidatorIssues();
         }
 
         private void BuildDoorLookup()
@@ -45,7 +50,6 @@ namespace Editor.LevelEditor
                 _doorCellsBuffer.Clear();
                 if (!DoorOpeningMap.TryCollectDoorCells(door, _activeLevel.gridDimensions, _doorCellsBuffer))
                 {
-                    _layoutValidationIssues.Add($"Door #{i} gecersiz: Pos={door.position}");
                     continue;
                 }
 
@@ -54,7 +58,6 @@ namespace Editor.LevelEditor
                     Vector2Int doorCell = _doorCellsBuffer[cellIndex];
                     if (_doorIndexByCell.ContainsKey(doorCell))
                     {
-                        _layoutValidationIssues.Add($"Door #{i} hucre cakismasi: {doorCell}");
                         continue;
                     }
 
@@ -80,19 +83,9 @@ namespace Editor.LevelEditor
             {
                 LevelJsonBlockData block = _activeLevel.blocks[i];
 
-                if (!string.IsNullOrWhiteSpace(block.shapeKey) &&
-                    (_shapeRegistry == null || !_shapeRegistry.TryResolveShape(block.shapeKey, out _)))
-                {
-                    _layoutValidationIssues.Add(
-                        $"Blok #{i} cozulemeyen shape '{block.shapeKey.Trim()}'. Runtime 1x1 fallback uygular.");
-                }
-
                 Vector2Int[] localCells = block.GetLocalCells(_shapeRegistry);
                 if (!_validationOccupancyMap.CanPlace(i, block.position, localCells))
                 {
-                    string shapeLabel = string.IsNullOrWhiteSpace(block.shapeKey) ? "1x1(default)" : block.shapeKey.Trim();
-                    _layoutValidationIssues.Add(
-                        $"Blok #{i} yerlestirilemedi: Shape={shapeLabel}, Pos={block.position}, Cells={FormatWorldCells(block.position, localCells)}");
                     continue;
                 }
 
@@ -119,21 +112,30 @@ namespace Editor.LevelEditor
             _gridLookupCacheDirty = true;
         }
 
-        private static string FormatWorldCells(Vector2Int anchorPosition, Vector2Int[] localCells)
+        private void AppendValidatorIssues()
         {
-            if (localCells == null || localCells.Length == 0)
+            _validatorIssueBuffer.Clear();
+            string sourceName = _activeLevelJson != null && !string.IsNullOrWhiteSpace(_activeLevelJson.name)
+                ? _activeLevelJson.name
+                : _activeLevel?.levelKey;
+            LevelJsonValidator.ValidateLevel(_activeLevel, _shapeRegistry, _validatorIssueBuffer, sourceName);
+            if (_validatorIssueBuffer.Count == 0)
             {
-                return "[]";
+                return;
             }
 
-            var worldCells = new string[localCells.Length];
-            for (int i = 0; i < localCells.Length; i++)
+            var seenIssues = new HashSet<string>(_layoutValidationIssues, StringComparer.Ordinal);
+            for (int i = 0; i < _validatorIssueBuffer.Count; i++)
             {
-                Vector2Int worldCell = anchorPosition + localCells[i];
-                worldCells[i] = $"({worldCell.x},{worldCell.y})";
-            }
+                string issue = _validatorIssueBuffer[i];
+                if (string.IsNullOrWhiteSpace(issue) || !seenIssues.Add(issue))
+                {
+                    continue;
+                }
 
-            return $"[{string.Join(", ", worldCells)}]";
+                _layoutValidationIssues.Add(issue);
+            }
         }
+
     }
 }

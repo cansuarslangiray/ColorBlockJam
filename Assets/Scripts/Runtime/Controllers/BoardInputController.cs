@@ -25,7 +25,6 @@ namespace Runtime.Controllers
 
         private void Awake()
         {
-            TryResolveSceneReferences();
             if (boardController == null)
             {
                 Debug.LogError("BoardInputController requires an assigned BoardController.", this);
@@ -36,14 +35,8 @@ namespace Runtime.Controllers
             EnsurePointerEventData();
         }
 
-        private void OnValidate()
-        {
-            TryResolveSceneReferences();
-        }
-
         private void OnEnable()
         {
-            TryResolveSceneReferences();
             RegisterStateEvents();
         }
 
@@ -158,11 +151,6 @@ namespace Runtime.Controllers
 
         private bool ShouldIgnorePointer(Vector2 pointerPosition)
         {
-            if (uiEventSystem == null)
-            {
-                TryResolveSceneReferences();
-            }
-
             EnsurePointerEventData();
             if (uiEventSystem == null || _pointerEventData == null)
             {
@@ -178,8 +166,7 @@ namespace Runtime.Controllers
         private bool TryResolveInputActions()
         {
             _pointerPressAction = pointerPressActionReference != null ? pointerPressActionReference.action : null;
-            _pointerPositionAction =
-                pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
+            _pointerPositionAction = pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
             return _pointerPressAction != null && _pointerPositionAction != null;
         }
 
@@ -190,21 +177,6 @@ namespace Runtime.Controllers
                 _pointerEventData = new PointerEventData(uiEventSystem);
             }
         }
-
-        private void TryResolveSceneReferences()
-        {
-            if (!gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            boardController ??= GetComponent<BoardController>();
-            boardController ??= FindObjectOfType<BoardController>();
-
-            uiEventSystem ??= EventSystem.current;
-            uiEventSystem ??= FindObjectOfType<EventSystem>();
-
-            stateManager ??= StateManager.Instance != null ? StateManager.Instance : FindObjectOfType<StateManager>();
-        }
+        
     }
 }

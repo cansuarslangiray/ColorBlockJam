@@ -31,3 +31,4 @@ MonoBehaviour:
   - {fileID: 4900000, guid: 2b10e1900802847bc92579522c7cd7b5, type: 3}
   - {fileID: 4900000, guid: cf0d997f906a94d41bb8242eb0b641d7, type: 3}
   - {fileID: 4900000, guid: 2bc42b3a8563a439084676a156cfb784, type: 3}
+  autoRefreshOnValidate: 1

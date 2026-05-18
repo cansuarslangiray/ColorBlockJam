@@ -29,14 +29,6 @@ namespace Runtime.Managers
                 return;
             }
 
-            TryResolveSceneReferences();
-            if (!HasAllPanelsAssigned())
-            {
-                Debug.LogError("UIManager is missing one or more panel references.", this);
-                enabled = false;
-                return;
-            }
-
             startPanel.SubscribeToState(this);
             endGamePanel.SubscribeToState(this);
             topBarPanel.SubscribeToState(this);
@@ -48,11 +40,6 @@ namespace Runtime.Managers
             topBarPanel.SettingsRequested += HandleSettingsRequested;
             topBarPanel.TimerExpired += HandleTimerExpired;
             settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
-        }
-
-        private void OnValidate()
-        {
-            TryResolveSceneReferences();
         }
 
         protected override void OnDestroy()
@@ -121,32 +108,7 @@ namespace Runtime.Managers
 
             ResumeLevelTimer();
         }
-
-        private bool HasAllPanelsAssigned() =>
-            startPanel != null &&
-            endGamePanel != null &&
-            topBarPanel != null &&
-            settingsPanel != null &&
-            stateManager != null;
-
-        private void TryResolveSceneReferences()
-        {
-            if (!gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            startPanel ??= GetComponentInChildren<StartPanel>(true);
-            endGamePanel ??= GetComponentInChildren<EndGamePanel>(true);
-            topBarPanel ??= GetComponentInChildren<TopBarPanel>(true);
-            settingsPanel ??= GetComponentInChildren<SettingsPanel>(true);
-
-            startPanel ??= FindObjectOfType<StartPanel>();
-            endGamePanel ??= FindObjectOfType<EndGamePanel>();
-            topBarPanel ??= FindObjectOfType<TopBarPanel>();
-            settingsPanel ??= FindObjectOfType<SettingsPanel>();
-            stateManager ??= StateManager.Instance != null ? StateManager.Instance : FindObjectOfType<StateManager>();
-        }
+        
 
     }
 }

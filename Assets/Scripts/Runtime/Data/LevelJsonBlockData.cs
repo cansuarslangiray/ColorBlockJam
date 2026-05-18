@@ -19,16 +19,18 @@ namespace Runtime.Data
 
         public string ResolveShapeKey(int fallbackCellCount = 1)
         {
-            var resolvedType = ResolveBlockType(fallbackCellCount);
-            var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
-            if (!string.IsNullOrWhiteSpace(resolvedShapeKey))
-            {
-                return resolvedShapeKey;
-            }
-
             if (!string.IsNullOrWhiteSpace(shapeKey))
             {
                 return shapeKey.Trim();
+            }
+
+            if (blockType != BlockShapeType.Unknown && blockType != BlockShapeType.Custom)
+            {
+                string keyFromType = BlockShapeTypeUtility.ToShapeKey(blockType);
+                if (!string.IsNullOrWhiteSpace(keyFromType))
+                {
+                    return keyFromType;
+                }
             }
 
             return BlockShapeTypeUtility.ToShapeKey(fallbackCellCount <= 1
@@ -41,21 +43,7 @@ namespace Runtime.Data
             if (!string.IsNullOrWhiteSpace(shapeKey))
             {
                 string currentShapeKey = shapeKey.Trim();
-                BlockShapeType typeFromShapeKey = BlockShapeTypeUtility.FromShapeKey(currentShapeKey, fallbackCellCount);
-
-                if (blockType == BlockShapeType.Unknown)
-                {
-                    return typeFromShapeKey;
-                }
-
-                string shapeKeyFromBlockType = BlockShapeTypeUtility.ToShapeKey(blockType);
-                if (string.IsNullOrWhiteSpace(shapeKeyFromBlockType) ||
-                    !string.Equals(shapeKeyFromBlockType, currentShapeKey, StringComparison.Ordinal))
-                {
-                    return typeFromShapeKey;
-                }
-
-                return blockType;
+                return BlockShapeTypeUtility.FromShapeKey(currentShapeKey, fallbackCellCount);
             }
 
             if (blockType != BlockShapeType.Unknown)
@@ -69,15 +57,20 @@ namespace Runtime.Data
         public void NormalizeBlockType()
         {
             var currentShapeKey = string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
-            var resolvedType = ResolveBlockType();
-            blockType = resolvedType;
-
-            if (resolvedType == BlockShapeType.Custom)
+            if (!string.IsNullOrWhiteSpace(currentShapeKey))
             {
+                blockType = BlockShapeTypeUtility.FromShapeKey(currentShapeKey);
                 shapeKey = currentShapeKey;
                 return;
             }
 
+            var resolvedType = ResolveBlockType();
+            if (resolvedType == BlockShapeType.Unknown || resolvedType == BlockShapeType.Custom)
+            {
+                resolvedType = BlockShapeType.Shape1x1;
+            }
+
+            blockType = resolvedType;
             var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
             shapeKey = string.IsNullOrWhiteSpace(resolvedShapeKey) ? currentShapeKey : resolvedShapeKey;
         }

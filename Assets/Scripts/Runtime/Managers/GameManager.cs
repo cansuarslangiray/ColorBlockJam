@@ -46,7 +46,6 @@ namespace Runtime.Managers
                 return;
             }
 
-            TryResolveSceneReferences();
             if (!HasRequiredReferences())
             {
                 Debug.LogError("GameManager is missing one or more serialized core references.", this);
@@ -55,11 +54,6 @@ namespace Runtime.Managers
             }
 
             InitializeCollaborators();
-        }
-
-        private void OnValidate()
-        {
-            TryResolveSceneReferences();
         }
 
         private void Start()
@@ -371,7 +365,8 @@ namespace Runtime.Managers
                 return;
             }
 
-            _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(_levelProgression.CurrentLevelDisplayNumber));
+            _localDataManager.SetCurrentLevelAsProgress(
+                ClampLevelNumberToProgressRange(_levelProgression.CurrentLevelDisplayNumber));
         }
 
         private int ClampLevelNumberToProgressRange(int levelNumber)
@@ -401,29 +396,5 @@ namespace Runtime.Managers
 
             return Mathf.Max(1, maxLevelNumber);
         }
-
-        private void TryResolveSceneReferences()
-        {
-            if (!gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            boardController ??= FindObjectOfType<BoardController>();
-            blockSceneBuilder ??= FindObjectOfType<BlockSceneBuilder>();
-            stateManager ??= StateManager.Instance != null ? StateManager.Instance : FindObjectOfType<StateManager>();
-            uiManager ??= UIManager.Instance != null ? UIManager.Instance : FindObjectOfType<UIManager>();
-            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindObjectOfType<AudioManager>();
-
-            if (gameplayCamera == null)
-            {
-                gameplayCamera = Camera.main;
-                if (gameplayCamera == null)
-                {
-                    gameplayCamera = FindObjectOfType<Camera>();
-                }
-            }
-        }
-
     }
 }

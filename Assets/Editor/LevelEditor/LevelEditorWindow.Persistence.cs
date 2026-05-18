@@ -205,7 +205,7 @@ namespace Editor.LevelEditor
                 }
             }
 
-            _projectJsonPaths.Sort(StringComparer.Ordinal);
+            SortLevelJsonPaths(_projectJsonPaths);
 
             _projectJsonOptions = new string[_projectJsonPaths.Count + 1];
             _projectJsonOptions[0] = "None";
@@ -218,6 +218,79 @@ namespace Editor.LevelEditor
             }
         }
 
+        private void RefreshProjectLevelCollections()
+        {
+            string[] collectionGuids = AssetDatabase.FindAssets("t:LevelCollection");
+            if (collectionGuids == null || collectionGuids.Length == 0)
+            {
+                EditorUtility.DisplayDialog(
+                    "Level Collection Bulunamadi",
+                    "Projede LevelCollection asset'i bulunamadı.",
+                    "Tamam");
+                return;
+            }
+
+            int refreshedCollectionCount = 0;
+            int totalValidationIssueCount = 0;
+            var summaryLines = new List<string>(collectionGuids.Length + 4);
+
+            for (int i = 0; i < collectionGuids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(collectionGuids[i]);
+                LevelCollection levelCollection = AssetDatabase.LoadAssetAtPath<LevelCollection>(path);
+                if (levelCollection == null)
+                {
+                    continue;
+                }
+
+                LevelCollection.LevelCollectionRefreshReport report = levelCollection.RefreshEditorAssetLists(logResult: false);
+                refreshedCollectionCount++;
+                totalValidationIssueCount += report.ValidationIssueCount;
+                summaryLines.Add(
+                    $"- {levelCollection.name}: Levels={report.LevelCount}, Shapes={report.ShapeCount}, Issues={report.ValidationIssueCount}");
+
+                if (report.HasValidationIssues)
+                {
+                    const int maxIssuePreview = 3;
+                    int visibleIssueCount = Mathf.Min(maxIssuePreview, report.ValidationIssueCount);
+                    for (int issueIndex = 0; issueIndex < visibleIssueCount; issueIndex++)
+                    {
+                        summaryLines.Add($"  * {report.ValidationIssues[issueIndex]}");
+                    }
+
+                    if (report.ValidationIssueCount > visibleIssueCount)
+                    {
+                        summaryLines.Add($"  * ... +{report.ValidationIssueCount - visibleIssueCount} more issue(s)");
+                    }
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            MarkProjectJsonCacheDirty();
+            MarkShapeRegistryCacheDirty();
+            EnsureProjectJsonCache();
+            EnsureShapeRegistryLoaded(true);
+
+            if (_activeLevelJson != null)
+            {
+                LoadLevelFromJsonAsset(_activeLevelJson);
+            }
+
+            string title = totalValidationIssueCount == 0
+                ? "Level Collection Refreshed"
+                : "Level Collection Refreshed (Validation Warnings)";
+            string detail =
+                $"Guncellenen koleksiyon: {refreshedCollectionCount}\nToplam validation warning: {totalValidationIssueCount}";
+            if (summaryLines.Count > 0)
+            {
+                detail += $"\n\n{string.Join("\n", summaryLines)}";
+            }
+
+            Debug.Log($"[LevelEditor] {title}\n{detail}");
+            EditorUtility.DisplayDialog(title, detail, "Tamam");
+        }
+
         private static string BuildLevelKey(int levelNumber)
         {
             return $"Level{Math.Max(1, levelNumber)}";
@@ -226,6 +299,63 @@ namespace Editor.LevelEditor
         private static string BuildLevelJsonPath(int levelNumber)
         {
             return $"{LevelJsonFolder}/{BuildLevelKey(levelNumber)}.json";
+        }
+
+        private static void SortLevelJsonPaths(List<string> levelJsonPaths)
+        {
+            if (levelJsonPaths == null || levelJsonPaths.Count <= 1)
+            {
+                return;
+            }
+
+            levelJsonPaths.Sort((left, right) =>
+            {
+                int leftOrder = ResolveLevelOrderFromPath(left);
+                int rightOrder = ResolveLevelOrderFromPath(right);
+
+                int orderCompare = leftOrder.CompareTo(rightOrder);
+                if (orderCompare != 0)
+                {
+                    return orderCompare;
+                }
+
+                return string.CompareOrdinal(left, right);
+            });
+        }
+
+        private static int ResolveLevelOrderFromPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return int.MaxValue;
+            }
+
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return int.MaxValue;
+            }
+
+            int parsed = 0;
+            bool hasDigit = false;
+            for (int i = 0; i < fileName.Length; i++)
+            {
+                char c = fileName[i];
+                if (c < '0' || c > '9')
+                {
+                    continue;
+                }
+
+                hasDigit = true;
+                parsed = (parsed * 10) + (c - '0');
+            }
+
+            if (!hasDigit)
+            {
+                return int.MaxValue;
+            }
+
+            return Mathf.Max(1, parsed);
         }
 
         private static bool ContainsShapeKey(List<string> shapeKeys, string shapeKey)

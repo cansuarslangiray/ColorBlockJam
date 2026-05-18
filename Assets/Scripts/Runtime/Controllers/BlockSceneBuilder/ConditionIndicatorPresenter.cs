@@ -211,32 +211,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 _indicatorTextBuilder.Append("v");
             }
 
-            if (features.HasFeature(BlockFeature.MinMovesBeforeExit))
-            {
-                AppendFeatureLine("MinMv");
-            }
-
-            if (features.HasFeature(BlockFeature.MaxMovesBeforeExit))
-            {
-                AppendFeatureLine("MaxMv");
-            }
-
-            if (features.HasFeature(BlockFeature.MinClearedBlocksBeforeExit))
-            {
-                AppendFeatureLine("Unlock");
-            }
-
             return _indicatorTextBuilder.ToString();
         }
 
-        private void AppendFeatureLine(string label)
-        {
-            if (_indicatorTextBuilder.Length > 0)
-            {
-                _indicatorTextBuilder.Append('\n');
-            }
-
-            _indicatorTextBuilder.Append(label);
-        }
     }
 }

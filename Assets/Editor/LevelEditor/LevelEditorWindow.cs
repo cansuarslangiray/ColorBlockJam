@@ -182,6 +182,11 @@ namespace Editor.LevelEditor
                 }
             }
 
+            if (GUILayout.Button("Refresh Level Collection", GUILayout.Height(24f), GUILayout.Width(190f)))
+            {
+                RefreshProjectLevelCollections();
+            }
+
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
         }

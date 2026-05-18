@@ -6,10 +6,7 @@ namespace Runtime.Helpers
     {
         private const BlockFeature KnownFeatures =
             BlockFeature.Horizontal |
-            BlockFeature.Vertical |
-            BlockFeature.MinMovesBeforeExit |
-            BlockFeature.MaxMovesBeforeExit |
-            BlockFeature.MinClearedBlocksBeforeExit;
+            BlockFeature.Vertical;
 
         public static BlockFeature Sanitize(this BlockFeature features)
         {

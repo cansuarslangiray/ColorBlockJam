@@ -36,7 +36,6 @@ namespace Runtime.Controllers
 
         private void Awake()
         {
-            TryResolveSceneReferences();
             EnsureDependencies();
             RefreshProjectionState();
         }
@@ -49,7 +48,6 @@ namespace Runtime.Controllers
 
         private void OnValidate()
         {
-            TryResolveSceneReferences();
             RefreshProjectionState();
         }
 
@@ -143,7 +141,6 @@ namespace Runtime.Controllers
 
         private void EnsureDependencies()
         {
-            TryResolveSceneReferences();
             _runtimeState ??= new BoardRuntimeState();
             _input ??= new BoardInput();
             _pointerGestureController ??= new BoardPointerGestureController(_runtimeState, _input, this);
@@ -151,25 +148,7 @@ namespace Runtime.Controllers
                 new BoardBlockSlideService(_runtimeState.RuntimeBlocks, _runtimeState.DoorOpenings,
                     _runtimeState.OccupancyMap);
         }
-
-        private void TryResolveSceneReferences()
-        {
-            if (!gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            if (inputCamera == null)
-            {
-                inputCamera = Camera.main;
-                if (inputCamera == null)
-                {
-                    inputCamera = FindObjectOfType<Camera>();
-                }
-            }
-
-            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindObjectOfType<AudioManager>();
-        }
+        
 
         private void RefreshProjectionState()
         {

@@ -11,6 +11,20 @@ namespace Editor.LevelEditor
 {
     public partial class LevelEditorWindow
     {
+        private static readonly BlockFeature[] EditableBlockFeatures =
+        {
+            BlockFeature.Default,
+            BlockFeature.Horizontal,
+            BlockFeature.Vertical
+        };
+
+        private static readonly string[] EditableBlockFeatureLabels =
+        {
+            "Default",
+            "Horizontal",
+            "Vertical"
+        };
+
         private string _shapeCreatorKey = "Shape_Custom_1";
         private bool _shapeCreatorUseCustom = true;
         private int _shapeCreatorWidth = 2;
@@ -742,18 +756,34 @@ namespace Editor.LevelEditor
 
         private static BlockFeature DrawBlockFeaturePopup(string label, BlockFeature currentFeature)
         {
-            return (BlockFeature)EditorGUILayout.EnumPopup(label, ToSingleBlockFeature(currentFeature));
+            BlockFeature normalizedFeature = ToSingleBlockFeature(currentFeature);
+            int selectedIndex = 0;
+
+            for (int i = 0; i < EditableBlockFeatures.Length; i++)
+            {
+                if (EditableBlockFeatures[i] == normalizedFeature)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+
+            int nextIndex = EditorGUILayout.Popup(label, selectedIndex, EditableBlockFeatureLabels);
+            nextIndex = Mathf.Clamp(nextIndex, 0, EditableBlockFeatures.Length - 1);
+            return EditableBlockFeatures[nextIndex];
         }
 
         private static BlockFeature ToSingleBlockFeature(BlockFeature features)
         {
+            features = features.Sanitize();
             if (features == BlockFeature.Default)
             {
                 return BlockFeature.Default;
             }
 
-            foreach (BlockFeature feature in Enum.GetValues(typeof(BlockFeature)))
+            for (int i = 0; i < EditableBlockFeatures.Length; i++)
             {
+                BlockFeature feature = EditableBlockFeatures[i];
                 if (feature == BlockFeature.Default)
                 {
                     continue;

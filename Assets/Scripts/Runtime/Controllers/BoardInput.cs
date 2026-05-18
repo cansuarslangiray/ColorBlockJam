@@ -152,12 +152,7 @@ namespace Runtime.Controllers
                 return true;
             }
 
-            if (!clampToBoardBounds || !TryClampPointInsideBoard(hitPoint, out boardWorldPoint))
-            {
-                return false;
-            }
-
-            return true;
+            return clampToBoardBounds && TryClampPointInsideBoard(hitPoint, out boardWorldPoint);
         }
 
         private bool IsPointInsideBoard(Vector3 boardWorldPoint)

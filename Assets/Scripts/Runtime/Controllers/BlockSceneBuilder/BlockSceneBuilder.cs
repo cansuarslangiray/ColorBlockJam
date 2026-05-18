@@ -85,11 +85,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
 
-        private void Awake()
-        {
-            TryResolveSceneReferences();
-        }
-
         private LayoutMetrics ResolveLayoutMetrics()
         {
             var cellSize = CellSize;
@@ -108,13 +103,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void OnEnable()
         {
-            TryResolveSceneReferences();
             SubscribeBoardEvents();
         }
 
         private void OnValidate()
         {
-            TryResolveSceneReferences();
             _visualCache.InvalidateMaterialCache();
             blockRootScale.x = Mathf.Max(0.01f, blockRootScale.x);
             blockRootScale.y = Mathf.Max(0.01f, blockRootScale.y);
@@ -147,7 +140,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            TryResolveSceneReferences();
             if (!HasRequiredReferences())
             {
                 Debug.LogError("BlockSceneBuilder requires BoardController and BlockScenePoolManager references.", this);
@@ -319,29 +311,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             return boardController != null && poolManager != null;
         }
-
-        private void TryResolveSceneReferences()
-        {
-            if (!gameObject.scene.IsValid())
-            {
-                return;
-            }
-
-            boardController ??= GetComponent<BoardController>();
-            poolManager ??= GetComponent<BlockScenePoolManager>();
-
-            boardController ??= FindObjectOfType<BoardController>();
-            poolManager ??= FindObjectOfType<BlockScenePoolManager>();
-            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindObjectOfType<AudioManager>();
-
-            if (indicatorCamera == null)
-            {
-                indicatorCamera = Camera.main;
-                if (indicatorCamera == null)
-                {
-                    indicatorCamera = FindObjectOfType<Camera>();
-                }
-            }
-        }
+        
     }
 }

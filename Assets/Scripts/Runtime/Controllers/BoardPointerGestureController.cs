@@ -34,8 +34,7 @@ namespace Runtime.Controllers
         public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera inputCamera, out int activeBlockId)
         {
             activeBlockId = -1;
-            if (_runtimeState == null ||
-                !_runtimeState.IsInitialized ||
+            if (_runtimeState is not { IsInitialized: true } ||
                 !_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, out var boardWorldPoint) ||
                 !_input.TryWorldToCell(boardWorldPoint, _runtimeState.OccupancyMap, out var touchedCell) ||
                 !_runtimeState.TryGetBlockAtCell(touchedCell, out var touchedBlockId))
@@ -143,7 +142,8 @@ namespace Runtime.Controllers
                     break;
                 }
 
-                if (!TryMoveActiveGestureBlock(direction, requestedCellCount, out var movedCellCount, out var blockCleared))
+                if (!TryMoveActiveGestureBlock(direction, requestedCellCount, out var movedCellCount,
+                        out var blockCleared))
                 {
                     break;
                 }
