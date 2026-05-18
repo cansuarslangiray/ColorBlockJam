@@ -32,7 +32,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public static IEnumerator TweenExitThroughDoor(Transform blockTransform, Vector2Int resolvedExitDirection,
             Vector2 blockLocalCenter, Vector2 doorWorldCenter, float doorWorldZ, float cellSize, float exitDuration,
             float exitTravelInCells, AnimationCurve exitMoveCurve, AnimationCurve exitScaleCurve,
-            float exitMinScaleMultiplier)
+            float exitMinScaleMultiplier, float exitDipDistanceInCells)
         {
             var startPosition = blockTransform.position;
             var startScale = blockTransform.localScale;
@@ -53,6 +53,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var invApproachDuration = 1f / Mathf.Max(0.0001f, approachDuration);
             var invPassDuration = 1f / passDuration;
             var minScale = startScale * exitMinScaleMultiplier;
+            var dipDistance = Mathf.Max(0f, exitDipDistanceInCells) * cellSize;
             var elapsed = 0f;
 
             while (elapsed < approachDuration)
@@ -76,8 +77,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var moveT = EvaluateCurve01(exitMoveCurve, normalized, normalized);
                 var shrinkNormalized = Mathf.Clamp01((normalized - 0.55f) / 0.45f);
                 var scaleT = EvaluateCurve01(exitScaleCurve, shrinkNormalized, 1f - shrinkNormalized);
+                var dipWave = Mathf.Sin(normalized * Mathf.PI);
+                var dipOffset = Vector3.down * (dipDistance * dipWave);
 
-                blockTransform.position = Vector3.LerpUnclamped(doorCenterTargetPosition, finalTargetPosition, moveT);
+                blockTransform.position =
+                    Vector3.LerpUnclamped(doorCenterTargetPosition, finalTargetPosition, moveT) + dipOffset;
                 blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleT);
                 yield return null;
             }

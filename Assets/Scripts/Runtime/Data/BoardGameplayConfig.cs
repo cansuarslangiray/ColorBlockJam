@@ -14,6 +14,7 @@ namespace Runtime.Data
         [Header("Door Exit")] public float doorExitDuration = 0.32f;
         public float doorExitTravelInCells = 1.15f;
         public float doorExitMinScaleMultiplier = 0.05f;
+        public float doorExitDipDistanceInCells = 0.22f;
         public AnimationCurve doorExitMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
         public AnimationCurve doorExitScaleCurve = AnimationCurve.EaseInOut(0f, 1f, 1f, 0f);
 

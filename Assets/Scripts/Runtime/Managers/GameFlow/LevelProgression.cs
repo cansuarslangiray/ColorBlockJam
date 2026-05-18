@@ -1,4 +1,5 @@
 using Runtime.Data;
+using UnityEngine;
 
 namespace Runtime.Managers.GameFlow
 {
@@ -6,21 +7,46 @@ namespace Runtime.Managers.GameFlow
     {
         private readonly LevelCollection _levelCollection;
         private int _currentLevelIndex;
-        private int _cachedLevelIndex = -1;
-        private bool _isCurrentLevelCacheResolved;
-        private LevelJsonData _cachedCurrentLevelData;
 
         public LevelProgression(LevelCollection levelCollection)
         {
             _levelCollection = levelCollection;
-            ResetToFirstLevel();
+            _currentLevelIndex = 0;
         }
 
         public int CurrentLevelDisplayNumber => _currentLevelIndex + 1;
-
         public BlockShapeRegistry RuntimeShapeRegistry => _levelCollection.RuntimeShapeRegistry;
 
-        public void ResetToFirstLevel() => SetCurrentLevelIndex(0);
+        public void SetCurrentLevelFromSavedNumber(int savedLevelNumber)
+        {
+            if (_levelCollection == null || _levelCollection.Count <= 0)
+            {
+                SetCurrentLevelIndex(0);
+                return;
+            }
+
+            var fallbackLevelIndex = Mathf.Clamp(savedLevelNumber - 1, 0, _levelCollection.Count - 1);
+            var resolvedLevelIndex = fallbackLevelIndex;
+
+            if (savedLevelNumber > 0)
+            {
+                for (var i = 0; i < _levelCollection.Count; i++)
+                {
+                    if (!_levelCollection.TryGetLevelAt(i, out var levelData) || levelData == null)
+                    {
+                        continue;
+                    }
+
+                    if (levelData.levelNumber == savedLevelNumber)
+                    {
+                        resolvedLevelIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            SetCurrentLevelIndex(resolvedLevelIndex);
+        }
 
         public bool TryMoveNextLevel()
         {
@@ -33,25 +59,27 @@ namespace Runtime.Managers.GameFlow
             return true;
         }
 
-        public bool TryGetCurrentLevelData(out LevelJsonData levelData)
+        public bool TryGetNextLevelData(out LevelJsonData levelData)
         {
-            if (_isCurrentLevelCacheResolved && _cachedLevelIndex == _currentLevelIndex)
+            var nextLevelIndex = _currentLevelIndex + 1;
+            if (_levelCollection != null && _levelCollection.TryGetLevelAt(nextLevelIndex, out var resolvedLevelData))
             {
-                levelData = _cachedCurrentLevelData;
-                return levelData != null;
-            }
-
-            _isCurrentLevelCacheResolved = true;
-            _cachedLevelIndex = _currentLevelIndex;
-
-            if (_levelCollection != null && _levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
-            {
-                _cachedCurrentLevelData = resolvedLevelData;
                 levelData = resolvedLevelData;
                 return true;
             }
 
-            _cachedCurrentLevelData = null;
+            levelData = null;
+            return false;
+        }
+
+        public bool TryGetCurrentLevelData(out LevelJsonData levelData)
+        {
+            if (_levelCollection != null && _levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
+            {
+                levelData = resolvedLevelData;
+                return true;
+            }
+
             levelData = null;
             return false;
         }
@@ -59,9 +87,6 @@ namespace Runtime.Managers.GameFlow
         private void SetCurrentLevelIndex(int levelIndex)
         {
             _currentLevelIndex = levelIndex;
-            _isCurrentLevelCacheResolved = false;
-            _cachedCurrentLevelData = null;
-            _cachedLevelIndex = -1;
         }
     }
 }

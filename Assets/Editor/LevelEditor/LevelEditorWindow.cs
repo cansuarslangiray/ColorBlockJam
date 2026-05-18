@@ -14,6 +14,15 @@ namespace Editor.LevelEditor
         private const float GridCellPixelSize = 26f;
         private const string ShapeJsonFolder = "Assets/Data/BlockShapes";
         private const string LevelJsonFolder = "Assets/Data/LevelsJson";
+        private static readonly BlockColor[] AllBlockColors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
+        private static readonly string[] EditModeLabels = { "Blocked Cells", "Doors", "Blocks" };
+        private static readonly Color BlockedCellColor = new(0.22f, 0.22f, 0.22f);
+        private static readonly Color FrameCellColor = new(0.33f, 0.36f, 0.49f);
+        private static readonly Color EmptyCellColor = new(0.9f, 0.9f, 0.9f);
+        private static readonly GUIContent DoorMustBeEdgeNotification = new("Door sadece kenar hücresine konabilir.");
+        private static readonly GUIContent DoorCannotBeCornerNotification = new("Door kose hucreye konamaz. Kosenin yanindaki kenar hucreyi sec.");
+        private static readonly GUIContent DoorCannotBePlacedNotification = new("Door bu hücreye eklenemiyor.");
+        private static readonly GUIContent ShapeReplaceCollisionNotification = new("Shape guncellenemedi: Cakisiyor veya grid disina tasiyor.");
 
         private TextAsset _activeLevelJson;
         private string _activeLevelJsonPath;
@@ -32,6 +41,7 @@ namespace Editor.LevelEditor
         private readonly HashSet<Vector2Int> _blockedCellLookup = new HashSet<Vector2Int>();
         private readonly Dictionary<Vector2Int, int> _doorIndexByCell = new Dictionary<Vector2Int, int>();
         private readonly Dictionary<Vector2Int, int> _blockIndexByCell = new Dictionary<Vector2Int, int>();
+        private readonly HashSet<Vector2Int> _cellSelectionBuffer = new HashSet<Vector2Int>();
         private readonly List<string> _layoutValidationIssues = new List<string>(16);
         private readonly BoardOccupancyMap _validationOccupancyMap = new BoardOccupancyMap();
         private bool _gridLookupCacheDirty = true;
@@ -39,6 +49,8 @@ namespace Editor.LevelEditor
         private readonly Dictionary<string, int> _projectJsonIndexByPath = new Dictionary<string, int>(128);
         private readonly Dictionary<string, int> _shapeOptionIndexByKey = new Dictionary<string, int>(64, StringComparer.Ordinal);
         private string[] _shapeOptionLabels = Array.Empty<string>();
+        private string[] _availableColorOptionLabels = Array.Empty<string>();
+        private int _availableColorOptionSignature = int.MinValue;
         private string[] _projectJsonOptions = { "None" };
         private bool _projectJsonCacheDirty = true;
         private bool _shapeRegistryCacheDirty = true;

@@ -9,7 +9,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private readonly Dictionary<BlockShapeType, List<BlockRootView>> _inactiveBlockRootsByType = new();
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
-        private GameObject _sharedBlockCellTemplate;
 
         public void Rebind(
             IReadOnlyDictionary<BlockShapeType, List<GameObject>> blockObjectsByType,
@@ -17,7 +16,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             _activeBlockRootById.Clear();
             _inactiveBlockRootsByType.Clear();
-            _sharedBlockCellTemplate = null;
 
             if (blockObjectsByType == null)
             {
@@ -105,7 +103,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             BlockScenePoolManager poolManager,
             BlockRootView blockView,
             int requiredCellCount,
-            IReadOnlyDictionary<Vector2Int, GameObject> gridCellPoolByCell,
             Action<GameObject, bool> setActiveIfChanged)
         {
             if (poolManager == null || blockView == null || requiredCellCount <= blockView.Cells.Count)
@@ -113,19 +110,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (!_sharedBlockCellTemplate)
-            {
-                CacheBlockCellTemplate(blockView);
-                CacheSharedBlockCellTemplateFromPools(gridCellPoolByCell);
-            }
-
-            poolManager.EnsureBlockRootCellPoolSize(blockView.RootObject, requiredCellCount, _sharedBlockCellTemplate);
+            poolManager.EnsureBlockRootCellPoolSize(blockView.RootObject, requiredCellCount);
             CacheBlockCellPool(blockView, setActiveIfChanged);
-
-            if (!_sharedBlockCellTemplate && blockView.Cells.Count > 0)
-            {
-                _sharedBlockCellTemplate = blockView.Cells[0];
-            }
         }
 
         private void AddBlockViewsFromPool(
@@ -160,7 +146,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 };
 
                 CacheBlockCellPool(blockView, setActiveIfChanged);
-                CacheBlockCellTemplate(blockView);
                 GetOrCreateInactivePool(blockType).Add(blockView);
                 setActiveIfChanged?.Invoke(rootObject, false);
             }
@@ -189,7 +174,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var childCount = blockView.RootTransform.childCount;
             if (childCount <= 0)
             {
-                blockView.Cells.Add(blockView.RootObject);
                 return;
             }
 
@@ -204,62 +188,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var cellObject = child.gameObject;
                 blockView.Cells.Add(cellObject);
                 setActiveIfChanged?.Invoke(cellObject, false);
-            }
-        }
-
-        private void CacheBlockCellTemplate(BlockRootView blockView)
-        {
-            if (_sharedBlockCellTemplate || blockView == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < blockView.Cells.Count; i++)
-            {
-                var cellObject = blockView.Cells[i];
-                if (cellObject && cellObject != blockView.RootObject)
-                {
-                    _sharedBlockCellTemplate = cellObject;
-                    return;
-                }
-            }
-        }
-
-        private void CacheSharedBlockCellTemplateFromPools(IReadOnlyDictionary<Vector2Int, GameObject> gridCellPoolByCell)
-        {
-            foreach (var pair in _inactiveBlockRootsByType)
-            {
-                var pool = pair.Value;
-                for (var i = 0; i < pool.Count; i++)
-                {
-                    var blockView = pool[i];
-                    if (blockView == null || blockView.Cells.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    var candidate = blockView.Cells[0];
-                    if (candidate)
-                    {
-                        _sharedBlockCellTemplate = candidate;
-                        return;
-                    }
-                }
-            }
-
-            if (gridCellPoolByCell == null)
-            {
-                return;
-            }
-
-            foreach (var pair in gridCellPoolByCell)
-            {
-                var candidate = pair.Value;
-                if (candidate)
-                {
-                    _sharedBlockCellTemplate = candidate;
-                    return;
-                }
             }
         }
 

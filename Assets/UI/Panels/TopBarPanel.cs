@@ -23,8 +23,6 @@ namespace UI.Panels
         private Coroutine _tickRoutine;
         private bool _isTimerRunning;
         private bool _isTimerPaused;
-        private WaitForSeconds _tickWaitInstruction;
-        private float _cachedTickInterval = -1f;
         private int _resolvedWarningThreshold;
 
         public event Action ReloadRequested;
@@ -49,8 +47,6 @@ namespace UI.Panels
         private void OnValidate()
         {
             RefreshTimerStyleThreshold();
-            _cachedTickInterval = -1f;
-            _tickWaitInstruction = null;
         }
 
         public void StartTimer(float durationSeconds)
@@ -129,7 +125,7 @@ namespace UI.Panels
 
         private IEnumerator TickRoutine()
         {
-            var waitInstruction = ResolveTickInstruction();
+            var waitInstruction = new WaitForSeconds(Mathf.Max(0.2f, tickIntervalSeconds));
             while (_remainingSeconds > 0)
             {
                 yield return waitInstruction;
@@ -166,19 +162,6 @@ namespace UI.Panels
             _timerChip.EnableInClassList("timer-warning", isWarning);
             _timerChip.EnableInClassList("timer-critical", isCritical);
             _timerChip.EnableInClassList("timer-pulse", shouldPulse);
-        }
-
-        private WaitForSeconds ResolveTickInstruction()
-        {
-            var resolvedInterval = Mathf.Max(0.2f, tickIntervalSeconds);
-            if (_tickWaitInstruction != null && Mathf.Approximately(_cachedTickInterval, resolvedInterval))
-            {
-                return _tickWaitInstruction;
-            }
-
-            _cachedTickInterval = resolvedInterval;
-            _tickWaitInstruction = new WaitForSeconds(resolvedInterval);
-            return _tickWaitInstruction;
         }
 
         private void RefreshTimerStyleThreshold() => _resolvedWarningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);

@@ -27,10 +27,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 var position = ResolveCellCenterWorld(layout, cell.x, cell.y, layout.GridZ);
-                if (cellObject.transform.position != position)
-                {
-                    cellObject.transform.position = position;
-                }
+                cellObject.transform.position = position;
             }
 
             ApplyBackdrop(dims, layout);
@@ -84,7 +81,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ApplyBorders(Vector2Int dims, in LayoutMetrics layout)
         {
-            if (_borderObjects == null || _borderObjects.Count == 0)
+            if (_borderObjects.Count == 0)
             {
                 return;
             }
@@ -115,23 +112,23 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var centerX = (leftEdgeX + rightEdgeX) * 0.5f;
             var centerY = (bottomEdgeY + topEdgeY) * 0.5f;
 
-            ApplyBorderAtDirection(
-                Direction.Up,
+            ApplyBorderAtIndex(
+                (int)Direction.Up,
                 new Vector3(centerX, topY, layout.BorderZ),
                 new Vector3(horizontalLength, layout.FrameThickness, layout.FrameDepth));
 
-            ApplyBorderAtDirection(
-                Direction.Down,
+            ApplyBorderAtIndex(
+                (int)Direction.Down,
                 new Vector3(centerX, bottomY, layout.BorderZ),
                 new Vector3(horizontalLength, layout.FrameThickness, layout.FrameDepth));
 
-            ApplyBorderAtDirection(
-                Direction.Left,
+            ApplyBorderAtIndex(
+                (int)Direction.Left,
                 new Vector3(leftX, centerY, layout.BorderZ),
                 new Vector3(layout.FrameThickness, verticalLength, layout.FrameDepth));
 
-            ApplyBorderAtDirection(
-                Direction.Right,
+            ApplyBorderAtIndex(
+                (int)Direction.Right,
                 new Vector3(rightX, centerY, layout.BorderZ),
                 new Vector3(layout.FrameThickness, verticalLength, layout.FrameDepth));
 
@@ -172,15 +169,21 @@ namespace Runtime.Controllers.BlockSceneBuilder
             maxCellY = gridDimensions.y - 1;
         }
 
-        private void ApplyBorderAtDirection(Direction direction, Vector3 position, Vector3 scale)
+        private void ApplyBorderAtIndex(int borderIndex, Vector3 position, Vector3 scale)
         {
-            var borderIndex = (int)direction;
-            if (_borderObjects == null || borderIndex < 0 || borderIndex >= _borderObjects.Count)
+            if (borderIndex < 0 || borderIndex >= _borderObjects.Count)
             {
                 return;
             }
 
-            ApplyBorderTransform(_borderObjects[borderIndex], position, scale);
+            var borderObject = _borderObjects[borderIndex];
+            if (!borderObject)
+            {
+                return;
+            }
+
+            SetActiveIfChanged(borderObject, true);
+            ApplyWorldTransform(borderObject.transform, position, scale);
         }
 
         private void ApplyDoors(IReadOnlyList<DoorOpeningData> openings, Vector2Int gridDimensions, in LayoutMetrics layout)
@@ -257,15 +260,5 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 worldZ);
         }
 
-        private static void ApplyBorderTransform(GameObject borderObject, Vector3 position, Vector3 scale)
-        {
-            if (!borderObject)
-            {
-                return;
-            }
-
-            SetActiveIfChanged(borderObject, true);
-            ApplyWorldTransform(borderObject.transform, position, scale);
-        }
     }
 }

@@ -49,6 +49,7 @@ MonoBehaviour:
   doorExitDuration: 0.32
   doorExitTravelInCells: 1.15
   doorExitMinScaleMultiplier: 0.05
+  doorExitDipDistanceInCells: 0.22
   doorExitMoveCurve:
     serializedVersion: 2
     m_Curve:

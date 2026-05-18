@@ -117,8 +117,11 @@ namespace Editor.LevelEditor
 
             string json = LevelJsonSerialization.Serialize(_activeLevel, true);
             File.WriteAllText(_activeLevelJsonPath, json);
-            AssetDatabase.ImportAsset(_activeLevelJsonPath, ImportAssetOptions.ForceUpdate);
-            _activeLevelJson = AssetDatabase.LoadAssetAtPath<TextAsset>(_activeLevelJsonPath);
+            AssetDatabase.ImportAsset(_activeLevelJsonPath);
+            if (_activeLevelJson == null)
+            {
+                _activeLevelJson = AssetDatabase.LoadAssetAtPath<TextAsset>(_activeLevelJsonPath);
+            }
         }
 
         private void EnsureShapeRegistryLoaded(bool forceReload = false)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
+using Runtime.Helpers;
 using UnityEditor;
 using UnityEngine;
 
@@ -56,14 +57,13 @@ namespace Editor.LevelEditor
         {
             EditorGUILayout.LabelField("Available Colors");
 
-            BlockColor[] allColors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
-            if (allColors.Length == 0)
+            if (AllBlockColors.Length == 0)
             {
                 return;
             }
 
             const int rowsPerColumn = 6;
-            int columnCount = Mathf.CeilToInt(allColors.Length / (float)rowsPerColumn);
+            int columnCount = Mathf.CeilToInt(AllBlockColors.Length / (float)rowsPerColumn);
 
             EditorGUILayout.BeginHorizontal();
             for (int column = 0; column < columnCount; column++)
@@ -71,10 +71,10 @@ namespace Editor.LevelEditor
                 EditorGUILayout.BeginVertical(GUILayout.MaxWidth(170f));
 
                 int startIndex = column * rowsPerColumn;
-                int endIndex = Mathf.Min(startIndex + rowsPerColumn, allColors.Length);
+                int endIndex = Mathf.Min(startIndex + rowsPerColumn, AllBlockColors.Length);
                 for (int i = startIndex; i < endIndex; i++)
                 {
-                    BlockColor color = allColors[i];
+                    BlockColor color = AllBlockColors[i];
                     bool hasColor = _activeLevel.availableColors.Contains(color);
                     bool next = EditorGUILayout.ToggleLeft(color.ToString(), hasColor);
 
@@ -108,12 +108,7 @@ namespace Editor.LevelEditor
         {
             EditorGUILayout.BeginVertical("box");
             EditorGUILayout.LabelField("Grid Edit Mode", EditorStyles.boldLabel);
-            _editMode = (LevelEditorMode)GUILayout.Toolbar((int)_editMode, new[]
-            {
-                "Blocked Cells",
-                "Doors",
-                "Blocks"
-            });
+            _editMode = (LevelEditorMode)GUILayout.Toolbar((int)_editMode, EditModeLabels);
             EditorGUILayout.EndVertical();
         }
 
@@ -185,15 +180,31 @@ namespace Editor.LevelEditor
                 return fallback;
             }
 
+            EnsureAvailableColorOptionCache(availableColors);
             int selectedIndex = Mathf.Max(0, availableColors.IndexOf(fallback));
-            string[] colorNames = new string[availableColors.Count];
+            selectedIndex = EditorGUILayout.Popup(label, selectedIndex, _availableColorOptionLabels);
+            return availableColors[selectedIndex];
+        }
+
+        private void EnsureAvailableColorOptionCache(List<BlockColor> availableColors)
+        {
+            int signature = availableColors.Count;
             for (int i = 0; i < availableColors.Count; i++)
             {
-                colorNames[i] = availableColors[i].ToString();
+                signature = (signature * 31) ^ (int)availableColors[i];
             }
 
-            selectedIndex = EditorGUILayout.Popup(label, selectedIndex, colorNames);
-            return availableColors[selectedIndex];
+            if (signature == _availableColorOptionSignature)
+            {
+                return;
+            }
+
+            _availableColorOptionSignature = signature;
+            _availableColorOptionLabels = new string[availableColors.Count];
+            for (int i = 0; i < availableColors.Count; i++)
+            {
+                _availableColorOptionLabels[i] = availableColors[i].ToString();
+            }
         }
 
         private void DrawGridEditor()
@@ -211,6 +222,7 @@ namespace Editor.LevelEditor
                 for (int x = 0; x < grid.x; x++)
                 {
                     Vector2Int cell = new Vector2Int(x, y);
+                    bool isFrameCell = IsFrameCell(cell);
                     Rect cellRect = new Rect(
                         rect.x + (x * GridCellPixelSize),
                         rect.y + ((grid.y - 1 - y) * GridCellPixelSize),
@@ -218,10 +230,10 @@ namespace Editor.LevelEditor
                         GridCellPixelSize - 2f);
 
                     Color previous = GUI.backgroundColor;
-                    GUI.backgroundColor = GetCellColor(cell);
+                    ResolveCellVisual(cell, isFrameCell, out Color cellColor, out string label);
+                    GUI.backgroundColor = cellColor;
 
-                    string label = GetCellLabel(cell);
-                    bool allowClick = _editMode == LevelEditorMode.Doors || !IsFrameCell(cell);
+                    bool allowClick = _editMode == LevelEditorMode.Doors || !isFrameCell;
                     if (allowClick && GUI.Button(cellRect, label))
                     {
                         HandleCellClick(cell);
@@ -238,6 +250,36 @@ namespace Editor.LevelEditor
             EditorGUILayout.Space(4f);
             DrawGridLegend();
             EditorGUILayout.EndVertical();
+        }
+
+        private void ResolveCellVisual(Vector2Int cell, bool isFrameCell, out Color color, out string label)
+        {
+            if (_blockedCellLookup.Contains(cell))
+            {
+                color = BlockedCellColor;
+                label = "X";
+                return;
+            }
+
+            if (_blockIndexByCell.TryGetValue(cell, out int blockIndex))
+            {
+                BlockColor blockColor = _activeLevel.blocks[blockIndex].colorType;
+                color = BlockColorPalette.GetColor(blockColor);
+                color.a = 0.9f;
+                label = "B";
+                return;
+            }
+
+            if (_doorIndexByCell.TryGetValue(cell, out int doorIndex))
+            {
+                BlockColor doorColor = _activeLevel.doors[doorIndex].colorType;
+                color = Color.Lerp(BlockColorPalette.GetColor(doorColor), Color.white, 0.35f);
+                label = "D";
+                return;
+            }
+
+            color = isFrameCell ? FrameCellColor : EmptyCellColor;
+            label = string.Empty;
         }
 
         private void DrawGridLegend()
@@ -368,7 +410,7 @@ namespace Editor.LevelEditor
 
             if (!CanReplaceBlockShape(blockIndex, block.position, nextShape))
             {
-                ShowNotification(new GUIContent("Shape guncellenemedi: Cakisiyor veya grid disina tasiyor."));
+                ShowNotification(ShapeReplaceCollisionNotification);
                 return;
             }
 

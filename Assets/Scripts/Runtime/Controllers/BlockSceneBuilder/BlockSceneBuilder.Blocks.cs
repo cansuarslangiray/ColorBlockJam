@@ -141,7 +141,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             yield return BlockMotionTween.TweenExitThroughDoor(blockTransform, resolvedExitDirection,
                 blockView.LocalCenter, ResolveDoorWorldCenter(matchedDoor, boardController.GridDimensions, layout),
                 layout.DoorZ, layout.CellSize,
-                ExitDuration, ExitTravelInCells, ExitMoveCurve, ExitScaleCurve, ExitMinScaleMultiplier);
+                ExitDuration, ExitTravelInCells, ExitMoveCurve, ExitScaleCurve, ExitMinScaleMultiplier,
+                ExitDipDistanceInCells);
 
             FinalizeClearedBlock(blockId);
         }
@@ -265,8 +266,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
         {
-            _blockViewPool.EnsureBlockCells(poolManager, blockView, requiredCellCount, _gridCellPoolByCell,
-                SetActiveIfChanged);
+            _blockViewPool.EnsureBlockCells(poolManager, blockView, requiredCellCount, SetActiveIfChanged);
         }
     }
 }

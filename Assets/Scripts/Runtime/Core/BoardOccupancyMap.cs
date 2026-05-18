@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Runtime.Domain.Models;
 using UnityEngine;
 
 namespace Runtime.Core
@@ -11,7 +12,8 @@ namespace Runtime.Core
 
         private int _width;
         private int _height;
-        private int[] _cells = Array.Empty<int>();
+        private int[] _cells = new int[0];
+        private bool[] _doorCells = new bool[0];
 
         public void Configure(int boardWidth, int boardHeight)
         {
@@ -23,10 +25,15 @@ namespace Runtime.Core
             {
                 _cells = new int[total];
             }
+            if (_doorCells.Length != total)
+            {
+                _doorCells = new bool[total];
+            }
 
             for (var i = 0; i < total; i++)
             {
                 _cells[i] = EmptyCell;
+                _doorCells[i] = false;
             }
         }
 
@@ -95,6 +102,66 @@ namespace Runtime.Core
                     _cells[index] = blockId;
                 }
             }
+        }
+
+        public void RebuildDoorOverlap(IReadOnlyList<DoorOpeningData> doorOpenings)
+        {
+            var totalCellCount = _width * _height;
+            if (_doorCells.Length != totalCellCount)
+            {
+                _doorCells = new bool[totalCellCount];
+            }
+            else if (totalCellCount > 0)
+            {
+                Array.Clear(_doorCells, 0, totalCellCount);
+            }
+
+            if (totalCellCount == 0 || doorOpenings == null || doorOpenings.Count == 0)
+            {
+                return;
+            }
+
+            for (var openingIndex = 0; openingIndex < doorOpenings.Count; openingIndex++)
+            {
+                var opening = doorOpenings[openingIndex];
+                var minX = Mathf.Clamp(opening.MinCell.x, 0, _width - 1);
+                var maxX = Mathf.Clamp(opening.MaxCell.x, 0, _width - 1);
+                var minY = Mathf.Clamp(opening.MinCell.y, 0, _height - 1);
+                var maxY = Mathf.Clamp(opening.MaxCell.y, 0, _height - 1);
+
+                for (var y = minY; y <= maxY; y++)
+                {
+                    var rowStartIndex = y * _width;
+                    for (var x = minX; x <= maxX; x++)
+                    {
+                        _doorCells[rowStartIndex + x] = true;
+                    }
+                }
+            }
+        }
+
+        public bool IsDoorOverlapping(RuntimeBlockState block, Vector2Int anchorPosition)
+        {
+            if (_width == 0 || _height == 0 || block.LocalCells == null || block.LocalCells.Length == 0)
+            {
+                return false;
+            }
+
+            for (var cellIndex = 0; cellIndex < block.LocalCells.Length; cellIndex++)
+            {
+                var worldCell = anchorPosition + block.LocalCells[cellIndex];
+                if (!IsInside(worldCell.x, worldCell.y))
+                {
+                    continue;
+                }
+
+                if (_doorCells[GetIndex(worldCell.x, worldCell.y)])
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void ClearBlock(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)

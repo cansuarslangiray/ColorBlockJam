@@ -7,7 +7,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private static void SetActiveIfChanged(GameObject target, bool isActive)
         {
-            if (target && target.activeSelf != isActive)
+            if (target)
             {
                 target.SetActive(isActive);
             }
@@ -20,20 +20,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (target.position != position)
-            {
-                target.position = position;
-            }
-
-            if (target.rotation != Quaternion.identity)
-            {
-                target.rotation = Quaternion.identity;
-            }
-
-            if (target.localScale != scale)
-            {
-                target.localScale = scale;
-            }
+            target.SetPositionAndRotation(position, Quaternion.identity);
+            target.localScale = scale;
         }
 
         private static void ApplyLocalTransform(Transform target, Vector3 localPosition, Vector3 localScale)
@@ -43,20 +31,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (target.localPosition != localPosition)
-            {
-                target.localPosition = localPosition;
-            }
-
-            if (target.localRotation != Quaternion.identity)
-            {
-                target.localRotation = Quaternion.identity;
-            }
-
-            if (target.localScale != localScale)
-            {
-                target.localScale = localScale;
-            }
+            target.localPosition = localPosition;
+            target.localRotation = Quaternion.identity;
+            target.localScale = localScale;
         }
 
         private void ApplySharedMaterial(GameObject target, Material material)

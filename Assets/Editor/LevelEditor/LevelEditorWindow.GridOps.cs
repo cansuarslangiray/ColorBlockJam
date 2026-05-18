@@ -3,7 +3,6 @@ using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
-using Runtime.Helpers;
 using UnityEngine;
 
 namespace Editor.LevelEditor
@@ -64,13 +63,13 @@ namespace Editor.LevelEditor
 
             if (!IsFrameCell(cell))
             {
-                ShowNotification(new GUIContent("Door sadece kenar hücresine konabilir."));
+                ShowNotification(DoorMustBeEdgeNotification);
                 return;
             }
 
             if (DoorOpeningMap.IsCornerCell(cell, _activeLevel.gridDimensions))
             {
-                ShowNotification(new GUIContent("Door kose hucreye konamaz. Kosenin yanindaki kenar hucreyi sec."));
+                ShowNotification(DoorCannotBeCornerNotification);
                 return;
             }
 
@@ -83,7 +82,7 @@ namespace Editor.LevelEditor
             _doorCellsBuffer.Clear();
             if (!DoorOpeningMap.TryCollectDoorCells(nextDoor, _activeLevel.gridDimensions, _doorCellsBuffer))
             {
-                ShowNotification(new GUIContent("Door bu hücreye eklenemiyor."));
+                ShowNotification(DoorCannotBePlacedNotification);
                 return;
             }
 
@@ -94,8 +93,8 @@ namespace Editor.LevelEditor
             {
                 Vector2Int doorCell = _doorCellsBuffer[i];
                 _activeLevel.blockedCells.Remove(doorCell);
-                RemoveBlocksIntersectingCell(doorCell);
             }
+            RemoveBlocksIntersectingCells(_doorCellsBuffer);
 
             _activeLevel.doors.Add(nextDoor);
             SaveLevelChange();
@@ -220,58 +219,6 @@ namespace Editor.LevelEditor
             return true;
         }
 
-        private Color GetCellColor(Vector2Int cell)
-        {
-            if (IsBlockedCell(cell))
-            {
-                return new Color(0.22f, 0.22f, 0.22f);
-            }
-
-            int blockIndex = GetBlockAtCell(cell);
-            if (blockIndex >= 0)
-            {
-                BlockColor color = _activeLevel.blocks[blockIndex].colorType;
-                Color baseColor = BlockColorPalette.GetColor(color);
-                baseColor.a = 0.9f;
-                return baseColor;
-            }
-
-            int doorIndex = GetDoorIndexAtCell(cell);
-            if (doorIndex >= 0)
-            {
-                BlockColor color = _activeLevel.doors[doorIndex].colorType;
-                Color doorColor = BlockColorPalette.GetColor(color);
-                return Color.Lerp(doorColor, Color.white, 0.35f);
-            }
-
-            if (IsFrameCell(cell))
-            {
-                return new Color(0.33f, 0.36f, 0.49f);
-            }
-
-            return new Color(0.9f, 0.9f, 0.9f);
-        }
-
-        private string GetCellLabel(Vector2Int cell)
-        {
-            if (IsBlockedCell(cell))
-            {
-                return "X";
-            }
-
-            if (GetBlockAtCell(cell) >= 0)
-            {
-                return "B";
-            }
-
-            if (GetDoorIndexAtCell(cell) >= 0)
-            {
-                return "D";
-            }
-
-            return string.Empty;
-        }
-
         private int GetDoorIndexAtCell(Vector2Int cell)
         {
             EnsureGridLookupCache();
@@ -299,38 +246,122 @@ namespace Editor.LevelEditor
 
         private void RemoveDoorsOnCell(Vector2Int cell)
         {
-            while (true)
-            {
-                int index = GetDoorIndexAtCell(cell);
-                if (index < 0)
-                {
-                    return;
-                }
-
-                _activeLevel.doors.RemoveAt(index);
-                MarkGridLookupCacheDirty();
-            }
+            _cellSelectionBuffer.Clear();
+            _cellSelectionBuffer.Add(cell);
+            RemoveDoorsOnSelection(_cellSelectionBuffer);
         }
 
         private void RemoveDoorsOnCells(List<Vector2Int> cells)
         {
+            if (cells == null || cells.Count == 0)
+            {
+                return;
+            }
+
+            _cellSelectionBuffer.Clear();
             for (int i = 0; i < cells.Count; i++)
             {
-                RemoveDoorsOnCell(cells[i]);
+                _cellSelectionBuffer.Add(cells[i]);
+            }
+
+            RemoveDoorsOnSelection(_cellSelectionBuffer);
+        }
+
+        private void RemoveDoorsOnSelection(HashSet<Vector2Int> targetCells)
+        {
+            if (targetCells == null || targetCells.Count == 0 || _activeLevel.doors.Count == 0)
+            {
+                return;
+            }
+
+            bool removedAny = false;
+            for (int i = _activeLevel.doors.Count - 1; i >= 0; i--)
+            {
+                _doorCellsBuffer.Clear();
+                if (!DoorOpeningMap.TryCollectDoorCells(_activeLevel.doors[i], _activeLevel.gridDimensions, _doorCellsBuffer))
+                {
+                    continue;
+                }
+
+                for (int cellIndex = 0; cellIndex < _doorCellsBuffer.Count; cellIndex++)
+                {
+                    if (!targetCells.Contains(_doorCellsBuffer[cellIndex]))
+                    {
+                        continue;
+                    }
+
+                    _activeLevel.doors.RemoveAt(i);
+                    removedAny = true;
+                    break;
+                }
+            }
+
+            if (removedAny)
+            {
+                MarkGridLookupCacheDirty();
             }
         }
 
         private void RemoveBlocksIntersectingCell(Vector2Int cell)
         {
-            while (true)
+            _cellSelectionBuffer.Clear();
+            _cellSelectionBuffer.Add(cell);
+            RemoveBlocksOnSelection(_cellSelectionBuffer);
+        }
+
+        private void RemoveBlocksIntersectingCells(List<Vector2Int> cells)
+        {
+            if (cells == null || cells.Count == 0)
             {
-                int index = GetBlockAtCell(cell);
-                if (index < 0)
+                return;
+            }
+
+            _cellSelectionBuffer.Clear();
+            for (int i = 0; i < cells.Count; i++)
+            {
+                _cellSelectionBuffer.Add(cells[i]);
+            }
+
+            RemoveBlocksOnSelection(_cellSelectionBuffer);
+        }
+
+        private void RemoveBlocksOnSelection(HashSet<Vector2Int> targetCells)
+        {
+            if (targetCells == null || targetCells.Count == 0 || _activeLevel.blocks.Count == 0)
+            {
+                return;
+            }
+
+            bool removedAny = false;
+            for (int i = _activeLevel.blocks.Count - 1; i >= 0; i--)
+            {
+                LevelJsonBlockData block = _activeLevel.blocks[i];
+                Vector2Int[] localCells = block.GetLocalCells(_shapeRegistry);
+                bool shouldRemove = false;
+
+                for (int cellIndex = 0; cellIndex < localCells.Length; cellIndex++)
                 {
-                    return;
+                    Vector2Int worldCell = block.position + localCells[cellIndex];
+                    if (!targetCells.Contains(worldCell))
+                    {
+                        continue;
+                    }
+
+                    shouldRemove = true;
+                    break;
                 }
 
-                _activeLevel.blocks.RemoveAt(index);
+                if (!shouldRemove)
+                {
+                    continue;
+                }
+
+                _activeLevel.blocks.RemoveAt(i);
+                removedAny = true;
+            }
+
+            if (removedAny)
+            {
                 MarkGridLookupCacheDirty();
             }
         }

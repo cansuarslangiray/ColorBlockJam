@@ -25,11 +25,15 @@ namespace Runtime.Managers
         [Header("Flow Settings")] [SerializeField]
         private float levelCompletePanelDelay = 0.4f;
 
+        [Header("Camera Framing")] [SerializeField] [Min(0)]
+        private int closeCameraLevelCount = 2;
+
+        [SerializeField] [Range(0.6f, 1f)] private float closeCameraDistanceMultiplier = 0.9f;
+
         private bool _transitionInProgress;
-        private WaitForSeconds _levelCompletedDelayWait;
-        private float _cachedLevelCompleteDelay = -1f;
         private LevelProgression _levelProgression;
         private GameplayCameraFramer _cameraFramer;
+        private LocalDataManager _localDataManager;
         private bool _boardEventsRegistered;
         private bool _stateEventsRegistered;
         private bool _uiEventsRegistered;
@@ -42,7 +46,6 @@ namespace Runtime.Managers
                 return;
             }
 
-            RefreshLevelCompleteDelayInstruction();
             if (!HasRequiredReferences())
             {
                 Debug.LogError("GameManager is missing one or more serialized core references.", this);
@@ -63,11 +66,6 @@ namespace Runtime.Managers
             InitializeRun();
         }
 
-        private void OnValidate()
-        {
-            RefreshLevelCompleteDelayInstruction();
-        }
-
         private void OnEnable()
         {
             if (!enabled)
@@ -80,10 +78,22 @@ namespace Runtime.Managers
 
         private void OnDisable() => UnregisterEvents();
 
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            if (pauseStatus)
+            {
+                _localDataManager?.Save();
+            }
+        }
+
+        private void OnApplicationQuit() => _localDataManager?.Save();
+
         private void InitializeCollaborators()
         {
+            _localDataManager = LocalDataManager.Instance;
             _levelProgression = new LevelProgression(levelCollection);
-            _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera);
+            _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera, closeCameraLevelCount,
+                closeCameraDistanceMultiplier);
         }
 
         private void RegisterEvents()
@@ -139,7 +149,7 @@ namespace Runtime.Managers
 
         private void InitializeRun()
         {
-            _levelProgression.ResetToFirstLevel();
+            _levelProgression.SetCurrentLevelFromSavedNumber(ResolveSavedCurrentLevelNumber());
             _transitionInProgress = false;
 
             RefreshStaticUI();
@@ -155,7 +165,8 @@ namespace Runtime.Managers
 
             boardController.Setup(levelData, _levelProgression.RuntimeShapeRegistry);
             blockSceneBuilder.BuildForLevel(levelData);
-            _cameraFramer.CenterToLevel(levelData);
+            _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
+            PersistCurrentLevelProgress(levelData);
 
             stateManager.ChangeState(GameState.Playing);
             RefreshStaticUI(levelData);
@@ -186,6 +197,7 @@ namespace Runtime.Managers
             if (_transitionInProgress)
                 return;
 
+            PersistUnlockedLevelProgress();
             StartCoroutine(ShowLevelCompletedRoutine());
         }
 
@@ -196,8 +208,7 @@ namespace Runtime.Managers
 
             if (levelCompletePanelDelay > 0f)
             {
-                RefreshLevelCompleteDelayInstruction();
-                yield return _levelCompletedDelayWait;
+                yield return new WaitForSeconds(levelCompletePanelDelay);
             }
 
             stateManager.ChangeState(GameState.LevelCompleted);
@@ -292,18 +303,6 @@ namespace Runtime.Managers
 
         private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
 
-        private void RefreshLevelCompleteDelayInstruction()
-        {
-            if (Mathf.Approximately(_cachedLevelCompleteDelay, levelCompletePanelDelay))
-            {
-                return;
-            }
-
-            _cachedLevelCompleteDelay = levelCompletePanelDelay;
-            _levelCompletedDelayWait =
-                levelCompletePanelDelay > 0f ? new WaitForSeconds(levelCompletePanelDelay) : null;
-        }
-
         private bool HasRequiredReferences() =>
             levelCollection != null &&
             boardController != null &&
@@ -312,6 +311,45 @@ namespace Runtime.Managers
             uiManager != null &&
             audioManager != null &&
             gameplayCamera != null;
+
+        private int ResolveSavedCurrentLevelNumber()
+        {
+            if (_localDataManager == null)
+            {
+                return 1;
+            }
+
+            var playerData = _localDataManager.GetPlayerData();
+            return Mathf.Max(1, playerData.currentLevel);
+        }
+
+        private void PersistCurrentLevelProgress(LevelJsonData levelData)
+        {
+            if (_localDataManager == null)
+            {
+                return;
+            }
+
+            var levelNumber = levelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
+            _localDataManager.SetCurrentLevelAsProgress(Mathf.Max(1, levelNumber));
+        }
+
+        private void PersistUnlockedLevelProgress()
+        {
+            if (_localDataManager == null)
+            {
+                return;
+            }
+
+            if (_levelProgression.TryGetNextLevelData(out var nextLevelData))
+            {
+                var nextLevelNumber = nextLevelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber + 1;
+                _localDataManager.SetCurrentLevelAsProgress(Mathf.Max(1, nextLevelNumber));
+                return;
+            }
+
+            _localDataManager.SetCurrentLevelAsProgress(_levelProgression.CurrentLevelDisplayNumber);
+        }
 
     }
 }

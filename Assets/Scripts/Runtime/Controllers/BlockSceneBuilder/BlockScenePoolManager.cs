@@ -44,15 +44,17 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public IReadOnlyDictionary<BlockShapeType, List<GameObject>> BlockObjectsByType => _blockObjectsByType;
         public GameObject BackdropObject => backdropObject;
 
-        public void RefreshPools()
+        public void RefreshPools(bool ensureMinimumSizes = true)
         {
             SanitizePoolList(gridCellObjects);
             SanitizePoolList(borderObjects);
             SanitizePoolList(doorObjects);
             SanitizeBlockTypePools();
-            EnsureGridCellPoolSize(minimumGridCellPoolCount);
-            EnsureDoorPoolSize(minimumDoorPoolCount);
-            EnsureMinimumBlockPoolSizePerType();
+            if (ensureMinimumSizes)
+            {
+                EnsureMinimumPoolSizes();
+            }
+
             RebuildBlockTypeLookup();
         }
 
@@ -112,9 +114,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             var blockRootTransform = blockRootObject.transform;
+            var resolvedTemplate = ResolveBlockCellTemplate(cellTemplate, blockRootObject);
             while (blockRootTransform.childCount < requiredCellCount)
             {
-                var resolvedTemplate = ResolveBlockCellTemplate(cellTemplate, blockRootObject);
                 var cellIndex = blockRootTransform.childCount;
                 var createdCell = CreateBlockCellObject(resolvedTemplate, blockRootTransform, cellIndex);
                 if (!createdCell)
@@ -140,11 +142,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             requiredCount = Mathf.Max(0, requiredCount);
             var targetCount = Mathf.Max(serializedPool.Count, requiredCount);
+            var template = ResolveTemplate(explicitPrefab, serializedPool);
+            var poolParent = ResolvePoolRoot();
 
             while (serializedPool.Count < targetCount)
             {
-                var template = ResolveTemplate(explicitPrefab, serializedPool);
-                var created = CreatePoolObject(template, ResolvePoolRoot(), objectNamePrefix, serializedPool.Count,
+                var created = CreatePoolObject(template, poolParent, objectNamePrefix, serializedPool.Count,
                     useCubeFallback);
                 if (!created)
                 {
@@ -195,6 +198,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     minimumBlockRootPoolCountPerType,
                     useCubeFallback: false);
             }
+        }
+
+        private void EnsureMinimumPoolSizes()
+        {
+            EnsureGridCellPoolSize(minimumGridCellPoolCount);
+            EnsureDoorPoolSize(minimumDoorPoolCount);
+            EnsureMinimumBlockPoolSizePerType();
         }
 
         private BlockTypePoolEntry GetOrCreateBlockPoolEntry(BlockShapeType blockType)
@@ -363,7 +373,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             else if (useCubeFallback)
             {
                 created = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                if (created.TryGetComponent<Collider>(out var collider))
+                var collider = created.GetComponent<Collider>();
+                if (collider != null)
                 {
                     Destroy(collider);
                 }

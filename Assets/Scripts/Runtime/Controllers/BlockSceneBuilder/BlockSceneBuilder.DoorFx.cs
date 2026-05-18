@@ -7,7 +7,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private readonly Dictionary<int, int> _doorIndexByKey = new();
+        private readonly List<DoorOpeningData> _activeDoorOpenings = new();
         private readonly List<Coroutine> _doorMotionRoutineByIndex = new();
 
         private float DoorMatchDropDistanceInCells => _gameplayConfig.doorMatchDropDistanceInCells;
@@ -17,7 +17,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void CacheActiveDoorOpenings(IReadOnlyList<DoorOpeningData> openings)
         {
-            _doorIndexByKey.Clear();
+            _activeDoorOpenings.Clear();
             if (openings == null)
             {
                 return;
@@ -26,13 +26,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var maxIndex = Mathf.Min(openings.Count, _doorPool.Count);
             for (var i = 0; i < maxIndex; i++)
             {
-                _doorIndexByKey[BuildDoorLookupKey(openings[i])] = i;
+                _activeDoorOpenings.Add(openings[i]);
             }
         }
 
         private void PlayDoorMatchFx(DoorOpeningData matchedDoor)
         {
-            if (!_doorIndexByKey.TryGetValue(BuildDoorLookupKey(matchedDoor), out var doorIndex))
+            var doorIndex = ResolveDoorIndex(matchedDoor);
+            if (doorIndex < 0)
             {
                 return;
             }
@@ -92,7 +93,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
-            _doorIndexByKey.Clear();
+            _activeDoorOpenings.Clear();
         }
 
         private void EnsureDoorRoutineSlot(int doorIndex)
@@ -103,19 +104,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static int BuildDoorLookupKey(DoorOpeningData opening)
+        private int ResolveDoorIndex(DoorOpeningData matchedDoor)
         {
-            unchecked
+            var count = Mathf.Min(_activeDoorOpenings.Count, _doorPool.Count);
+            for (var i = 0; i < count; i++)
             {
-                var key = 17;
-                key = (key * 31) + (int)opening.ColorType;
-                key = (key * 31) + (int)opening.EdgeDirection;
-                key = (key * 31) + opening.MinCell.x;
-                key = (key * 31) + opening.MinCell.y;
-                key = (key * 31) + opening.MaxCell.x;
-                key = (key * 31) + opening.MaxCell.y;
-                return key;
+                var opening = _activeDoorOpenings[i];
+                if (opening.ColorType == matchedDoor.ColorType &&
+                    opening.EdgeDirection == matchedDoor.EdgeDirection &&
+                    opening.MinCell == matchedDoor.MinCell &&
+                    opening.MaxCell == matchedDoor.MaxCell)
+                {
+                    return i;
+                }
             }
+
+            return -1;
         }
     }
 }

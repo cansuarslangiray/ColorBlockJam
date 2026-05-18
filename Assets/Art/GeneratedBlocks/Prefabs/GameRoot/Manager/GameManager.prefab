@@ -52,3 +52,5 @@ MonoBehaviour:
   audioManager: {fileID: 0}
   gameplayCamera: {fileID: 0}
   levelCompletePanelDelay: 0.4
+  closeCameraLevelCount: 2
+  closeCameraDistanceMultiplier: 0.9

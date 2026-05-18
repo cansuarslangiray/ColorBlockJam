@@ -10,7 +10,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private readonly Dictionary<BlockColor, Material> _materialByColor = new();
         private readonly Dictionary<BlockColor, Material> _runtimeFallbackMaterialByColor = new();
-        private readonly Dictionary<int, Renderer[]> _rendererCacheByObjectId = new();
         private bool _isMaterialCacheDirty = true;
 
         public void InvalidateMaterialCache()
@@ -20,7 +19,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         public void ClearRuntimeCaches()
         {
-            _rendererCacheByObjectId.Clear();
             ReleaseRuntimeFallbackMaterials();
         }
 
@@ -42,7 +40,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var renderers = GetCachedRenderers(target);
+            var renderers = target.GetComponentsInChildren<Renderer>(true);
             foreach (var renderer in renderers)
             {
                 if (!renderer || renderer.sharedMaterial == material)
@@ -52,19 +50,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 renderer.sharedMaterial = material;
             }
-        }
-
-        private Renderer[] GetCachedRenderers(GameObject target)
-        {
-            var objectId = target.GetInstanceID();
-            if (_rendererCacheByObjectId.TryGetValue(objectId, out var cachedRenderers) && cachedRenderers != null)
-            {
-                return cachedRenderers;
-            }
-
-            cachedRenderers = target.GetComponentsInChildren<Renderer>(true);
-            _rendererCacheByObjectId[objectId] = cachedRenderers;
-            return cachedRenderers;
         }
 
         private void EnsureMaterialCache(IReadOnlyList<BlockColorMaterialEntry> materialsByColor)

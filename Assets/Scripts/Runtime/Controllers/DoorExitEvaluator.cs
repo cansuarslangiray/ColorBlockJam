@@ -20,6 +20,57 @@ namespace Runtime.Controllers
             return TryResolveDoorExitInternal(block, blockPosition, doorOpenings, false, default, out doorExit);
         }
 
+        public static bool TryResolveDoorPullFromFrontCell(RuntimeBlockState block, Vector2Int blockPosition,
+            IReadOnlyList<DoorOpeningData> doorOpenings, out DoorOpeningData doorExit)
+        {
+            doorExit = default;
+
+            var localCells = block.LocalCells;
+            if (localCells == null || localCells.Length == 0 || doorOpenings == null || doorOpenings.Count == 0)
+            {
+                return false;
+            }
+
+            GetBlockBounds(localCells, blockPosition, out var minX, out var maxX, out var minY, out var maxY);
+
+            for (var i = 0; i < doorOpenings.Count; i++)
+            {
+                var opening = doorOpenings[i];
+                if (opening.ColorType != block.ColorType)
+                {
+                    continue;
+                }
+
+                var approachOffset = opening.EdgeDirection.ToVector();
+                var shiftedMinX = minX + approachOffset.x;
+                var shiftedMaxX = maxX + approachOffset.x;
+                var shiftedMinY = minY + approachOffset.y;
+                var shiftedMaxY = maxY + approachOffset.y;
+
+                if (!IsBlockTouchingDoorEdge(opening, opening.EdgeDirection, shiftedMinX, shiftedMaxX, shiftedMinY,
+                        shiftedMaxY))
+                {
+                    continue;
+                }
+
+                if (!IsBlockInsideDoorSpan(opening, opening.EdgeDirection, shiftedMinX, shiftedMaxX, shiftedMinY,
+                        shiftedMaxY))
+                {
+                    continue;
+                }
+
+                if (!FitsInsideDoor(opening, opening.EdgeDirection, shiftedMinX, shiftedMaxX, shiftedMinY, shiftedMaxY))
+                {
+                    continue;
+                }
+
+                doorExit = opening;
+                return true;
+            }
+
+            return false;
+        }
+
         private static bool TryResolveDoorExitInternal(RuntimeBlockState block, Vector2Int blockPosition,
             IReadOnlyList<DoorOpeningData> doorOpenings, bool requireMoveDirectionMatch, Direction moveDirection,
             out DoorOpeningData doorExit)

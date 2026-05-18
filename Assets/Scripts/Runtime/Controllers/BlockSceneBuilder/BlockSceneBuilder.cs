@@ -23,6 +23,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
         private float boardCellsZOffset = 0.75f;
+        
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
         [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
@@ -57,13 +58,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private AnimationCurve ExitMoveCurve => _gameplayConfig.doorExitMoveCurve;
         private AnimationCurve ExitScaleCurve => _gameplayConfig.doorExitScaleCurve;
         private float ExitMinScaleMultiplier => _gameplayConfig.doorExitMinScaleMultiplier;
+        private float ExitDipDistanceInCells => _gameplayConfig.doorExitDipDistanceInCells > 0f
+            ? _gameplayConfig.doorExitDipDistanceInCells
+            : 0.22f;
 
         private LayoutMetrics ResolveLayoutMetrics()
         {
             var cellSize = CellSize;
             var gridZ = Mathf.Abs(boardCellsZOffset);
             var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
-            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
+            var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize * 2f);
             var borderZ = gridZ - 0.01f;
             var doorDepth = frameDepth * 1.08f;
             var doorDepthBias = Mathf.Max(0.005f, doorDepthBiasFromFrame);
@@ -126,7 +130,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ConfigurePoolsFromManager(LevelJsonData levelData)
         {
-            poolManager.RefreshPools();
+            poolManager.RefreshPools(ensureMinimumSizes: false);
             EnsurePoolCoverage(levelData);
             BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
             BindBoardVisualReferences(poolManager.BorderObjects, poolManager.BackdropObject);
