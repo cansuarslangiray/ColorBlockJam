@@ -8,6 +8,10 @@ namespace Runtime.Controllers
 {
     internal static class RuntimeBoardSetupBuilder
     {
+        private static readonly List<Vector2Int> BlockedCellResultBuffer = new(256);
+        private static readonly HashSet<Vector2Int> UniqueBlockedCellBuffer = new();
+        private static readonly List<Vector2Int> FrameCellBuffer = new(256);
+
         public static void Populate(LevelJsonData levelData, BlockShapeRegistry shapeRegistry, BoardOccupancyMap occupancyMap,
             Dictionary<int, RuntimeBlockState> runtimeBlocks, List<DoorOpeningData> doorOpenings)
         {
@@ -19,10 +23,10 @@ namespace Runtime.Controllers
                 doorOpenings.Add(openings[i]);
             }
 
-            var blockedCells = BuildBlockedCells(levelData, openings);
-            if (blockedCells.Count > 0)
+            CollectBlockedCells(levelData, openings, BlockedCellResultBuffer);
+            if (BlockedCellResultBuffer.Count > 0)
             {
-                occupancyMap.MarkBlockedCells(blockedCells);
+                occupancyMap.MarkBlockedCells(BlockedCellResultBuffer);
             }
 
             if (levelData.blocks == null)
@@ -33,6 +37,7 @@ namespace Runtime.Controllers
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
+                blockData.NormalizeMovementConstraint();
                 var fallbackCellCount = 1;
                 var resolvedShapeKey = blockData.ResolveShapeKey(fallbackCellCount);
 
@@ -44,7 +49,7 @@ namespace Runtime.Controllers
                 }
 
                 var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockData.GetLocalCells(shapeRegistry),
-                    blockData.movementConstraint, blockData.colorType);
+                    blockData.blockFeatures, blockData.movementConstraint, blockData.colorType);
 
                 if (!occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
                 {
@@ -56,16 +61,18 @@ namespace Runtime.Controllers
             }
         }
 
-        private static List<Vector2Int> BuildBlockedCells(LevelJsonData levelData, IReadOnlyList<DoorOpeningData> openings)
+        private static void CollectBlockedCells(LevelJsonData levelData, IReadOnlyList<DoorOpeningData> openings,
+            List<Vector2Int> result)
         {
-            var result = new List<Vector2Int>();
+            result.Clear();
             if (levelData == null)
             {
-                return result;
+                return;
             }
 
             var grid = levelData.gridDimensions;
-            var unique = new HashSet<Vector2Int>();
+            var unique = UniqueBlockedCellBuffer;
+            unique.Clear();
 
             if (levelData.blockedCells != null)
             {
@@ -83,7 +90,8 @@ namespace Runtime.Controllers
 
             if (grid.x >= 3 && grid.y >= 3)
             {
-                var frameCells = new List<Vector2Int>();
+                var frameCells = FrameCellBuffer;
+                frameCells.Clear();
                 BoardFrameMap.CollectFrameCellsExceptDoorOpenings(grid, openings, frameCells);
                 for (var i = 0; i < frameCells.Count; i++)
                 {
@@ -107,7 +115,6 @@ namespace Runtime.Controllers
             }
 
             result.AddRange(unique);
-            return result;
         }
     }
 }

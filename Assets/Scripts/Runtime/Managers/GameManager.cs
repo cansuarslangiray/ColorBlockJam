@@ -166,6 +166,7 @@ namespace Runtime.Managers
             boardController.Setup(levelData, _levelProgression.RuntimeShapeRegistry);
             blockSceneBuilder.BuildForLevel(levelData);
             _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
+            blockSceneBuilder.RefreshConditionIndicatorBillboards();
             PersistCurrentLevelProgress(levelData);
 
             stateManager.ChangeState(GameState.Playing);
@@ -287,8 +288,16 @@ namespace Runtime.Managers
 
             if (newState == GameState.GameCompleted)
             {
-                InitializeRun();
+                RestartRunFromFirstLevel();
             }
+        }
+
+        private void RestartRunFromFirstLevel()
+        {
+            _localDataManager?.SetCurrentLevel(1);
+            _levelProgression.SetCurrentLevelFromSavedNumber(1);
+            _transitionInProgress = false;
+            StartCurrentLevel();
         }
 
         private void HandleReloadRequested()

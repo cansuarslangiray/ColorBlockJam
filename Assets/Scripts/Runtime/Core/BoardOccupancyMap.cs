@@ -44,8 +44,9 @@ namespace Runtime.Core
                 return;
             }
 
-            foreach (var blockedCell in blockedCells)
+            for (var i = 0; i < blockedCells.Count; i++)
             {
+                var blockedCell = blockedCells[i];
                 if (!IsInside(blockedCell.x, blockedCell.y))
                 {
                     continue;

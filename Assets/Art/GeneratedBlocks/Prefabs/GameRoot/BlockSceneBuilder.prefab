@@ -74,12 +74,19 @@ MonoBehaviour:
     material: {fileID: 2100000, guid: c7d8e9f0a1b27890de45f06712893478, type: 2}
   boardCellGap: 0.022
   boardCellsZOffset: 0.74
-  boardBackdropPaddingInCells: 0.06
   boardBackdropZOffset: 0.18
   edgeFrameThicknessInCells: 0.52
-  edgeFramePaddingInCells: 0.01
-  edgeFrameDepthInCells: 0.32
+  edgeFrameDepthInCells: 0.18
   doorInsetInCells: 0.01
   doorDepthBiasFromFrame: 0.018
-  blockCellVisualScale: 0.96
+  blockCellVisualScale: 1
   blockLayerForwardOffsetFromGrid: 0.24
+  blockRootScale: {x: 1, y: 1, z: 0.45}
+  showBlockConditionIndicators: 1
+  indicatorCharacterSizeInCells: 0.16
+  indicatorHeightOffsetInCells: 0.28
+  indicatorLocalZOffset: -0.05
+  indicatorFontSize: 36
+  indicatorTextColor: {r: 1, g: 1, b: 1, a: 1}
+  indicatorCamera: {fileID: 0}
+  doorExitBurstParticlePrefab: {fileID: 198000011337858710, guid: fe0a70e320b5485788bb7681665e415e, type: 3}

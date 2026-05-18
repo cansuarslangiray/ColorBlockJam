@@ -12,7 +12,6 @@ namespace Runtime.Controllers
     public class BoardController : MonoBehaviour, BoardPointerGestureController.IMoveHost
     {
         [SerializeField] private float cellSize = 1f;
-        [SerializeField] private BoardGameplayConfig gameplayConfig;
         [SerializeField, Range(0.01f, 1f)] private float dragActivationInCells = 0.35f;
         [SerializeField, Min(0f)] private float directionDeadZone = 0.0001f;
 
@@ -22,17 +21,18 @@ namespace Runtime.Controllers
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
+        public event Action<int, bool> BlockDragHighlightChanged;
 
         public Vector2Int GridDimensions => _runtimeState?.GridDimensions ?? Vector2Int.zero;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => new(transform.position.x, transform.position.y);
-        public BoardGameplayConfig GameplayConfig => gameplayConfig;
 
         private BoardRuntimeState _runtimeState;
         private BoardInput _input;
         private BoardPointerGestureController _pointerGestureController;
         private BoardBlockSlideService _blockSlideService;
         private bool _levelCompletedRaised;
+        private int _highlightedGestureBlockId = -1;
 
         private void Awake()
         {
@@ -43,6 +43,7 @@ namespace Runtime.Controllers
         private void OnDisable()
         {
             _pointerGestureController?.EndPointerGesture();
+            ClearGestureHighlight();
         }
 
         private void OnValidate()
@@ -55,6 +56,7 @@ namespace Runtime.Controllers
             EnsureDependencies();
             _levelCompletedRaised = false;
             _pointerGestureController.EndPointerGesture();
+            ClearGestureHighlight();
 
             _runtimeState.Setup(levelData, shapeRegistry);
             RefreshProjectionState();
@@ -63,11 +65,12 @@ namespace Runtime.Controllers
         public bool TryBeginPointerGesture(Vector2 pointerPosition)
         {
             EnsureDependencies();
-            if (!_pointerGestureController.TryBeginPointerGesture(pointerPosition, inputCamera))
+            if (!_pointerGestureController.TryBeginPointerGesture(pointerPosition, inputCamera, out var blockId))
             {
                 return false;
             }
 
+            SetGestureHighlight(blockId);
             audioManager?.PlayBlockSelect();
             return true;
         }
@@ -81,6 +84,7 @@ namespace Runtime.Controllers
         public void EndPointerGesture()
         {
             _pointerGestureController?.EndPointerGesture();
+            ClearGestureHighlight();
         }
 
         public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
@@ -109,6 +113,11 @@ namespace Runtime.Controllers
 
             if (slideResult.ClearedThroughDoor)
             {
+                if (_highlightedGestureBlockId == slideResult.BlockId)
+                {
+                    ClearGestureHighlight();
+                }
+
                 var exitDirection = slideResult.MatchedDoor.ResolveExitDirection(GridDimensions);
                 BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection, slideResult.MatchedDoor);
                 EvaluateCompletionState();
@@ -150,6 +159,35 @@ namespace Runtime.Controllers
             var gridDimensions = _runtimeState != null ? _runtimeState.GridDimensions : Vector2Int.zero;
             _input.Refresh(BoardOrigin, cellSize, gridDimensions, dragActivationInCells, directionDeadZone,
                 transform.position.z);
+        }
+
+        private void SetGestureHighlight(int blockId)
+        {
+            if (blockId < 0)
+            {
+                return;
+            }
+
+            if (_highlightedGestureBlockId == blockId)
+            {
+                return;
+            }
+
+            ClearGestureHighlight();
+            _highlightedGestureBlockId = blockId;
+            BlockDragHighlightChanged?.Invoke(blockId, true);
+        }
+
+        private void ClearGestureHighlight()
+        {
+            if (_highlightedGestureBlockId < 0)
+            {
+                return;
+            }
+
+            var releasedBlockId = _highlightedGestureBlockId;
+            _highlightedGestureBlockId = -1;
+            BlockDragHighlightChanged?.Invoke(releasedBlockId, false);
         }
     }
 }

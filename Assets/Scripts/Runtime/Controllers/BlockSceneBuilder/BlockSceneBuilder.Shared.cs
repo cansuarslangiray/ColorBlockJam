@@ -7,7 +7,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private static void SetActiveIfChanged(GameObject target, bool isActive)
         {
-            if (target)
+            if (target && target.activeSelf != isActive)
             {
                 target.SetActive(isActive);
             }
@@ -36,14 +36,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             target.localScale = localScale;
         }
 
-        private void ApplySharedMaterial(GameObject target, Material material)
-        {
-            _visualCache.ApplySharedMaterial(target, material);
-        }
-
         private Material GetMaterial(BlockColor colorType)
         {
-            return _visualCache.ResolveMaterial(colorType, materialsByColor);
+            return _visualCache.ResolveMaterial(colorType, materialsByColor, this);
         }
     }
 }

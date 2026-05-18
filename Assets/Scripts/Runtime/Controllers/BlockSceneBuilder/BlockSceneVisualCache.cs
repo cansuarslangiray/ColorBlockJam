@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
-using Runtime.Helpers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -9,20 +8,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
     public sealed class BlockSceneVisualCache
     {
         private readonly Dictionary<BlockColor, Material> _materialByColor = new();
-        private readonly Dictionary<BlockColor, Material> _runtimeFallbackMaterialByColor = new();
+        private readonly HashSet<BlockColor> _missingMaterialWarnings = new();
         private bool _isMaterialCacheDirty = true;
 
         public void InvalidateMaterialCache()
         {
             _isMaterialCacheDirty = true;
+            _missingMaterialWarnings.Clear();
         }
 
         public void ClearRuntimeCaches()
         {
-            ReleaseRuntimeFallbackMaterials();
+            _missingMaterialWarnings.Clear();
         }
 
-        public Material ResolveMaterial(BlockColor colorType, IReadOnlyList<BlockColorMaterialEntry> materialsByColor)
+        public Material ResolveMaterial(BlockColor colorType, IReadOnlyList<BlockColorMaterialEntry> materialsByColor,
+            Object context = null)
         {
             EnsureMaterialCache(materialsByColor);
             if (_materialByColor.TryGetValue(colorType, out var material) && material)
@@ -30,26 +31,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return material;
             }
 
-            return GetOrCreateRuntimeFallbackMaterial(colorType);
-        }
-
-        public void ApplySharedMaterial(GameObject target, Material material)
-        {
-            if (!target)
+            if (_missingMaterialWarnings.Add(colorType))
             {
-                return;
+                Debug.LogWarning(
+                    $"BlockSceneBuilder missing material mapping for {colorType}. Assign this color in materialsByColor to keep visuals configured from Unity.",
+                    context);
             }
 
-            var renderers = target.GetComponentsInChildren<Renderer>(true);
-            foreach (var renderer in renderers)
-            {
-                if (!renderer || renderer.sharedMaterial == material)
-                {
-                    continue;
-                }
-
-                renderer.sharedMaterial = material;
-            }
+            return null;
         }
 
         private void EnsureMaterialCache(IReadOnlyList<BlockColorMaterialEntry> materialsByColor)
@@ -78,57 +67,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _isMaterialCacheDirty = false;
-        }
-
-        private Material GetOrCreateRuntimeFallbackMaterial(BlockColor colorType)
-        {
-            if (_runtimeFallbackMaterialByColor.TryGetValue(colorType, out var fallback) && fallback)
-            {
-                return fallback;
-            }
-
-            var shader = Shader.Find("Standard");
-            if (shader == null)
-            {
-                shader = Shader.Find("Universal Render Pipeline/Lit");
-            }
-
-            if (shader == null)
-            {
-                return null;
-            }
-
-            fallback = new Material(shader)
-            {
-                name = "MAT_Runtime_Block_" + colorType,
-                color = BlockColorPalette.GetColor(colorType)
-            };
-
-            _runtimeFallbackMaterialByColor[colorType] = fallback;
-            return fallback;
-        }
-
-        private void ReleaseRuntimeFallbackMaterials()
-        {
-            foreach (var pair in _runtimeFallbackMaterialByColor)
-            {
-                var material = pair.Value;
-                if (!material)
-                {
-                    continue;
-                }
-
-                if (Application.isPlaying)
-                {
-                    Object.Destroy(material);
-                }
-                else
-                {
-                    Object.DestroyImmediate(material);
-                }
-            }
-
-            _runtimeFallbackMaterialByColor.Clear();
         }
     }
 }

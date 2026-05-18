@@ -130,9 +130,7 @@ namespace Editor.LevelEditor
 
                 case LevelEditorMode.Blocks:
                     _selectedBlockColor = DrawColorPicker("Block Color", _selectedBlockColor);
-                    _selectedBlockMovementConstraint = (BlockMovementConstraint)EditorGUILayout.EnumPopup(
-                        "Movement",
-                        _selectedBlockMovementConstraint);
+                    _selectedBlockFeatures = DrawBlockFeaturePopup("Block Features", _selectedBlockFeatures);
                     DrawShapePicker();
 
                     EditorGUILayout.HelpBox(
@@ -207,6 +205,26 @@ namespace Editor.LevelEditor
             }
         }
 
+        private static Color ResolvePaletteColor(BlockColor color)
+        {
+            return color switch
+            {
+                BlockColor.Red => new Color(0.90f, 0.25f, 0.25f),
+                BlockColor.Blue => new Color(0.20f, 0.45f, 0.95f),
+                BlockColor.Green => new Color(0.20f, 0.78f, 0.35f),
+                BlockColor.Yellow => new Color(0.95f, 0.82f, 0.20f),
+                BlockColor.Purple => new Color(0.62f, 0.32f, 0.88f),
+                BlockColor.Orange => new Color(0.95f, 0.56f, 0.20f),
+                BlockColor.Cyan => new Color(0.20f, 0.84f, 0.95f),
+                BlockColor.Pink => new Color(0.96f, 0.45f, 0.72f),
+                BlockColor.Mint => new Color(0.45f, 0.92f, 0.72f),
+                BlockColor.Indigo => new Color(0.35f, 0.35f, 0.82f),
+                BlockColor.Coral => new Color(0.95f, 0.47f, 0.41f),
+                BlockColor.Lime => new Color(0.67f, 0.88f, 0.22f),
+                _ => Color.white
+            };
+        }
+
         private void DrawGridEditor()
         {
             EditorGUILayout.BeginVertical("box");
@@ -264,7 +282,7 @@ namespace Editor.LevelEditor
             if (_blockIndexByCell.TryGetValue(cell, out int blockIndex))
             {
                 BlockColor blockColor = _activeLevel.blocks[blockIndex].colorType;
-                color = BlockColorPalette.GetColor(blockColor);
+                color = ResolvePaletteColor(blockColor);
                 color.a = 0.9f;
                 label = "B";
                 return;
@@ -273,7 +291,7 @@ namespace Editor.LevelEditor
             if (_doorIndexByCell.TryGetValue(cell, out int doorIndex))
             {
                 BlockColor doorColor = _activeLevel.doors[doorIndex].colorType;
-                color = Color.Lerp(BlockColorPalette.GetColor(doorColor), Color.white, 0.35f);
+                color = Color.Lerp(ResolvePaletteColor(doorColor), Color.white, 0.35f);
                 label = "D";
                 return;
             }
@@ -347,7 +365,7 @@ namespace Editor.LevelEditor
                 EditorGUILayout.BeginVertical("box");
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(
-                    $"#{i} Pos:{block.position} Shape:{resolvedShapeKey} Size:{size.x}x{size.y} Color:{block.colorType} Move:{block.movementConstraint}");
+                    $"#{i} Pos:{block.position} Shape:{resolvedShapeKey} Size:{size.x}x{size.y} Color:{block.colorType} Features:{block.blockFeatures} Move:{block.movementConstraint}");
 
                 if (GUILayout.Button("Delete", GUILayout.Width(64f)))
                 {
@@ -362,6 +380,7 @@ namespace Editor.LevelEditor
                 EditorGUILayout.EndHorizontal();
 
                 DrawBlockShapeEditor(i, block);
+                DrawBlockFeatureEditor(i, block);
                 EditorGUILayout.EndVertical();
             }
 
@@ -425,6 +444,50 @@ namespace Editor.LevelEditor
             }
 
             SaveLevelChange();
+        }
+
+        private void DrawBlockFeatureEditor(int blockIndex, LevelJsonBlockData block)
+        {
+            EditorGUI.BeginChangeCheck();
+            var nextFeatures = DrawBlockFeaturePopup("Block Features", block.blockFeatures);
+            if (!EditorGUI.EndChangeCheck())
+            {
+                return;
+            }
+
+            RecordLevelChange("Edit Block Features");
+            block.blockFeatures = nextFeatures;
+            block.NormalizeMovementConstraint();
+            _activeLevel.blocks[blockIndex] = block;
+            SaveLevelChange();
+        }
+
+        private static BlockFeature DrawBlockFeaturePopup(string label, BlockFeature currentFeature)
+        {
+            return (BlockFeature)EditorGUILayout.EnumPopup(label, ToSingleBlockFeature(currentFeature));
+        }
+
+        private static BlockFeature ToSingleBlockFeature(BlockFeature features)
+        {
+            if (features == BlockFeature.Default)
+            {
+                return BlockFeature.Default;
+            }
+
+            foreach (BlockFeature feature in Enum.GetValues(typeof(BlockFeature)))
+            {
+                if (feature == BlockFeature.Default)
+                {
+                    continue;
+                }
+
+                if ((features & feature) == feature)
+                {
+                    return feature;
+                }
+            }
+
+            return BlockFeature.Default;
         }
     }
 }

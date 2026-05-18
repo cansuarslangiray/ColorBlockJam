@@ -60,12 +60,12 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430601
-    m_Localized: "Harika bir turdu. Ba\u015Fa d\xF6n\xFCp bir kez daha oynamaya haz\u0131r
-      m\u0131s\u0131n?"
+    m_Localized: "\u0130lerlemen s\u0131f\u0131rland\u0131. 1. b\xF6l\xFCmden tekrar
+      ba\u015Fla."
     m_Metadata:
       m_Items: []
   - m_Id: 376430602
-    m_Localized: "Yeniden Ba\u015Flat"
+    m_Localized: Oyna
     m_Metadata:
       m_Items: []
   - m_Id: 376430603

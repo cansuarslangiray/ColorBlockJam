@@ -21,6 +21,7 @@ namespace Runtime.Controllers
         private Vector2 _activeGestureStartBoardPoint;
         private GestureAxis _activeGestureAxis;
         private int _activeGestureAppliedStepCount;
+        private bool _activeGestureHasMoved;
 
         public BoardPointerGestureController(BoardRuntimeState runtimeState, BoardInput input,
             IMoveHost moveHost)
@@ -30,23 +31,24 @@ namespace Runtime.Controllers
             _moveHost = moveHost;
         }
 
-        public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera inputCamera)
+        public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera inputCamera, out int activeBlockId)
         {
+            activeBlockId = -1;
             if (_runtimeState == null ||
                 !_runtimeState.IsInitialized ||
-                !_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, _runtimeState.IsInitialized,
-                    out var boardWorldPoint) ||
-                !_input.TryWorldToCell(boardWorldPoint, _runtimeState.OccupancyMap, _runtimeState.IsInitialized,
-                    out var touchedCell) ||
-                !_runtimeState.TryGetBlockAtCell(touchedCell, out var blockId))
+                !_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, out var boardWorldPoint) ||
+                !_input.TryWorldToCell(boardWorldPoint, _runtimeState.OccupancyMap, out var touchedCell) ||
+                !_runtimeState.TryGetBlockAtCell(touchedCell, out var touchedBlockId))
             {
                 return false;
             }
 
-            _activeGestureBlockId = blockId;
+            _activeGestureBlockId = touchedBlockId;
             _activeGestureStartBoardPoint = boardWorldPoint;
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
+            _activeGestureHasMoved = false;
+            activeBlockId = touchedBlockId;
             return true;
         }
 
@@ -57,8 +59,8 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            if (!_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, _runtimeState.IsInitialized,
-                    out var boardWorldPoint))
+            if (!_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera,
+                    out var boardWorldPoint, clampToBoardBounds: true))
             {
                 return false;
             }
@@ -69,12 +71,14 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            if (activeBlock.MovementConstraint == BlockMovementConstraint.Free)
+            var movementConstraint =
+                activeBlock.BlockFeatures.ResolveMovementConstraint();
+            if (movementConstraint == BlockMovementConstraint.Default)
             {
                 return TryUpdateFreePointerGesture(boardWorldPoint);
             }
 
-            return TryUpdateConstrainedPointerGesture(activeBlock, boardWorldPoint);
+            return TryUpdateConstrainedPointerGesture(activeBlock, movementConstraint, boardWorldPoint);
         }
 
         public void EndPointerGesture()
@@ -83,15 +87,17 @@ namespace Runtime.Controllers
             _activeGestureStartBoardPoint = default;
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
+            _activeGestureHasMoved = false;
         }
 
-        private bool TryUpdateConstrainedPointerGesture(RuntimeBlockState activeBlock, Vector2 boardWorldPoint)
+        private bool TryUpdateConstrainedPointerGesture(RuntimeBlockState activeBlock,
+            BlockMovementConstraint movementConstraint, Vector2 boardWorldPoint)
         {
             var deltaFromGestureStart = boardWorldPoint - _activeGestureStartBoardPoint;
             if (_activeGestureAxis == GestureAxis.None)
             {
                 if (deltaFromGestureStart.sqrMagnitude < _input.DragActivationDistanceSqr ||
-                    !_input.TryResolveDragAxis(deltaFromGestureStart, activeBlock.MovementConstraint,
+                    !_input.TryResolveDragAxis(deltaFromGestureStart, movementConstraint,
                         out _activeGestureAxis))
                 {
                     return false;
@@ -114,6 +120,7 @@ namespace Runtime.Controllers
                 return false;
             }
 
+            _activeGestureHasMoved = true;
             _activeGestureAppliedStepCount += movedCellCount * stepSign;
             return true;
         }
@@ -121,7 +128,7 @@ namespace Runtime.Controllers
         private bool TryUpdateFreePointerGesture(Vector2 boardWorldPoint)
         {
             var deltaFromAnchor = boardWorldPoint - _activeGestureStartBoardPoint;
-            if (deltaFromAnchor.sqrMagnitude < _input.DragActivationDistanceSqr)
+            if (!_activeGestureHasMoved && deltaFromAnchor.sqrMagnitude < _input.DragActivationDistanceSqr)
             {
                 return false;
             }
@@ -130,7 +137,7 @@ namespace Runtime.Controllers
             while (_input.TryResolveDominantDirection(deltaFromAnchor, out var direction))
             {
                 var axisDelta = direction.IsHorizontal() ? deltaFromAnchor.x : deltaFromAnchor.y;
-                var requestedCellCount = Mathf.FloorToInt(Mathf.Abs(axisDelta) * _input.InverseCellSize);
+                var requestedCellCount = Mathf.Abs(Mathf.RoundToInt(axisDelta * _input.InverseCellSize));
                 if (requestedCellCount <= 0)
                 {
                     break;
@@ -142,6 +149,7 @@ namespace Runtime.Controllers
                 }
 
                 movedAny = true;
+                _activeGestureHasMoved = true;
                 _activeGestureStartBoardPoint =
                     _input.AdvanceGestureAnchor(_activeGestureStartBoardPoint, direction, movedCellCount);
                 if (blockCleared || _activeGestureBlockId < 0)
@@ -150,10 +158,6 @@ namespace Runtime.Controllers
                 }
 
                 deltaFromAnchor = boardWorldPoint - _activeGestureStartBoardPoint;
-                if (deltaFromAnchor.sqrMagnitude < _input.DragActivationDistanceSqr)
-                {
-                    break;
-                }
             }
 
             return movedAny;

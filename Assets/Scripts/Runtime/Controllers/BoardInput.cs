@@ -34,18 +34,18 @@ namespace Runtime.Controllers
             _boardPlane = new Plane(Vector3.forward, new Vector3(0f, 0f, boardPlaneZ));
         }
 
-        public bool TryResolveGestureBoardPoint(Vector2 pointerPosition, Camera inputCamera, bool isBoardInitialized,
-            out Vector2 boardWorldPoint)
+        public bool TryResolveGestureBoardPoint(Vector2 pointerPosition, Camera inputCamera,
+            out Vector2 boardWorldPoint, bool clampToBoardBounds = false)
         {
             boardWorldPoint = default;
-            return inputCamera && TryResolveBoardPoint(pointerPosition, inputCamera, isBoardInitialized, out boardWorldPoint);
+            return inputCamera && TryResolveBoardPoint(pointerPosition, inputCamera, out boardWorldPoint,
+                clampToBoardBounds);
         }
 
-        public bool TryWorldToCell(Vector2 worldPosition, BoardOccupancyMap occupancyMap, bool isBoardInitialized,
-            out Vector2Int cell)
+        public bool TryWorldToCell(Vector2 worldPosition, BoardOccupancyMap occupancyMap, out Vector2Int cell)
         {
             cell = default;
-            if (!isBoardInitialized || _resolvedCellSize <= 0f || occupancyMap == null)
+            if (_boardWidthWorld <= 0f || _boardHeightWorld <= 0f || _resolvedCellSize <= 0f || occupancyMap == null)
             {
                 return false;
             }
@@ -65,8 +65,8 @@ namespace Runtime.Controllers
         {
             axis = movementConstraint switch
             {
-                BlockMovementConstraint.HorizontalOnly => GestureAxis.Horizontal,
-                BlockMovementConstraint.VerticalOnly => GestureAxis.Vertical,
+                BlockMovementConstraint.Horizontal => GestureAxis.Horizontal,
+                BlockMovementConstraint.Vertical => GestureAxis.Vertical,
                 _ => GestureAxis.None
             };
 
@@ -130,8 +130,8 @@ namespace Runtime.Controllers
             return anchorPoint;
         }
 
-        private bool TryResolveBoardPoint(Vector2 screenPosition, Camera pointerCamera, bool isBoardInitialized,
-            out Vector2 boardWorldPoint)
+        private bool TryResolveBoardPoint(Vector2 screenPosition, Camera pointerCamera,
+            out Vector2 boardWorldPoint, bool clampToBoardBounds)
         {
             boardWorldPoint = default;
             if (!pointerCamera)
@@ -146,18 +146,23 @@ namespace Runtime.Controllers
             }
 
             var hitPoint = ray.GetPoint(hitDistance);
-            if (!IsPointInsideBoard(hitPoint, isBoardInitialized))
+            if (IsPointInsideBoard(hitPoint))
+            {
+                boardWorldPoint = new Vector2(hitPoint.x, hitPoint.y);
+                return true;
+            }
+
+            if (!clampToBoardBounds || !TryClampPointInsideBoard(hitPoint, out boardWorldPoint))
             {
                 return false;
             }
 
-            boardWorldPoint = new Vector2(hitPoint.x, hitPoint.y);
             return true;
         }
 
-        private bool IsPointInsideBoard(Vector3 boardWorldPoint, bool isBoardInitialized)
+        private bool IsPointInsideBoard(Vector3 boardWorldPoint)
         {
-            if (!isBoardInitialized)
+            if (_boardWidthWorld <= 0f || _boardHeightWorld <= 0f)
             {
                 return false;
             }
@@ -165,6 +170,25 @@ namespace Runtime.Controllers
             var relativeX = boardWorldPoint.x - _boardOrigin.x;
             var relativeY = boardWorldPoint.y - _boardOrigin.y;
             return relativeX >= 0f && relativeX < _boardWidthWorld && relativeY >= 0f && relativeY < _boardHeightWorld;
+        }
+
+        private bool TryClampPointInsideBoard(Vector3 boardWorldPoint, out Vector2 clampedPoint)
+        {
+            clampedPoint = default;
+            if (_boardWidthWorld <= 0f || _boardHeightWorld <= 0f)
+            {
+                return false;
+            }
+
+            var minX = _boardOrigin.x;
+            var minY = _boardOrigin.y;
+            var maxX = _boardOrigin.x + Mathf.Max(0f, _boardWidthWorld - Mathf.Epsilon);
+            var maxY = _boardOrigin.y + Mathf.Max(0f, _boardHeightWorld - Mathf.Epsilon);
+
+            clampedPoint = new Vector2(
+                Mathf.Clamp(boardWorldPoint.x, minX, maxX),
+                Mathf.Clamp(boardWorldPoint.y, minY, maxY));
+            return true;
         }
 
         private bool IsBelowDirectionDeadZone(float absX, float absY)

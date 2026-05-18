@@ -7,6 +7,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class BlockViewRuntimePool
     {
+        private const string PlacementAnchorPrefix = "__BlockPlacementAnchor_";
         private readonly Dictionary<BlockShapeType, List<BlockRootView>> _inactiveBlockRootsByType = new();
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
 
@@ -30,17 +31,17 @@ namespace Runtime.Controllers.BlockSceneBuilder
         }
 
         public void ReleaseAllActive(
-            Action<int> stopBlockMove,
             Action<int> stopBlockExit,
-            Action<GameObject, bool> setActiveIfChanged)
+            Action<GameObject, bool> setActiveIfChanged,
+            Action<BlockRootView> beforeRelease = null)
         {
             foreach (var pair in _activeBlockRootById)
             {
+                beforeRelease?.Invoke(pair.Value);
                 Release(
                     pair.Key,
                     pair.Value,
                     stopRoutines: true,
-                    stopBlockMove,
                     stopBlockExit,
                     setActiveIfChanged);
             }
@@ -63,6 +64,19 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _activeBlockRootById[blockId] = blockView;
         }
 
+        public void ForEachActive(Action<int, BlockRootView> visitor)
+        {
+            if (visitor == null || _activeBlockRootById.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var pair in _activeBlockRootById)
+            {
+                visitor(pair.Key, pair.Value);
+            }
+        }
+
         public BlockRootView Acquire(BlockShapeType blockType)
         {
             if (!_inactiveBlockRootsByType.TryGetValue(blockType, out var typePool) || typePool.Count == 0)
@@ -79,7 +93,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public void ReleaseAndRemove(
             int blockId,
             bool stopRoutines,
-            Action<int> stopBlockMove,
             Action<int> stopBlockExit,
             Action<GameObject, bool> setActiveIfChanged)
         {
@@ -92,7 +105,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 blockId,
                 blockView,
                 stopRoutines,
-                stopBlockMove,
                 stopBlockExit,
                 setActiveIfChanged);
 
@@ -145,6 +157,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     BlockType = blockType
                 };
 
+                rootObject.TryGetComponent(out Animator animator);
+                blockView.Animator = animator;
+                blockView.PlacementTransform = EnsurePlacementAnchor(rootObject);
+
                 CacheBlockCellPool(blockView, setActiveIfChanged);
                 GetOrCreateInactivePool(blockType).Add(blockView);
                 setActiveIfChanged?.Invoke(rootObject, false);
@@ -166,6 +182,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private static void CacheBlockCellPool(BlockRootView blockView, Action<GameObject, bool> setActiveIfChanged)
         {
             blockView.Cells.Clear();
+            blockView.CellRenderers.Clear();
             if (blockView.RootTransform == null)
             {
                 return;
@@ -186,7 +203,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 var cellObject = child.gameObject;
+                if (!cellObject.name.StartsWith("BlockCell_", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 blockView.Cells.Add(cellObject);
+                blockView.CellRenderers.Add(cellObject.TryGetComponent<Renderer>(out var renderer) ? renderer : null);
                 setActiveIfChanged?.Invoke(cellObject, false);
             }
         }
@@ -195,7 +218,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             int blockId,
             BlockRootView blockView,
             bool stopRoutines,
-            Action<int> stopBlockMove,
             Action<int> stopBlockExit,
             Action<GameObject, bool> setActiveIfChanged)
         {
@@ -206,11 +228,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             if (stopRoutines)
             {
-                stopBlockMove?.Invoke(blockId);
                 stopBlockExit?.Invoke(blockId);
             }
 
             blockView.RootTransform.localScale = Vector3.one;
+            if (blockView.PlacementTransform)
+            {
+                blockView.PlacementTransform.localScale = Vector3.one;
+            }
 
             for (var i = 0; i < blockView.Cells.Count; i++)
             {
@@ -223,6 +248,37 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             setActiveIfChanged?.Invoke(blockView.RootObject, false);
             GetOrCreateInactivePool(blockView.BlockType).Add(blockView);
+        }
+
+        private static Transform EnsurePlacementAnchor(GameObject rootObject)
+        {
+            if (!rootObject)
+            {
+                return null;
+            }
+
+            var rootTransform = rootObject.transform;
+            var existingParent = rootTransform.parent;
+            if (existingParent &&
+                existingParent.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal) &&
+                existingParent.childCount == 1 &&
+                existingParent.GetChild(0) == rootTransform)
+            {
+                return existingParent;
+            }
+
+            var anchorObject = new GameObject(PlacementAnchorPrefix + rootObject.GetInstanceID());
+            var anchorTransform = anchorObject.transform;
+            anchorTransform.SetParent(existingParent, false);
+            anchorTransform.SetPositionAndRotation(rootTransform.position, rootTransform.rotation);
+            anchorTransform.localScale = rootTransform.localScale;
+
+            rootTransform.SetParent(anchorTransform, true);
+            rootTransform.localPosition = Vector3.zero;
+            rootTransform.localRotation = Quaternion.identity;
+            rootTransform.localScale = Vector3.one;
+
+            return anchorTransform;
         }
     }
 }

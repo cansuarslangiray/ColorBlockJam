@@ -16,6 +16,7 @@ namespace UI.Panels
         private const string HiddenClassName = "is-hidden";
         private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
         private readonly List<LocalizedTextBinding> _localizedTextBindings = new();
+        private readonly List<Button> _audioClickBoundButtons = new();
         private bool _isLocalizationEventsRegistered;
         private UIManager _statePublisher;
        
@@ -44,6 +45,7 @@ namespace UI.Panels
             CacheElements();
             CacheLocalizedTextBindingsFromUxml();
             RefreshLocalization();
+            RegisterGlobalButtonClickSounds();
             RegisterLocalizationEvents();
         }
 
@@ -80,15 +82,21 @@ namespace UI.Panels
         protected virtual void OnEnable()
         {
             RegisterLocalizationEvents();
+            RegisterGlobalButtonClickSounds();
             RefreshLocalization();
         }
 
-        protected virtual void OnDisable() => UnregisterLocalizationEvents();
+        protected virtual void OnDisable()
+        {
+            UnregisterLocalizationEvents();
+            UnregisterGlobalButtonClickSounds();
+        }
 
         protected virtual void OnDestroy()
         {
             UnsubscribeFromState();
             UnregisterLocalizationEvents();
+            UnregisterGlobalButtonClickSounds();
         }
 
         protected virtual void OnGameStateChanged(GameState state)
@@ -293,5 +301,45 @@ namespace UI.Panels
         private void HandlePublishedGameStateChanged(GameState state) => OnGameStateChanged(state);
 
         private void HandleLocaleChanged(Locale _) => RefreshLocalization();
+
+        private void RegisterGlobalButtonClickSounds()
+        {
+            if (Root == null)
+            {
+                return;
+            }
+
+            Root.Query<Button>().ForEach(RegisterButtonForGlobalClickSound);
+        }
+
+        private void RegisterButtonForGlobalClickSound(Button button)
+        {
+            if (button == null || _audioClickBoundButtons.Contains(button))
+            {
+                return;
+            }
+
+            button.clicked += PlayButtonClickSound;
+            _audioClickBoundButtons.Add(button);
+        }
+
+        private void UnregisterGlobalButtonClickSounds()
+        {
+            for (var i = 0; i < _audioClickBoundButtons.Count; i++)
+            {
+                var button = _audioClickBoundButtons[i];
+                if (button != null)
+                {
+                    button.clicked -= PlayButtonClickSound;
+                }
+            }
+
+            _audioClickBoundButtons.Clear();
+        }
+
+        private void PlayButtonClickSound()
+        {
+            AudioManager.Instance?.PlayButtonClick();
+        }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using Runtime.Domain.Enums;
+using Runtime.Helpers;
 using UnityEngine;
 
 namespace Runtime.Data
@@ -12,6 +13,7 @@ namespace Runtime.Data
         public Vector2Int position;
         public string shapeKey;
         public BlockShapeType blockType;
+        public BlockFeature blockFeatures;
         public BlockMovementConstraint movementConstraint;
         public BlockColor colorType;
 
@@ -78,6 +80,17 @@ namespace Runtime.Data
 
             var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
             shapeKey = string.IsNullOrWhiteSpace(resolvedShapeKey) ? currentShapeKey : resolvedShapeKey;
+        }
+
+        public void NormalizeMovementConstraint()
+        {
+            if (!Enum.IsDefined(typeof(BlockMovementConstraint), movementConstraint))
+            {
+                movementConstraint = BlockMovementConstraint.Default;
+            }
+
+            blockFeatures = blockFeatures.Sanitize();
+            movementConstraint = blockFeatures.ResolveMovementConstraint(BlockMovementConstraint.Default);
         }
 
         public Vector2Int[] GetLocalCells(BlockShapeRegistry shapeRegistry)

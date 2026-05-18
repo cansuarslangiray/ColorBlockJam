@@ -7,6 +7,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
     [DisallowMultipleComponent]
     public sealed class BlockScenePoolManager : MonoBehaviour
     {
+        private const string BlockCellNamePrefix = "BlockCell_";
+
         [Header("Shared Root")] [SerializeField]
         private Transform poolRoot;
 
@@ -115,14 +117,17 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             var blockRootTransform = blockRootObject.transform;
             var resolvedTemplate = ResolveBlockCellTemplate(cellTemplate, blockRootObject);
-            while (blockRootTransform.childCount < requiredCellCount)
+            var blockCellCount = CountBlockCellChildren(blockRootTransform);
+            while (blockCellCount < requiredCellCount)
             {
-                var cellIndex = blockRootTransform.childCount;
+                var cellIndex = ResolveNextBlockCellIndex(blockRootTransform);
                 var createdCell = CreateBlockCellObject(resolvedTemplate, blockRootTransform, cellIndex);
                 if (!createdCell)
                 {
                     break;
                 }
+
+                blockCellCount++;
             }
         }
 
@@ -321,6 +326,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var rootTransform = blockRootObject.transform;
                 if (rootTransform && rootTransform.childCount > 0)
                 {
+                    for (var i = 0; i < rootTransform.childCount; i++)
+                    {
+                        var child = rootTransform.GetChild(i);
+                        if (child && child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
+                        {
+                            return child.gameObject;
+                        }
+                    }
+
                     var firstChild = rootTransform.GetChild(0);
                     if (firstChild)
                     {
@@ -358,6 +372,54 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return createdCell;
         }
 
+        private static int CountBlockCellChildren(Transform rootTransform)
+        {
+            if (!rootTransform)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < rootTransform.childCount; i++)
+            {
+                var child = rootTransform.GetChild(i);
+                if (child && child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int ResolveNextBlockCellIndex(Transform rootTransform)
+        {
+            if (!rootTransform)
+            {
+                return 0;
+            }
+
+            var nextIndex = 0;
+            for (var i = 0; i < rootTransform.childCount; i++)
+            {
+                var child = rootTransform.GetChild(i);
+                if (!child || !child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var suffix = child.name.Substring(BlockCellNamePrefix.Length);
+                if (!int.TryParse(suffix, out var parsedIndex))
+                {
+                    continue;
+                }
+
+                nextIndex = Mathf.Max(nextIndex, parsedIndex + 1);
+            }
+
+            return nextIndex;
+        }
+
         private static GameObject CreatePoolObject(
             GameObject template,
             Transform parent,
@@ -373,11 +435,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             else if (useCubeFallback)
             {
                 created = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                var collider = created.GetComponent<Collider>();
-                if (collider != null)
-                {
-                    Destroy(collider);
-                }
 
                 if (parent)
                 {

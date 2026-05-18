@@ -35,17 +35,21 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 blockView.BlockType = blockType;
                 ApplyBlockCells(blockView, runtimeBlock, layout);
-                ApplyWorldTransform(blockView.RootTransform, ToWorldPosition(runtimeBlock.Position, layout),
-                    Vector3.one);
+                ApplyWorldTransform(blockView.PlacementTransform, ToWorldPosition(runtimeBlock.Position, layout),
+                    blockRootScale);
+                SetDragHighlightActive(blockView, false);
 
                 _blockViewPool.MarkActive(i, blockView);
                 SetActiveIfChanged(blockView.RootObject, true);
+                ResetBlockAnimatorState(blockView.Animator);
             }
+
+            RefreshAllConditionIndicators();
         }
 
         private void ReleaseActiveBlockViewsToPool()
         {
-            _blockViewPool.ReleaseAllActive(StopBlockMove, StopBlockExit, SetActiveIfChanged);
+            _blockViewPool.ReleaseAllActive(StopBlockExit, SetActiveIfChanged, ResetBlockTransientFx);
         }
 
         private BlockRootView AcquireBlockRoot(BlockShapeType blockType)
@@ -55,7 +59,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
         {
-            _blockViewPool.ReleaseAndRemove(blockId, stopRoutines, StopBlockMove, StopBlockExit, SetActiveIfChanged);
+            if (_blockViewPool.TryGetActive(blockId, out var blockView))
+            {
+                ResetBlockTransientFx(blockView);
+            }
+
+            _blockViewPool.ReleaseAndRemove(blockId, stopRoutines, StopBlockExit, SetActiveIfChanged);
         }
 
         private void SubscribeBoardEvents()
@@ -64,12 +73,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockMoved += HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockCleared += HandleBlockCleared;
+            boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
+            boardController.BlockDragHighlightChanged += HandleBlockDragHighlightChanged;
         }
 
         private void UnsubscribeBoardEvents()
         {
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
+            boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
         }
 
         private void HandleBlockMoved(int blockId, Vector2Int fromPosition, Vector2Int toPosition)
@@ -79,15 +91,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            StopBlockMove(blockId);
-            var distanceInCells = Mathf.Abs(toPosition.x - fromPosition.x) + Mathf.Abs(toPosition.y - fromPosition.y);
-            if (distanceInCells <= 0)
+            if (fromPosition == toPosition)
             {
                 return;
             }
 
-            _blockMoveRoutineById[blockId] =
-                StartCoroutine(MoveBlockRoutine(blockId, blockView, toPosition, distanceInCells));
+            SyncBlockToGridPosition(blockView, toPosition);
+            RefreshAllConditionIndicators();
         }
 
         private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection,
@@ -98,53 +108,97 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            StopBlockMove(blockId);
             StopBlockExit(blockId);
+            ResetBlockTransientFx(blockView);
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
-        }
 
-        private IEnumerator MoveBlockRoutine(int blockId, BlockRootView blockView, Vector2Int targetGridPosition,
-            int distanceInCells)
-        {
-            var targetWorldPosition = ToWorldPosition(targetGridPosition, GetCurrentLayout());
-            var duration = MoveDuration * Mathf.Max(1, distanceInCells);
-            yield return BlockMotionTween.TweenMove(blockView.RootTransform, targetWorldPosition, duration, MoveCurve);
-            _blockMoveRoutineById.Remove(blockId);
+            RefreshAllConditionIndicators();
         }
 
         private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
             Vector2Int exitDirection, DoorOpeningData matchedDoor)
         {
-            var layout = GetCurrentLayout();
-            var blockTransform = blockView.RootTransform;
-            var clearPosition = ToWorldPosition(clearedPosition, layout);
+            SyncBlockToGridPosition(blockView, clearedPosition);
 
-            if ((blockTransform.position - clearPosition).sqrMagnitude > 0.0001f)
-            {
-                var travelDistance = Vector3.Distance(blockTransform.position, clearPosition);
-                var distanceInCells = Mathf.Max(1f, travelDistance / layout.CellSize);
-                yield return BlockMotionTween.TweenMove(blockTransform, clearPosition, MoveDuration * distanceInCells,
-                    MoveCurve);
-            }
-
-            audioManager.PlayBlockMatchSuccess();
+            audioManager?.PlayBlockMatchSuccess();
             PlayDoorMatchFx(matchedDoor);
 
             var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
             if (resolvedExitDirection == Vector2Int.zero)
             {
+                PlayBlockExitDisintegrateFx(blockView);
                 FinalizeClearedBlock(blockId);
                 yield break;
             }
 
-            yield return BlockMotionTween.TweenExitThroughDoor(blockTransform, resolvedExitDirection,
-                blockView.LocalCenter, ResolveDoorWorldCenter(matchedDoor, boardController.GridDimensions, layout),
-                layout.DoorZ, layout.CellSize,
-                ExitDuration, ExitTravelInCells, ExitMoveCurve, ExitScaleCurve, ExitMinScaleMultiplier,
-                ExitDipDistanceInCells);
-
+            yield return AnimateBlockDoorExitSequence(blockView, matchedDoor, resolvedExitDirection);
             FinalizeClearedBlock(blockId);
+        }
+
+        private void SyncBlockToGridPosition(BlockRootView blockView, Vector2Int targetGridPosition)
+        {
+            if (blockView?.RootTransform == null)
+            {
+                return;
+            }
+
+            var placementTransform = blockView.PlacementTransform ? blockView.PlacementTransform : blockView.RootTransform;
+            placementTransform.position = ToWorldPosition(targetGridPosition, GetCurrentLayout());
+        }
+
+        private void StopBlockExit(int blockId)
+        {
+            if (_blockExitRoutineById.TryGetValue(blockId, out var routine))
+            {
+                StopCoroutine(routine);
+                _blockExitRoutineById.Remove(blockId);
+            }
+
+            if (_blockViewPool.TryGetActive(blockId, out var blockView))
+            {
+                ResetBlockTransientFx(blockView);
+            }
+        }
+
+        private void StopAllBlockRoutines()
+        {
+            if (_blockExitRoutineById.Count > 0)
+            {
+                foreach (var pair in _blockExitRoutineById)
+                {
+                    StopCoroutine(pair.Value);
+                }
+            }
+
+            _blockExitRoutineById.Clear();
+            _blockViewPool.ForEachActive((_, blockView) => ResetBlockTransientFx(blockView));
+            StopAllDoorMatchFx();
+        }
+
+        private void FinalizeClearedBlock(int blockId)
+        {
+            ReleaseActiveBlockView(blockId, stopRoutines: false);
+            _blockExitRoutineById.Remove(blockId);
+        }
+
+        private void ResetBlockTransientFx(BlockRootView blockView)
+        {
+            ApplyDoorPassThroughScale(
+                blockView?.DoorPassThroughCellTransformsBuffer,
+                blockView?.DoorPassThroughInitialScalesBuffer,
+                1f);
+            SetDragHighlightActive(blockView, false);
+            StopDoorExitBurstParticle(blockView);
+            ClearDoorPassThroughVisualOverrides(blockView?.DoorPassThroughCellRendererBuffer);
+        }
+
+        private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)
+        {
+            return new Vector3(
+                layout.BoardOrigin.x + (gridPosition.x * layout.CellSize),
+                layout.BoardOrigin.y + (gridPosition.y * layout.CellSize),
+                layout.BlockZ);
         }
 
         private static Vector2 ResolveDoorWorldCenter(DoorOpeningData matchedDoor, Vector2Int gridDimensions,
@@ -161,65 +215,23 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 layout.BoardOrigin.y + (centerY * layout.CellSize));
         }
 
-        private void StopBlockExit(int blockId)
-        {
-            if (_blockExitRoutineById.TryGetValue(blockId, out var routine))
-            {
-                StopCoroutine(routine);
-                _blockExitRoutineById.Remove(blockId);
-            }
-        }
-
-        private void StopBlockMove(int blockId)
-        {
-            if (_blockMoveRoutineById.TryGetValue(blockId, out var routine))
-            {
-                StopCoroutine(routine);
-                _blockMoveRoutineById.Remove(blockId);
-            }
-        }
-
-        private void StopAllBlockRoutines()
-        {
-            foreach (var routine in _blockMoveRoutineById.Values)
-            {
-                StopCoroutine(routine);
-            }
-
-            _blockMoveRoutineById.Clear();
-
-            foreach (var routine in _blockExitRoutineById.Values)
-            {
-                StopCoroutine(routine);
-            }
-
-            _blockExitRoutineById.Clear();
-            StopAllDoorMatchFx();
-        }
-
-        private void FinalizeClearedBlock(int blockId)
-        {
-            ReleaseActiveBlockView(blockId, stopRoutines: false);
-            _blockExitRoutineById.Remove(blockId);
-        }
-
-        private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)
-        {
-            return new Vector3(
-                layout.BoardOrigin.x + (gridPosition.x * layout.CellSize),
-                layout.BoardOrigin.y + (gridPosition.y * layout.CellSize),
-                layout.BlockZ);
-        }
-
         private void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState, in LayoutMetrics layout)
         {
             var localCells = blockState.LocalCells ?? System.Array.Empty<Vector2Int>();
             var cellSize = layout.CellSize;
             var targetScale = Vector3.one * Mathf.Max(0.01f, cellSize * blockCellVisualScale);
             var resolvedMaterial = GetMaterial(blockState.ColorType);
+            blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(resolvedMaterial, out var cachedBlockColor);
+            blockView.CachedBlockColor = cachedBlockColor;
 
             EnsureBlockCells(blockView, localCells.Length);
             blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
+            blockView.ConditionIndicatorLocalAnchor = ResolveConditionIndicatorLocalAnchor(localCells, cellSize);
+
+            var hasLocalBounds = false;
+            var localBoundsMin = Vector3.zero;
+            var localBoundsMax = Vector3.zero;
+            var localHalfExtents = targetScale * 0.5f;
 
             for (var i = 0; i < blockView.Cells.Count; i++)
             {
@@ -234,8 +246,59 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var localCell = localCells[i];
                 var localPosition = new Vector3((localCell.x + 0.5f) * cellSize, (localCell.y + 0.5f) * cellSize, 0f);
                 ApplyLocalTransform(cellObject.transform, localPosition, targetScale);
-                ApplySharedMaterial(cellObject, resolvedMaterial);
+
+                var cellMin = localPosition - localHalfExtents;
+                var cellMax = localPosition + localHalfExtents;
+                if (!hasLocalBounds)
+                {
+                    localBoundsMin = cellMin;
+                    localBoundsMax = cellMax;
+                    hasLocalBounds = true;
+                }
+                else
+                {
+                    localBoundsMin = Vector3.Min(localBoundsMin, cellMin);
+                    localBoundsMax = Vector3.Max(localBoundsMax, cellMax);
+                }
+
+                if (i < blockView.CellRenderers.Count)
+                {
+                    var cellRenderer = blockView.CellRenderers[i];
+                    if (cellRenderer && resolvedMaterial && cellRenderer.sharedMaterial != resolvedMaterial)
+                    {
+                        cellRenderer.sharedMaterial = resolvedMaterial;
+                    }
+                }
             }
+
+            blockView.HasCachedLocalBounds = hasLocalBounds;
+            blockView.CachedLocalBoundsMin = localBoundsMin;
+            blockView.CachedLocalBoundsMax = localBoundsMax;
+            CacheBlockOutlineGridLoop(blockView, localCells);
+            RefreshDragHighlightBounds(blockView);
+        }
+
+        private static bool TryResolvePrimaryMaterialColor(Material sourceMaterial, out Color color)
+        {
+            color = Color.white;
+            if (!sourceMaterial)
+            {
+                return false;
+            }
+
+            if (sourceMaterial.HasProperty("_BaseColor"))
+            {
+                color = sourceMaterial.GetColor("_BaseColor");
+                return true;
+            }
+
+            if (sourceMaterial.HasProperty("_Color"))
+            {
+                color = sourceMaterial.GetColor("_Color");
+                return true;
+            }
+
+            return false;
         }
 
         private static Vector2 ResolveLocalCenter(Vector2Int[] localCells, float cellSize)
@@ -262,6 +325,30 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return new Vector2(
                 ((minX + maxX + 1) * 0.5f) * cellSize,
                 ((minY + maxY + 1) * 0.5f) * cellSize);
+        }
+
+        private Vector3 ResolveConditionIndicatorLocalAnchor(Vector2Int[] localCells, float cellSize)
+        {
+            if (localCells == null || localCells.Length == 0)
+            {
+                return new Vector3(cellSize * 0.5f, cellSize * (1f + indicatorHeightOffsetInCells), indicatorLocalZOffset);
+            }
+
+            var minX = int.MaxValue;
+            var maxX = int.MinValue;
+            var maxY = int.MinValue;
+
+            for (var i = 0; i < localCells.Length; i++)
+            {
+                var cell = localCells[i];
+                if (cell.x < minX) minX = cell.x;
+                if (cell.x > maxX) maxX = cell.x;
+                if (cell.y > maxY) maxY = cell.y;
+            }
+
+            var anchorX = ((minX + maxX + 1) * 0.5f) * cellSize;
+            var anchorY = (maxY + 1f + indicatorHeightOffsetInCells) * cellSize;
+            return new Vector3(anchorX, anchorY, indicatorLocalZOffset);
         }
 
         private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)

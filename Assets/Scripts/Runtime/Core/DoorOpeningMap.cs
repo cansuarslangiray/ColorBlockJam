@@ -14,6 +14,11 @@ namespace Runtime.Core
             Vector2Int.left,
             Vector2Int.right
         };
+        private static readonly Dictionary<Vector2Int, BlockColor> DoorColorByCellBuffer = new(64);
+        private static readonly Dictionary<Vector2Int, Direction> DoorDirectionByCellBuffer = new(64);
+        private static readonly List<Vector2Int> DoorCellBuffer = new(4);
+        private static readonly HashSet<Vector2Int> UnvisitedBuffer = new();
+        private static readonly Queue<Vector2Int> QueueBuffer = new();
 
         public static void BuildOpenings(List<DoorData> doors, Vector2Int gridDimensions,
             List<DoorOpeningData> resultOpenings)
@@ -22,31 +27,18 @@ namespace Runtime.Core
             {
                 return;
             }
+            var doorColorByCell = DoorColorByCellBuffer;
+            var doorDirectionByCell = DoorDirectionByCellBuffer;
+            var doorCellBuffer = DoorCellBuffer;
+            var unvisited = UnvisitedBuffer;
+            var queue = QueueBuffer;
 
-            var doorColorByCell = new Dictionary<Vector2Int, BlockColor>();
-            var doorDirectionByCell = new Dictionary<Vector2Int, Direction>();
-            var doorCellBuffer = new List<Vector2Int>(1);
-            var unvisited = new HashSet<Vector2Int>();
-            var queue = new Queue<Vector2Int>();
-            var clusterCells = new List<Vector2Int>();
-
-            BuildOpeningsInternal(doors, gridDimensions, resultOpenings, doorColorByCell, doorDirectionByCell,
-                doorCellBuffer, unvisited, queue, clusterCells);
-        }
-
-
-        private static void BuildOpeningsInternal(IReadOnlyList<DoorData> doors, Vector2Int gridDimensions,
-            List<DoorOpeningData> resultOpenings, Dictionary<Vector2Int, BlockColor> doorColorByCell,
-            Dictionary<Vector2Int, Direction> doorDirectionByCell, List<Vector2Int> doorCellBuffer,
-            HashSet<Vector2Int> unvisited, Queue<Vector2Int> queue, List<Vector2Int> clusterCells)
-        {
             resultOpenings.Clear();
             doorColorByCell.Clear();
             doorDirectionByCell.Clear();
             doorCellBuffer.Clear();
             unvisited.Clear();
             queue.Clear();
-            clusterCells.Clear();
 
             if (doors == null || doors.Count == 0)
             {
@@ -80,12 +72,17 @@ namespace Runtime.Core
 
             while (unvisited.Count > 0)
             {
-                Vector2Int startCell = GetAnyCell(unvisited);
+                var unvisitedEnumerator = unvisited.GetEnumerator();
+                if (!unvisitedEnumerator.MoveNext())
+                {
+                    break;
+                }
+
+                var startCell = unvisitedEnumerator.Current;
                 BlockColor colorType = doorColorByCell[startCell];
                 var edgeDirection = doorDirectionByCell[startCell];
 
                 queue.Clear();
-                clusterCells.Clear();
                 queue.Enqueue(startCell);
                 unvisited.Remove(startCell);
 
@@ -97,7 +94,6 @@ namespace Runtime.Core
                 while (queue.Count > 0)
                 {
                     Vector2Int current = queue.Dequeue();
-                    clusterCells.Add(current);
 
                     if (current.x < minX) minX = current.x;
                     if (current.x > maxX) maxX = current.x;
@@ -139,16 +135,6 @@ namespace Runtime.Core
 
                 resultOpenings.Add(opening);
             }
-        }
-
-        private static Vector2Int GetAnyCell(HashSet<Vector2Int> cells)
-        {
-            foreach (Vector2Int cell in cells)
-            {
-                return cell;
-            }
-
-            return Vector2Int.zero;
         }
 
         public static bool TryCollectDoorCells(DoorData door, Vector2Int gridDimensions, List<Vector2Int> resultCells)

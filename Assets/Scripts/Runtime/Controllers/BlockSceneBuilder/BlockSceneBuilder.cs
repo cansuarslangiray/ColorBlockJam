@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
@@ -22,8 +23,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
-        private float boardCellsZOffset = 0.75f;
-        
+
+        [SerializeField] private float boardCellsZOffset = 0.75f;
+
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
         [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
@@ -34,33 +36,62 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private float blockCellVisualScale = 0.92f;
 
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
+        [SerializeField] private Vector3 blockRootScale = new(1f, 1f, 0.45f);
+
+        [Header("Block Indicators")] [SerializeField]
+        private bool showBlockConditionIndicators = true;
+
+        [SerializeField, Min(0.01f)] private float indicatorCharacterSizeInCells = 0.16f;
+        [SerializeField, Min(0f)] private float indicatorHeightOffsetInCells = 0.28f;
+        [SerializeField] private float indicatorLocalZOffset = -0.05f;
+        [SerializeField, Min(8)] private int indicatorFontSize = 36;
+        [SerializeField] private Color indicatorTextColor = Color.white;
+        [SerializeField] private Camera indicatorCamera;
+
+        [Header("Particle FX")] [SerializeField]
+        private ParticleSystem doorExitBurstParticlePrefab;
+
+        [SerializeField, Min(0)] private int doorExitBurstPoolWarmupCount = 8;
+        [SerializeField] private Material dragOutlineSourceMaterial;
+        [SerializeField, Min(0f)] private float dragOutlineBaseOffsetInCells = 0.01f;
+        [SerializeField, Min(0f)] private float dragOutlineGapInCells = 0.035f;
+        [SerializeField] private float dragOutlineVerticalOffsetInCells = 0.03f;
+        [SerializeField, Min(0.005f)] private float dragOutlineThicknessInCells = 0.095f;
+        [SerializeField] private Color dragOutlineColor = new(1f, 1f, 1f, 0.9f);
+
+        [Header("Door Exit UX")] [SerializeField, Min(0f)]
+        private float doorEntryAdvanceInCells = 0.2f;
+
+        [SerializeField, Min(0f)] private float doorExitForwardTravelInCells = 0.9f;
+        [SerializeField, Min(0.05f)] private float doorPassThroughDuration = 0.22f;
 
         private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
         private readonly List<GameObject> _doorPool = new();
         private readonly Dictionary<BlockShapeType, int> _requiredBlockRootCountByType = new();
 
-        private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
-
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;
-        private BoardGameplayConfig _gameplayConfig;
         private LayoutMetrics _currentLayout;
         private bool _hasCurrentLayout;
+        private readonly StringBuilder _indicatorTextBuilder = new(96);
+        private Material _dragOutlineMaterial;
+        private MaterialPropertyBlock _fxRendererPropertyBlock;
+        private readonly List<ParticleSystem> _doorExitBurstParticlePool = new();
+        private readonly Stack<ParticleSystem> _availableDoorExitBurstParticles = new();
+        private readonly HashSet<int> _availableDoorExitBurstParticleIds = new();
+        private readonly Dictionary<int, ParticleSystemRenderer> _doorExitBurstRendererByParticleId = new();
+        private readonly HashSet<Vector2Int> _outlineOccupiedCellsBuffer = new();
+        private readonly Dictionary<UndirectedGridEdgeKey, DirectedGridEdge> _outlineBoundaryEdgesBuffer = new();
+        private readonly Dictionary<Vector2Int, Vector2Int> _outlineOutgoingEdgesBuffer = new();
+        private readonly List<Vector2> _outlineVerticesBuffer = new();
+        private int _visibleConditionIndicatorCount;
+        private bool _needsConditionBillboardRefresh;
+        private Quaternion _lastIndicatorCameraRotation;
+        private bool _hasLastIndicatorCameraRotation;
 
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
-
-        private float MoveDuration => Mathf.Max(0.05f, _gameplayConfig.blockMoveDuration);
-        private AnimationCurve MoveCurve => _gameplayConfig.blockMoveCurve;
-        private float ExitDuration => _gameplayConfig.doorExitDuration;
-        private float ExitTravelInCells => _gameplayConfig.doorExitTravelInCells;
-        private AnimationCurve ExitMoveCurve => _gameplayConfig.doorExitMoveCurve;
-        private AnimationCurve ExitScaleCurve => _gameplayConfig.doorExitScaleCurve;
-        private float ExitMinScaleMultiplier => _gameplayConfig.doorExitMinScaleMultiplier;
-        private float ExitDipDistanceInCells => _gameplayConfig.doorExitDipDistanceInCells > 0f
-            ? _gameplayConfig.doorExitDipDistanceInCells
-            : 0.22f;
 
         private LayoutMetrics ResolveLayoutMetrics()
         {
@@ -86,6 +117,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void OnValidate()
         {
             _visualCache.InvalidateMaterialCache();
+            blockRootScale.x = Mathf.Max(0.01f, blockRootScale.x);
+            blockRootScale.y = Mathf.Max(0.01f, blockRootScale.y);
+            blockRootScale.z = Mathf.Max(0.01f, blockRootScale.z);
+            indicatorCharacterSizeInCells = Mathf.Max(0.01f, indicatorCharacterSizeInCells);
+            doorExitBurstPoolWarmupCount = Mathf.Max(0, doorExitBurstPoolWarmupCount);
+            dragOutlineGapInCells = Mathf.Max(0f, dragOutlineGapInCells);
+            dragOutlineBaseOffsetInCells = Mathf.Max(0f, dragOutlineBaseOffsetInCells);
+            dragOutlineVerticalOffsetInCells = Mathf.Clamp(dragOutlineVerticalOffsetInCells, -0.25f, 0.25f);
+            dragOutlineThicknessInCells = Mathf.Max(0.005f, dragOutlineThicknessInCells);
+            doorPassThroughDuration = Mathf.Max(0.05f, doorPassThroughDuration);
             _hasCurrentLayout = false;
         }
 
@@ -93,8 +134,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
-            _gameplayConfig = null;
+            ReleaseRuntimeFxResources();
             _visualCache.ClearRuntimeCaches();
+            _visibleConditionIndicatorCount = 0;
+            _needsConditionBillboardRefresh = false;
+            _hasLastIndicatorCameraRotation = false;
             _hasCurrentLayout = false;
         }
 
@@ -105,18 +149,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            _gameplayConfig = boardController.GameplayConfig;
-            if (_gameplayConfig == null)
-            {
-                Debug.LogError("BlockSceneBuilder requires an assigned BoardGameplayConfig.", this);
-                return;
-            }
-
             CacheRequiredBlockRootCounts(levelData);
             StopAllBlockRoutines();
             UnsubscribeBoardEvents();
 
             ConfigurePoolsFromManager(levelData);
+            EnsureDoorExitBurstPoolCapacity(Mathf.Max(doorExitBurstPoolWarmupCount,
+                levelData.GetDoorOpenings()?.Count ?? 0));
 
             var layout = ResolveLayoutMetrics();
             CacheCurrentLayout(layout);
@@ -211,7 +250,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void BindDoorPool(IReadOnlyList<GameObject> doorObjects)
         {
-            
+            ResetDoorAnimatorCache();
             _doorPool.Clear();
             var doorCount = doorObjects?.Count ?? 0;
             for (var i = 0; i < doorCount; i++)
@@ -223,6 +262,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 _doorPool.Add(doorObject);
+                CacheDoorRuntimeReferences(_doorPool.Count - 1, doorObject);
                 SetActiveIfChanged(doorObject, false);
             }
         }

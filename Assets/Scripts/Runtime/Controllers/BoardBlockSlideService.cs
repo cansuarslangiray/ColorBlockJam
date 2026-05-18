@@ -24,8 +24,13 @@ namespace Runtime.Controllers
         public bool TrySlide(int blockId, Direction direction, int maxCellsToMove, out BoardBlockSlideResult slideResult)
         {
             slideResult = default;
-            if (!_runtimeBlocks.TryGetValue(blockId, out var block) ||
-                !IsDirectionAllowed(block.MovementConstraint, direction))
+            if (!_runtimeBlocks.TryGetValue(blockId, out var block))
+            {
+                return false;
+            }
+
+            var movementConstraint = block.BlockFeatures.ResolveMovementConstraint();
+            if (!IsDirectionAllowed(movementConstraint, direction))
             {
                 return false;
             }
@@ -44,20 +49,19 @@ namespace Runtime.Controllers
             {
                 requestedCells--;
                 var nextPosition = currentPosition + directionVector;
-                var canExitThroughDoor = DoorExitEvaluator.TryResolveDoorExit(block, nextPosition, direction, _doorOpenings,
-                    out var resolvedDoor);
+                var canExitThroughDoor = TryResolveDoorExit(block, nextPosition, direction, out var resolvedDoor);
                 var nextOverlapsDoor = _occupancyMap.IsDoorOverlapping(block, nextPosition);
 
-                if (canExitThroughDoor && nextOverlapsDoor && !currentlyOverlappingDoor)
+                if (nextOverlapsDoor && !currentlyOverlappingDoor)
                 {
+                    if (!canExitThroughDoor)
+                    {
+                        break;
+                    }
+
                     matchedDoor = resolvedDoor;
                     reachedDoor = true;
                     hasMoved = true;
-                    break;
-                }
-
-                if (!canExitThroughDoor && nextOverlapsDoor && !currentlyOverlappingDoor)
-                {
                     break;
                 }
 
@@ -82,7 +86,7 @@ namespace Runtime.Controllers
             }
 
             if (hasMoved && !reachedDoor &&
-                DoorExitEvaluator.TryResolveDoorPullExit(block, currentPosition, _doorOpenings, out var pulledDoor))
+                TryResolveDoorPullExit(block, currentPosition, out var pulledDoor))
             {
                 matchedDoor = pulledDoor;
                 reachedDoor = true;
@@ -91,8 +95,7 @@ namespace Runtime.Controllers
             if (hasMoved && !reachedDoor)
             {
                 var frontCellPosition = currentPosition + directionVector;
-                if (DoorExitEvaluator.TryResolveDoorExit(block, frontCellPosition, direction, _doorOpenings,
-                        out var frontDoor) &&
+                if (TryResolveDoorExit(block, frontCellPosition, direction, out var frontDoor) &&
                     !_occupancyMap.IsDoorOverlapping(block, currentPosition))
                 {
                     matchedDoor = frontDoor;
@@ -134,7 +137,7 @@ namespace Runtime.Controllers
         private bool TryResolveStationaryDoorPull(RuntimeBlockState block, Vector2Int blockPosition,
             out DoorOpeningData doorExit)
         {
-            if (DoorExitEvaluator.TryResolveDoorPullExit(block, blockPosition, _doorOpenings, out doorExit))
+            if (TryResolveDoorPullExit(block, blockPosition, out doorExit))
             {
                 return true;
             }
@@ -144,16 +147,57 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            return DoorExitEvaluator.TryResolveDoorPullFromFrontCell(block, blockPosition, _doorOpenings, out doorExit);
+            return TryResolveDoorPullFromFrontCell(block, blockPosition, out doorExit);
+        }
+
+        private bool TryResolveDoorExit(RuntimeBlockState block, Vector2Int blockPosition,
+            Direction moveDirection,
+            out DoorOpeningData doorExit)
+        {
+            doorExit = default;
+            if (!DoorExitEvaluator.TryResolveDoorExit(block, blockPosition, moveDirection, _doorOpenings,
+                    out var resolvedDoor))
+            {
+                return false;
+            }
+
+            doorExit = resolvedDoor;
+            return true;
+        }
+
+        private bool TryResolveDoorPullExit(RuntimeBlockState block, Vector2Int blockPosition,
+            out DoorOpeningData doorExit)
+        {
+            doorExit = default;
+            if (!DoorExitEvaluator.TryResolveDoorPullExit(block, blockPosition, _doorOpenings, out var resolvedDoor))
+            {
+                return false;
+            }
+
+            doorExit = resolvedDoor;
+            return true;
+        }
+
+        private bool TryResolveDoorPullFromFrontCell(RuntimeBlockState block, Vector2Int blockPosition,
+            out DoorOpeningData doorExit)
+        {
+            doorExit = default;
+            if (!DoorExitEvaluator.TryResolveDoorPullFromFrontCell(block, blockPosition, _doorOpenings,
+                    out var resolvedDoor))
+            {
+                return false;
+            }
+            doorExit = resolvedDoor;
+            return true;
         }
 
         private static bool IsDirectionAllowed(BlockMovementConstraint movementConstraint, Direction direction)
         {
             switch (movementConstraint)
             {
-                case BlockMovementConstraint.HorizontalOnly:
+                case BlockMovementConstraint.Horizontal:
                     return direction is Direction.Left or Direction.Right;
-                case BlockMovementConstraint.VerticalOnly:
+                case BlockMovementConstraint.Vertical:
                     return direction is Direction.Up or Direction.Down;
                 default:
                     return true;

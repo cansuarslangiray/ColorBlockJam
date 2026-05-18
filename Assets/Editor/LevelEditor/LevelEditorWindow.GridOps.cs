@@ -134,9 +134,10 @@ namespace Editor.LevelEditor
                 position = anchorCell,
                 shapeKey = _selectedBlockShape.ShapeKey,
                 blockType = BlockShapeTypeUtility.FromShapeKey(_selectedBlockShape.ShapeKey),
-                movementConstraint = _selectedBlockMovementConstraint,
+                blockFeatures = _selectedBlockFeatures,
                 colorType = _selectedBlockColor
             };
+            block.NormalizeMovementConstraint();
 
             _activeLevel.blocks.Add(block);
             SaveLevelChange();

@@ -66,6 +66,7 @@ namespace Runtime.Data
                 var block = blocks[i];
                 block.shapeKey = string.IsNullOrWhiteSpace(block.shapeKey) ? string.Empty : block.shapeKey.Trim();
                 block.NormalizeBlockType();
+                block.NormalizeMovementConstraint();
                 blocks[i] = block;
 
                 if (string.IsNullOrWhiteSpace(block.shapeKey))

@@ -59,11 +59,11 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430601
-    m_Localized: Great run. Ready for another full clear?
+    m_Localized: Progress reset. Start again from Level 1.
     m_Metadata:
       m_Items: []
   - m_Id: 376430602
-    m_Localized: Restart
+    m_Localized: Play
     m_Metadata:
       m_Items: []
   - m_Id: 376430603

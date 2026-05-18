@@ -33,7 +33,7 @@ namespace Editor.LevelEditor
 
         private BlockColor _selectedDoorColor = BlockColor.Red;
         private BlockColor _selectedBlockColor = BlockColor.Red;
-        private BlockMovementConstraint _selectedBlockMovementConstraint = BlockMovementConstraint.Free;
+        private BlockFeature _selectedBlockFeatures = BlockFeature.Default;
         private BlockShapeJsonData _selectedBlockShape;
         private readonly List<Vector2Int> _doorCellsBuffer = new List<Vector2Int>(8);
         private readonly List<Vector2Int> _frameCellsBuffer = new List<Vector2Int>(48);
