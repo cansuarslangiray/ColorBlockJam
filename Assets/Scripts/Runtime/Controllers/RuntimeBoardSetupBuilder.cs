@@ -58,6 +58,5 @@ namespace Runtime.Controllers
                 occupancyMap.FillBlock(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells);
             }
         }
-
     }
 }

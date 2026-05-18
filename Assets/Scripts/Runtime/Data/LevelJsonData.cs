@@ -51,28 +51,14 @@ namespace Runtime.Data
             timeLimit = Mathf.Max(1f, timeLimit);
             gridDimensions = new Vector2Int(Mathf.Max(1, gridDimensions.x), Mathf.Max(1, gridDimensions.y));
 
-            blockedCells ??= new List<Vector2Int>();
+            blockedCells = SanitizeBlockedCells(blockedCells, gridDimensions);
             availableColors = SanitizeColors(availableColors);
             availableShapeKeys = SanitizeShapeKeys(availableShapeKeys);
-            doors ??= new List<DoorData>();
+            doors = SanitizeDoors(doors, gridDimensions, _doorCellsBuffer);
             blocks ??= new List<LevelJsonBlockData>();
             SynchronizeBlockShapeKeys();
-
+            
             _doorCellsBuffer ??= new List<Vector2Int>(8);
-            for (var i = doors.Count - 1; i >= 0; i--)
-            {
-                var door = doors[i];
-                door.openingWidth = Mathf.Max(1, door.openingWidth);
-
-                if (!DoorOpeningMap.TryCollectDoorCells(door, gridDimensions, _doorCellsBuffer))
-                {
-                    doors.RemoveAt(i);
-                    continue;
-                }
-
-                doors[i] = door;
-            }
-
             _isDoorOpeningsCacheDirty = true;
         }
 
@@ -148,6 +134,65 @@ namespace Runtime.Data
                 {
                     result.Add(key);
                 }
+            }
+
+            return result;
+        }
+
+        private static List<Vector2Int> SanitizeBlockedCells(List<Vector2Int> source, Vector2Int gridDimensions)
+        {
+            var result = new List<Vector2Int>();
+            if (source == null || source.Count == 0)
+            {
+                return result;
+            }
+
+            var uniqueCells = new HashSet<Vector2Int>();
+            for (var i = 0; i < source.Count; i++)
+            {
+                var cell = source[i];
+                if (cell.x < 0 || cell.y < 0 || cell.x >= gridDimensions.x || cell.y >= gridDimensions.y)
+                {
+                    continue;
+                }
+
+                if (uniqueCells.Add(cell))
+                {
+                    result.Add(cell);
+                }
+            }
+
+            return result;
+        }
+
+        private static List<DoorData> SanitizeDoors(List<DoorData> source, Vector2Int gridDimensions,
+            List<Vector2Int> doorCellsBuffer)
+        {
+            var result = new List<DoorData>();
+            if (source == null || source.Count == 0)
+            {
+                return result;
+            }
+
+            doorCellsBuffer ??= new List<Vector2Int>(8);
+            var uniqueCells = new HashSet<Vector2Int>();
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                var door = source[i];
+                if (!DoorOpeningMap.TryCollectDoorCells(door, gridDimensions, doorCellsBuffer))
+                {
+                    continue;
+                }
+
+                var doorCell = doorCellsBuffer[0];
+                if (!uniqueCells.Add(doorCell))
+                {
+                    continue;
+                }
+
+                door.position = doorCell;
+                result.Add(door);
             }
 
             return result;

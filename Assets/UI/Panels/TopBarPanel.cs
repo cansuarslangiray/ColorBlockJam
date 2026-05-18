@@ -9,6 +9,7 @@ namespace UI.Panels
 {
     public class TopBarPanel : GamePanel
     {
+        [SerializeField] private AudioManager audioManager;
         [SerializeField, Min(0.2f)] private float tickIntervalSeconds = 1f;
         [SerializeField, Min(1)] private int warningThresholdSeconds = 30;
         [SerializeField, Min(1)] private int criticalThresholdSeconds = 10;
@@ -25,7 +26,8 @@ namespace UI.Panels
         private WaitForSeconds _tickWaitInstruction;
         private float _cachedTickInterval = -1f;
         private int _resolvedWarningThreshold;
-        
+        private UIManager _uiManager;
+
         public event Action ReloadRequested;
         public event Action SettingsRequested;
         public event Action TimerExpired;
@@ -52,9 +54,20 @@ namespace UI.Panels
             _tickWaitInstruction = null;
         }
 
-        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
+        public void SubscribeToState(UIManager uiManager)
+        {
+            _uiManager = uiManager;
+            _uiManager.GameStateChanged += HandleGameStateChanged;
+        }
 
-        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
+        public void UnsubscribeFromState()
+        {
+            if (_uiManager != null)
+            {
+                _uiManager.GameStateChanged -= HandleGameStateChanged;
+                _uiManager = null;
+            }
+        }
 
         public void StartTimer(float durationSeconds)
         {
@@ -160,7 +173,6 @@ namespace UI.Panels
             }
         }
 
-
         private void SetTimerState(int totalSeconds)
         {
             var isCritical = _isTimerRunning && totalSeconds > 0 && totalSeconds <= criticalThresholdSeconds;
@@ -176,11 +188,12 @@ namespace UI.Panels
         {
             var resolvedInterval = Mathf.Max(0.2f, tickIntervalSeconds);
             if (_tickWaitInstruction != null && Mathf.Approximately(_cachedTickInterval, resolvedInterval))
+            {
                 return _tickWaitInstruction;
-            
+            }
+
             _cachedTickInterval = resolvedInterval;
             _tickWaitInstruction = new WaitForSeconds(resolvedInterval);
-
             return _tickWaitInstruction;
         }
 
@@ -190,13 +203,13 @@ namespace UI.Panels
 
         private void HandleReloadClicked()
         {
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             ReloadRequested?.Invoke();
         }
 
         private void HandleSettingsClicked()
         {
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             SettingsRequested?.Invoke();
         }
 

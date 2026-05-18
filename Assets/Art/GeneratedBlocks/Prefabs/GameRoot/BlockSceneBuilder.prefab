@@ -45,14 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boardController: {fileID: 0}
-  sourceLevel: {fileID: 0}
-  gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
-  boardRoot: {fileID: 0}
-  blocksRoot: {fileID: 0}
-  gridCellPrefab: {fileID: 3000000000000000001, guid: baffa1a679274abca6d095541ec59b4d, type: 3}
-  borderPrefab: {fileID: 6295717403206342220, guid: 4febc3e5f60d747d8a2f2168e8580e69, type: 3}
-  backdropPrefab: {fileID: 6950727987144244198, guid: 84cca90ef9b204e52966625e14cc82db, type: 3}
-  doorPrefab: {fileID: 2012413518598514465, guid: 603380ab311b24c2cb72e212dbb9585e, type: 3}
+  poolManager: {fileID: 0}
+  audioManager: {fileID: 0}
   materialsByColor:
   - colorType: 0
     material: {fileID: 2100000, guid: a20ede5f74e784798bf1722925690043, type: 2}
@@ -64,15 +58,7 @@ MonoBehaviour:
     material: {fileID: 2100000, guid: c6446b903872a4b05b2322234f375b0b, type: 2}
   - colorType: 4
     material: {fileID: 2100000, guid: 7d9c968e35de94a209c8d90674f284ff, type: 2}
-  applyRuntimeNames: 0
-  boardBackdropName: BoardBackdrop
-  gridCellNamePrefix: GridCell
-  borderNamePrefix: Border
-  doorNamePrefix: Door
-  blockRootNamePrefix: BlockRoot
-  blockCellNamePrefix: BlockCell
   boardCellGap: 0.022
-  boardCellDepthInCells: 0.05
   boardCellsZOffset: 0.74
   boardBackdropPaddingInCells: 0.06
   boardBackdropZOffset: 0.18
@@ -80,66 +66,6 @@ MonoBehaviour:
   edgeFramePaddingInCells: 0.01
   edgeFrameDepthInCells: 0.32
   doorInsetInCells: 0.01
-  doorInnerShiftInCells: 0.08
-  doorSpanPaddingInCells: 0.08
-  doorThicknessRatio: 0.72
   doorDepthBiasFromFrame: 0.018
   blockCellVisualScale: 0.96
   blockLayerForwardOffsetFromGrid: 0.24
-  addStudsToBlockCells: 1
-  studsPerCellAxis: 2
-  studDiameterRatio: 0.2
-  studHeightRatio: 0.11
-  studInsetRatio: 0.23
-  studLiftRatio: 0.01
-  doorExitDuration: 0.32
-  doorExitTravelInCells: 1.15
-  doorExitMoveCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  doorExitScaleCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  doorExitMinScaleMultiplier: 0.05

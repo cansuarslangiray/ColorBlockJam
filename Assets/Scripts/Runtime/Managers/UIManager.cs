@@ -13,6 +13,7 @@ namespace Runtime.Managers
         [SerializeField] private EndGamePanel endGamePanel;
         [SerializeField] private TopBarPanel topBarPanel;
         [SerializeField] private SettingsPanel settingsPanel;
+        [SerializeField] private StateManager stateManager;
 
         public event Action<GameState> GameStateChanged;
         public event Action LevelTimerExpired;
@@ -23,10 +24,22 @@ namespace Runtime.Managers
         protected override void Awake()
         {
             base.Awake();
-            startPanel.SubscribeToState();
-            endGamePanel.SubscribeToState();
-            topBarPanel.SubscribeToState();
-            settingsPanel.SubscribeToState();
+            if (Instance != this)
+            {
+                return;
+            }
+
+            if (!HasAllPanelsAssigned())
+            {
+                Debug.LogError("UIManager is missing one or more panel references.", this);
+                enabled = false;
+                return;
+            }
+
+            startPanel.SubscribeToState(this);
+            endGamePanel.SubscribeToState(this);
+            topBarPanel.SubscribeToState(this);
+            settingsPanel.SubscribeToState(this);
 
             startPanel.StartRequested += HandleStartRequested;
             endGamePanel.ActionRequested += HandleEndGameActionRequested;
@@ -38,16 +51,32 @@ namespace Runtime.Managers
 
         protected override void OnDestroy()
         {
-            topBarPanel.TimerExpired -= HandleTimerExpired;
-            settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
-            topBarPanel.SettingsRequested -= HandleSettingsRequested;
-            topBarPanel.ReloadRequested -= HandleReloadRequested;
-            endGamePanel.ActionRequested -= HandleEndGameActionRequested;
-            startPanel.StartRequested -= HandleStartRequested;
-            settingsPanel.UnsubscribeFromState();
-            topBarPanel.UnsubscribeFromState();
-            endGamePanel.UnsubscribeFromState();
-            startPanel.UnsubscribeFromState();
+            if (topBarPanel != null)
+            {
+                topBarPanel.TimerExpired -= HandleTimerExpired;
+                topBarPanel.SettingsRequested -= HandleSettingsRequested;
+                topBarPanel.ReloadRequested -= HandleReloadRequested;
+                topBarPanel.UnsubscribeFromState();
+            }
+
+            if (settingsPanel != null)
+            {
+                settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
+                settingsPanel.UnsubscribeFromState();
+            }
+
+            if (endGamePanel != null)
+            {
+                endGamePanel.ActionRequested -= HandleEndGameActionRequested;
+                endGamePanel.UnsubscribeFromState();
+            }
+
+            if (startPanel != null)
+            {
+                startPanel.StartRequested -= HandleStartRequested;
+                startPanel.UnsubscribeFromState();
+            }
+
             base.OnDestroy();
         }
 
@@ -66,13 +95,8 @@ namespace Runtime.Managers
         private void HandleStartRequested() => StartRequested?.Invoke();
 
         private void HandleEndGameActionRequested()
-        {
-            if (StateManager.Instance == null)
-            {
-                return;
-            }
-
-            EndGameActionRequested?.Invoke(StateManager.Instance.CurrentState);
+        { 
+            EndGameActionRequested?.Invoke(stateManager.CurrentState);
         }
 
         private void HandleReloadRequested() => ReloadRequested?.Invoke();
@@ -91,5 +115,13 @@ namespace Runtime.Managers
 
             ResumeLevelTimer();
         }
+
+        private bool HasAllPanelsAssigned() =>
+            startPanel != null &&
+            endGamePanel != null &&
+            topBarPanel != null &&
+            settingsPanel != null &&
+            stateManager != null;
+
     }
 }

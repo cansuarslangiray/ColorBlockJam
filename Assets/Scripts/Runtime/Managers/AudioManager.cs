@@ -10,6 +10,8 @@ namespace Runtime.Managers
         [Header("Sources")]
         [SerializeField] private AudioSource musicSource;
         [SerializeField] private AudioSource sfxSource;
+        [SerializeField] private SettingsManager settingsManager;
+        [SerializeField] private StateManager stateManager;
 
         [Header("Music")]
         [SerializeField] private AudioClip gameplayAmbientMusic;
@@ -32,7 +34,6 @@ namespace Runtime.Managers
 
         public void SyncMusicToState(GameState state)
         {
-            TryRegisterSettingsEvents();
             ApplyMusicState(state);
         }
 
@@ -61,12 +62,11 @@ namespace Runtime.Managers
 
         private void TryRegisterSettingsEvents()
         {
-            if (_settingsEventsRegistered || SettingsManager.Instance == null)
+            if (_settingsEventsRegistered || settingsManager == null)
             {
                 return;
             }
 
-            var settingsManager = SettingsManager.Instance;
             settingsManager.MusicEnabledChanged += HandleMusicEnabledChanged;
             settingsManager.SfxEnabledChanged += HandleSfxEnabledChanged;
             _settingsEventsRegistered = true;
@@ -82,7 +82,6 @@ namespace Runtime.Managers
                 return;
             }
 
-            var settingsManager = SettingsManager.Instance;
             if (settingsManager != null)
             {
                 settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
@@ -105,7 +104,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            ApplyMusicState(StateManager.Instance != null ? StateManager.Instance.CurrentState : GameState.StartScreen);
+            ApplyMusicState(stateManager != null ? stateManager.CurrentState : GameState.StartScreen);
         }
 
         private void HandleSfxEnabledChanged(bool isEnabled)

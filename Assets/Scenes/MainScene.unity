@@ -6616,6 +6616,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 1909112169}
     m_Modifications:
     - target: {fileID: 1430346853138310796, guid: 6821723f1c6e7498f9e5931df5aaf335, type: 3}
+      propertyPath: stateManager
+      value: 
+      objectReference: {fileID: 7978760179327782691}
+    - target: {fileID: 1430346853138310796, guid: 6821723f1c6e7498f9e5931df5aaf335, type: 3}
       propertyPath: uiEventSystem
       value: 
       objectReference: {fileID: 912263414}
@@ -6667,6 +6671,10 @@ PrefabInstance:
       propertyPath: inputCamera
       value: 
       objectReference: {fileID: 963194227}
+    - target: {fileID: 3791137770863065528, guid: 6821723f1c6e7498f9e5931df5aaf335, type: 3}
+      propertyPath: audioManager
+      value: 
+      objectReference: {fileID: 7978760179327782690}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -6777,10 +6785,6 @@ PrefabInstance:
       propertyPath: blockSceneBuilder
       value: 
       objectReference: {fileID: 1433787314}
-    - target: {fileID: 2530516240089915914, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
     - target: {fileID: 3423869740220370767, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
       propertyPath: poolRoot
       value: 
@@ -6789,14 +6793,6 @@ PrefabInstance:
       propertyPath: backdropObject
       value: 
       objectReference: {fileID: 65123119}
-    - target: {fileID: 3423869740220370767, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
-      propertyPath: borderObjects.Array.size
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 3423869740220370767, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
-      propertyPath: gridCellObjects.Array.size
-      value: 48
-      objectReference: {fileID: 0}
     - target: {fileID: 3423869740220370767, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
       propertyPath: borderObjects.Array.data[0]
       value: 
@@ -7065,6 +7061,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0f448b7815f4744bb2f1d51b81d111e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &7978760179327782690 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2763058996425370108, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+  m_PrefabInstance: {fileID: 7978760179327782688}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dd674466db94453a08bff54c23d66c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7978760179327782691 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 741396883747160378, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+  m_PrefabInstance: {fileID: 7978760179327782688}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 562dcb6649c8949d0b6b01bf5ad65664, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &8682845833042184964
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7085,6 +7103,10 @@ PrefabInstance:
       propertyPath: poolManager
       value: 
       objectReference: {fileID: 7978760179327782689}
+    - target: {fileID: 1858835396414741536, guid: 18a08504abd1b4de894c02942f3b3ebf, type: 3}
+      propertyPath: audioManager
+      value: 
+      objectReference: {fileID: 7978760179327782690}
     - target: {fileID: 1858835396414741536, guid: 18a08504abd1b4de894c02942f3b3ebf, type: 3}
       propertyPath: boardController
       value: 

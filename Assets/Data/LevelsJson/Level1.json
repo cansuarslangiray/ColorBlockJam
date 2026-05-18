@@ -20,48 +20,42 @@
                 "x": 1,
                 "y": 0
             },
-            "colorType": 1,
-            "openingWidth": 1
+            "colorType": 1
         },
         {
             "position": {
                 "x": 2,
                 "y": 0
             },
-            "colorType": 1,
-            "openingWidth": 1
+            "colorType": 1
         },
         {
             "position": {
                 "x": 3,
                 "y": 0
             },
-            "colorType": 1,
-            "openingWidth": 1
+            "colorType": 1
         },
         {
             "position": {
                 "x": 4,
                 "y": 6
             },
-            "colorType": 4,
-            "openingWidth": 1
+            "colorType": 4
         },
         {
             "position": {
                 "x": 3,
                 "y": 6
             },
-            "colorType": 4,
-            "openingWidth": 1
+            "colorType": 4
         },
         {
             "position": {
                 "x": 2,
                 "y": 6
             },
-            "colorType": 4,
-            "openingWidth": 1
+            "colorType": 4
         }
     ],
     "blocks": [

@@ -2,15 +2,20 @@ using System;
 using Runtime.Domain.Enums;
 using Runtime.Localization;
 using Runtime.Managers;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
 {
     public class EndGamePanel : GamePanel
     {
+        [SerializeField] private StateManager stateManager;
+        [SerializeField] private AudioManager audioManager;
+
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
+        private UIManager _uiManager;
 
         public event Action ActionRequested;
         protected override bool UseSafeAreaPadding => false;
@@ -24,9 +29,20 @@ namespace UI.Panels
             Hide();
         }
 
-        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
+        public void SubscribeToState(UIManager uiManager)
+        {
+            _uiManager = uiManager;
+            _uiManager.GameStateChanged += HandleGameStateChanged;
+        }
 
-        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
+        public void UnsubscribeFromState()
+        {
+            if (_uiManager != null)
+            {
+                _uiManager.GameStateChanged -= HandleGameStateChanged;
+                _uiManager = null;
+            }
+        }
 
         private void HandleGameStateChanged(GameState state)
         {
@@ -62,8 +78,8 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
-            var currentState = StateManager.Instance != null
-                ? StateManager.Instance.CurrentState
+            var currentState = stateManager != null
+                ? stateManager.CurrentState
                 : GameState.StartScreen;
 
             if (IsEndGameState(currentState))
@@ -104,7 +120,7 @@ namespace UI.Panels
 
         private void HandleActionClicked()
         {
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             ActionRequested?.Invoke();
         }
 

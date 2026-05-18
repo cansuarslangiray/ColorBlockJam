@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
+using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -11,17 +12,17 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private BoardController boardController;
 
         [SerializeField] private BlockScenePoolManager poolManager;
+        [SerializeField] private AudioManager audioManager;
 
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
 
-        private readonly Dictionary<BlockColor, Material> _configuredMaterialByColor = new();
-        private bool _isConfiguredMaterialCacheDirty = true;
+        private readonly BlockSceneVisualCache _visualCache = new();
+        private readonly BlockViewRuntimePool _blockViewPool = new();
 
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
-
-        [SerializeField] private float boardCellsZOffset = 0.75f;
+        private float boardCellsZOffset = 0.75f;
         [SerializeField] private float boardBackdropPaddingInCells = 0.4f;
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
@@ -37,16 +38,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
         private readonly List<GameObject> _doorPool = new();
-        private readonly Dictionary<BlockShapeType, List<BlockRootView>> _inactiveBlockRootsByType = new();
         private readonly Dictionary<BlockShapeType, int> _requiredBlockRootCountByType = new();
 
-        private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
         private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
 
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;
-        private GameObject _sharedBlockCellTemplate;
         private BoardGameplayConfig _gameplayConfig;
         private LayoutMetrics _currentLayout;
         private bool _hasCurrentLayout;
@@ -78,11 +76,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 frameDepth, framePadding, borderZ, doorDepth, borderZ - doorDepthBias);
         }
 
-        private void OnEnable() => SubscribeBoardEvents();
+
+        private void OnEnable()
+        {
+            SubscribeBoardEvents();
+        }
 
         private void OnValidate()
         {
-            _isConfiguredMaterialCacheDirty = true;
+            _visualCache.InvalidateMaterialCache();
             _hasCurrentLayout = false;
         }
 
@@ -90,9 +92,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
-            _sharedBlockCellTemplate = null;
             _gameplayConfig = null;
-            _rendererCacheByObjectId.Clear();
+            _visualCache.ClearRuntimeCaches();
             _hasCurrentLayout = false;
         }
 
@@ -104,6 +105,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _gameplayConfig = boardController.GameplayConfig;
+            if (_gameplayConfig == null)
+            {
+                Debug.LogError("BlockSceneBuilder requires an assigned BoardGameplayConfig.", this);
+                return;
+            }
 
             CacheRequiredBlockRootCounts(levelData);
             StopAllBlockRoutines();
@@ -204,6 +210,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void BindDoorPool(IReadOnlyList<GameObject> doorObjects)
         {
+            
             _doorPool.Clear();
             var doorCount = doorObjects?.Count ?? 0;
             for (var i = 0; i < doorCount; i++)
@@ -221,121 +228,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void BindBlockRootPools()
         {
-            _activeBlockRootById.Clear();
-            _inactiveBlockRootsByType.Clear();
-            _sharedBlockCellTemplate = null;
-
-            var pooledRootIds = new HashSet<int>();
-            foreach (var pair in poolManager.BlockObjectsByType)
-            {
-                AddBlockViewsFromPool(pair.Key, pair.Value, pooledRootIds);
-            }
+            _blockViewPool.Rebind(poolManager.BlockObjectsByType, SetActiveIfChanged);
         }
-
-        private void AddBlockViewsFromPool(
-            BlockShapeType blockType,
-            IReadOnlyList<GameObject> sourcePool,
-            HashSet<int> pooledRootIds)
-        {
-            if (sourcePool == null)
-            {
-                return;
-            }
-
-            var sourceCount = sourcePool.Count;
-            for (var i = 0; i < sourceCount; i++)
-            {
-                var rootObject = sourcePool[i];
-                if (!rootObject)
-                {
-                    continue;
-                }
-
-                var rootId = rootObject.GetInstanceID();
-                if (!pooledRootIds.Add(rootId))
-                {
-                    continue;
-                }
-
-                var blockView = new BlockRootView(rootObject)
-                {
-                    BlockType = blockType
-                };
-                CacheBlockCellPool(blockView);
-                CacheBlockCellTemplate(blockView);
-                GetOrCreateInactivePool(blockType).Add(blockView);
-
-                SetActiveIfChanged(rootObject, false);
-            }
-        }
-
-        private List<BlockRootView> GetOrCreateInactivePool(BlockShapeType blockType)
-        {
-            if (_inactiveBlockRootsByType.TryGetValue(blockType, out var pool))
-            {
-                return pool;
-            }
-
-            pool = new List<BlockRootView>(16);
-            _inactiveBlockRootsByType[blockType] = pool;
-            return pool;
-        }
-
-        private void CacheBlockCellPool(BlockRootView blockView)
-        {
-            blockView.Cells.Clear();
-            if (blockView.RootTransform == null)
-            {
-                return;
-            }
-
-            var childCount = blockView.RootTransform.childCount;
-            if (childCount <= 0)
-            {
-                var fallbackRootObject = blockView.RootObject;
-                blockView.Cells.Add(fallbackRootObject);
-                return;
-            }
-
-            for (var i = 0; i < childCount; i++)
-            {
-                var child = blockView.RootTransform.GetChild(i);
-                if (!child)
-                {
-                    continue;
-                }
-
-                var cellObject = child.gameObject;
-                blockView.Cells.Add(cellObject);
-                SetActiveIfChanged(cellObject, false);
-            }
-        }
-
-        private void CacheBlockCellTemplate(BlockRootView blockView)
-        {
-            if (_sharedBlockCellTemplate)
-            {
-                return;
-            }
-
-            if (blockView == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < blockView.Cells.Count; i++)
-            {
-                var cellObject = blockView.Cells[i];
-                if (cellObject && cellObject != blockView.RootObject)
-                {
-                    _sharedBlockCellTemplate = cellObject;
-                    return;
-                }
-            }
-        }
-
-        private static int GetSourceBlockCount(LevelJsonData levelData) =>
-            levelData != null && levelData.blocks != null ? levelData.blocks.Count : 0;
 
         private void CacheRequiredBlockRootCounts(LevelJsonData levelData)
         {

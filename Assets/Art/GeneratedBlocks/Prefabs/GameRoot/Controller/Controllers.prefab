@@ -50,6 +50,7 @@ MonoBehaviour:
   dragActivationInCells: 0.35
   directionDeadZone: 0.0001
   inputCamera: {fileID: 0}
+  audioManager: {fileID: 0}
 --- !u!1 &3575159030988978021
 GameObject:
   m_ObjectHideFlags: 0

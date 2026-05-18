@@ -12,19 +12,26 @@ namespace Runtime.Controllers
     {
         [SerializeField] private BoardController boardController;
         [SerializeField] private EventSystem uiEventSystem;
+        [SerializeField] private StateManager stateManager;
         [SerializeField] private InputActionReference pointerPressActionReference;
         [SerializeField] private InputActionReference pointerPositionActionReference;
 
         private bool _inputActionsBound;
         private bool _stateEventsRegistered;
         private readonly List<RaycastResult> _uiRaycastResults = new();
+        private PointerEventData _pointerEventData;
+        private InputAction _pointerPressAction;
+        private InputAction _pointerPositionAction;
 
-        private void OnEnable()
+        private void Awake()
         {
-            RegisterStateEvents();
+            if (!TryResolveDependencies())
+            {
+                enabled = false;
+            }
         }
 
-        private void Start()
+        private void OnEnable()
         {
             RegisterStateEvents();
         }
@@ -43,12 +50,18 @@ namespace Runtime.Controllers
                 return;
             }
 
-            pointerPressActionReference.action.started += OnPointerPressStarted;
-            pointerPressActionReference.action.canceled += OnPointerPressCanceled;
-            pointerPositionActionReference.action.performed += OnPointerPositionPerformed;
+            if (!TryResolveInputActions())
+            {
+                Debug.LogError("BoardInputController requires valid pointer input actions.", this);
+                return;
+            }
 
-            pointerPositionActionReference.action.Enable();
-            pointerPressActionReference.action.Enable();
+            _pointerPressAction.started += OnPointerPressStarted;
+            _pointerPressAction.canceled += OnPointerPressCanceled;
+            _pointerPositionAction.performed += OnPointerPositionPerformed;
+
+            _pointerPositionAction.Enable();
+            _pointerPressAction.Enable();
             _inputActionsBound = true;
         }
 
@@ -59,25 +72,25 @@ namespace Runtime.Controllers
                 return;
             }
 
-            pointerPressActionReference.action.started -= OnPointerPressStarted;
-            pointerPressActionReference.action.canceled -= OnPointerPressCanceled;
-            pointerPressActionReference.action.Disable();
+            _pointerPressAction.started -= OnPointerPressStarted;
+            _pointerPressAction.canceled -= OnPointerPressCanceled;
+            _pointerPressAction.Disable();
 
-            pointerPositionActionReference.action.performed -= OnPointerPositionPerformed;
-            pointerPositionActionReference.action.Disable();
+            _pointerPositionAction.performed -= OnPointerPositionPerformed;
+            _pointerPositionAction.Disable();
             _inputActionsBound = false;
         }
 
         private void RegisterStateEvents()
         {
-            if (_stateEventsRegistered || StateManager.Instance == null)
+            if (_stateEventsRegistered || stateManager == null)
             {
                 return;
             }
 
-            StateManager.Instance.OnStateChanged += HandleGameStateChanged;
+            stateManager.OnStateChanged += HandleGameStateChanged;
             _stateEventsRegistered = true;
-            HandleGameStateChanged(StateManager.Instance.CurrentState);
+            HandleGameStateChanged(stateManager.CurrentState);
         }
 
         private void UnregisterStateEvents()
@@ -87,9 +100,9 @@ namespace Runtime.Controllers
                 return;
             }
 
-            if (StateManager.Instance != null)
+            if (stateManager != null)
             {
-                StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+                stateManager.OnStateChanged -= HandleGameStateChanged;
             }
 
             _stateEventsRegistered = false;
@@ -109,7 +122,7 @@ namespace Runtime.Controllers
 
         private void OnPointerPressStarted(InputAction.CallbackContext context)
         {
-            var pointerPosition = pointerPositionActionReference.action.ReadValue<Vector2>();
+            var pointerPosition = _pointerPositionAction.ReadValue<Vector2>();
 
             if (ShouldIgnorePointer(pointerPosition))
             {
@@ -127,14 +140,36 @@ namespace Runtime.Controllers
 
         private void OnPointerPressCanceled(InputAction.CallbackContext context) => EndActiveGesture();
 
-        private void EndActiveGesture() => boardController.EndPointerGesture();
+        private void EndActiveGesture()
+        {
+            boardController.EndPointerGesture();
+        }
 
         private bool ShouldIgnorePointer(Vector2 pointerPosition)
         {
-            var pointerEventData = new PointerEventData(uiEventSystem) { position = pointerPosition };
+            if (uiEventSystem == null || _pointerEventData == null)
+            {
+                return false;
+            }
+
+            _pointerEventData.position = pointerPosition;
             _uiRaycastResults.Clear();
-            uiEventSystem.RaycastAll(pointerEventData, _uiRaycastResults);
+            uiEventSystem.RaycastAll(_pointerEventData, _uiRaycastResults);
             return _uiRaycastResults.Count > 0;
+        }
+
+        private bool TryResolveDependencies()
+        {
+            _pointerEventData ??= new PointerEventData(uiEventSystem);
+            return true;
+        }
+
+        private bool TryResolveInputActions()
+        {
+            _pointerPressAction = pointerPressActionReference != null ? pointerPressActionReference.action : null;
+            _pointerPositionAction =
+                pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
+            return _pointerPressAction != null && _pointerPositionAction != null;
         }
     }
 }

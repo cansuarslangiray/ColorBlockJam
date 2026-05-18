@@ -72,53 +72,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             Vector3 baseWorldPosition,
             float cellSize)
         {
-            var lowerDuration = DoorMatchLowerDuration;
-            var raiseDuration = DoorMatchRaiseDuration;
-            var holdDuration = Mathf.Max(0f, DoorMatchHoldDuration);
-            var invLowerDuration = 1f / Mathf.Max(0.0001f, lowerDuration);
-            var invRaiseDuration = 1f / Mathf.Max(0.0001f, raiseDuration);
+            yield return DoorMatchFxTween.LowerAndRaise(doorTransform, baseWorldPosition, cellSize,
+                DoorMatchDropDistanceInCells, DoorMatchLowerDuration, DoorMatchHoldDuration, DoorMatchRaiseDuration);
 
-            var loweredPosition =
-                baseWorldPosition + (Vector3.down * DoorMatchDropDistanceInCells * cellSize);
-            var t = 0f;
-
-            while (t < 1f)
-            {
-                t += Time.deltaTime * invLowerDuration;
-                if (t > 1f)
-                {
-                    t = 1f;
-                }
-
-                var eased = SmoothStep01(t);
-                doorTransform.position = Vector3.LerpUnclamped(baseWorldPosition, loweredPosition, eased);
-                yield return null;
-            }
-
-            doorTransform.position = loweredPosition;
-
-            var holdElapsed = 0f;
-            while (holdElapsed < holdDuration)
-            {
-                holdElapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            t = 0f;
-            while (t < 1f)
-            {
-                t += Time.deltaTime * invRaiseDuration;
-                if (t > 1f)
-                {
-                    t = 1f;
-                }
-
-                var eased = SmoothStep01(t);
-                doorTransform.position = Vector3.LerpUnclamped(loweredPosition, baseWorldPosition, eased);
-                yield return null;
-            }
-
-            doorTransform.position = baseWorldPosition;
             if (doorIndex >= 0 && doorIndex < _doorMotionRoutineByIndex.Count)
             {
                 _doorMotionRoutineByIndex[doorIndex] = null;
@@ -161,6 +117,5 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return key;
             }
         }
-
     }
 }

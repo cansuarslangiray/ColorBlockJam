@@ -1,27 +1,41 @@
 using System;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
 {
     public class StartPanel : GamePanel
     {
+        [SerializeField] private AudioManager audioManager;
+
         private Button _startButton;
+        private UIManager _uiManager;
         public event Action StartRequested;
         protected override bool UseSafeAreaPadding => false;
 
         protected override void CacheElements()
         {
             _startButton = Root.Q<Button>("start-button");
-
             _startButton.clicked += HandleStartClicked;
             Show();
         }
 
-        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
+        public void SubscribeToState(UIManager uiManager)
+        {
+            _uiManager = uiManager;
+            _uiManager.GameStateChanged += HandleGameStateChanged;
+        }
 
-        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
+        public void UnsubscribeFromState()
+        {
+            if (_uiManager != null)
+            {
+                _uiManager.GameStateChanged -= HandleGameStateChanged;
+                _uiManager = null;
+            }
+        }
 
         private void HandleGameStateChanged(GameState state)
         {
@@ -36,7 +50,7 @@ namespace UI.Panels
 
         private void HandleStartClicked()
         {
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             StartRequested?.Invoke();
         }
 

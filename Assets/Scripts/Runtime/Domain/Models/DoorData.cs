@@ -9,6 +9,5 @@ namespace Runtime.Domain.Models
     {
         public Vector2Int position;
         public BlockColor colorType;
-        [Min(1)] public int openingWidth;
     }
 }

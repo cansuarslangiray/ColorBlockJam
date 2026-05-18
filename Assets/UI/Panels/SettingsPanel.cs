@@ -1,6 +1,7 @@
 using System;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.UIElements;
@@ -14,6 +15,9 @@ namespace UI.Panels
 
         public event Action<bool> OpenStateChanged;
 
+        [SerializeField] private SettingsManager settingsManager;
+        [SerializeField] private AudioManager audioManager;
+
         private VisualElement _musicToggle;
         private VisualElement _sfxToggle;
         private Label _musicToggleLabel;
@@ -23,10 +27,22 @@ namespace UI.Panels
         private VisualElement _scrim;
         private bool _isOpen;
         private bool _settingsEventsRegistered;
+        private UIManager _uiManager;
 
-        public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
+        public void SubscribeToState(UIManager uiManager)
+        {
+            _uiManager = uiManager;
+            _uiManager.GameStateChanged += HandleGameStateChanged;
+        }
 
-        public void UnsubscribeFromState() => UIManager.Instance.GameStateChanged -= HandleGameStateChanged;
+        public void UnsubscribeFromState()
+        {
+            if (_uiManager != null)
+            {
+                _uiManager.GameStateChanged -= HandleGameStateChanged;
+                _uiManager = null;
+            }
+        }
 
         protected override void CacheElements()
         {
@@ -45,9 +61,8 @@ namespace UI.Panels
             _scrim.RegisterCallback<ClickEvent>(HandleScrimClicked);
 
             RegisterSettingsEvents();
-            var settings = SettingsManager.Instance;
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settings?.IsMusicEnabled ?? true);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settings?.IsSfxEnabled ?? true);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager?.IsMusicEnabled ?? true);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager?.IsSfxEnabled ?? true);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
             Hide();
         }
@@ -112,12 +127,11 @@ namespace UI.Panels
 
         private void RegisterSettingsEvents()
         {
-            if (_settingsEventsRegistered || SettingsManager.Instance == null)
+            if (_settingsEventsRegistered || settingsManager == null)
             {
                 return;
             }
 
-            var settingsManager = SettingsManager.Instance;
             settingsManager.MusicEnabledChanged += HandleMusicEnabledChanged;
             settingsManager.SfxEnabledChanged += HandleSfxEnabledChanged;
             _settingsEventsRegistered = true;
@@ -132,7 +146,6 @@ namespace UI.Panels
                 return;
             }
 
-            var settingsManager = SettingsManager.Instance;
             if (settingsManager != null)
             {
                 settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
@@ -158,9 +171,8 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
-            var settings = SettingsManager.Instance;
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settings?.IsMusicEnabled ?? true);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settings?.IsSfxEnabled ?? true);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager?.IsMusicEnabled ?? true);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager?.IsSfxEnabled ?? true);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
         }
 
@@ -184,37 +196,35 @@ namespace UI.Panels
                 return;
             }
 
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             Hide();
         }
 
         private void HandleMusicToggleClicked(ClickEvent _)
         {
-            AudioManager.Instance.PlayButtonClick();
-            var settings = SettingsManager.Instance;
-            if (settings == null)
+            audioManager?.PlayButtonClick();
+            if (settingsManager == null)
             {
                 return;
             }
 
-            settings.SetMusicEnabled(!settings.IsMusicEnabled);
+            settingsManager.SetMusicEnabled(!settingsManager.IsMusicEnabled);
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
-            AudioManager.Instance.PlayButtonClick();
-            var settings = SettingsManager.Instance;
-            if (settings == null)
+            audioManager?.PlayButtonClick();
+            if (settingsManager == null)
             {
                 return;
             }
 
-            settings.SetSfxEnabled(!settings.IsSfxEnabled);
+            settingsManager.SetSfxEnabled(!settingsManager.IsSfxEnabled);
         }
 
         private void HandleLanguageToggleClicked()
         {
-            AudioManager.Instance.PlayButtonClick();
+            audioManager?.PlayButtonClick();
             var currentLocaleCode = LocalizationSettings.SelectedLocale?.Identifier.Code ?? string.Empty;
             var targetLocaleCode = currentLocaleCode.StartsWith(EnglishLocaleCode, StringComparison.OrdinalIgnoreCase)
                 ? TurkishLocaleCode

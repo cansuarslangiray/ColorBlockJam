@@ -3,7 +3,6 @@ using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
-using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -14,15 +13,20 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             ReleaseActiveBlockViewsToPool();
 
-            var sourceBlockCount = GetSourceBlockCount(levelData);
-            for (var i = 0; i < sourceBlockCount; i++)
+            var sourceBlocks = levelData.blocks;
+            if (sourceBlocks == null || sourceBlocks.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < sourceBlocks.Count; i++)
             {
                 if (!boardController.TryGetRuntimeBlock(i, out var runtimeBlock))
                 {
                     continue;
                 }
 
-                var blockType = levelData.blocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
+                var blockType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
                 var blockView = AcquireBlockRoot(blockType);
                 if (blockView == null)
                 {
@@ -31,56 +35,27 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 blockView.BlockType = blockType;
                 ApplyBlockCells(blockView, runtimeBlock, layout);
-                ApplyWorldTransform(blockView.RootTransform, ToWorldPosition(runtimeBlock.Position, layout), Vector3.one);
+                ApplyWorldTransform(blockView.RootTransform, ToWorldPosition(runtimeBlock.Position, layout),
+                    Vector3.one);
 
-                _activeBlockRootById[i] = blockView;
+                _blockViewPool.MarkActive(i, blockView);
                 SetActiveIfChanged(blockView.RootObject, true);
             }
         }
 
         private void ReleaseActiveBlockViewsToPool()
         {
-            foreach (var pair in _activeBlockRootById)
-            {
-                ReleaseActiveBlockView(pair.Key, pair.Value);
-            }
-
-            _activeBlockRootById.Clear();
+            _blockViewPool.ReleaseAllActive(StopBlockMove, StopBlockExit, SetActiveIfChanged);
         }
 
         private BlockRootView AcquireBlockRoot(BlockShapeType blockType)
         {
-            if (!_inactiveBlockRootsByType.TryGetValue(blockType, out var typePool) || typePool.Count == 0)
-            {
-                return null;
-            }
-
-            var lastIndex = typePool.Count - 1;
-            var blockView = typePool[lastIndex];
-            typePool.RemoveAt(lastIndex);
-            return blockView;
+            return _blockViewPool.Acquire(blockType);
         }
 
-        private void ReleaseActiveBlockView(int blockId, BlockRootView blockView, bool stopRoutines = true)
+        private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
         {
-            if (stopRoutines)
-            {
-                StopBlockMove(blockId);
-                StopBlockExit(blockId);
-            }
-
-            blockView.RootTransform.localScale = Vector3.one;
-            for (var i = 0; i < blockView.Cells.Count; i++)
-            {
-                var cellObject = blockView.Cells[i];
-                if (cellObject)
-                {
-                    SetActiveIfChanged(cellObject, false);
-                }
-            }
-
-            SetActiveIfChanged(blockView.RootObject, false);
-            GetOrCreateInactivePool(blockView.BlockType).Add(blockView);
+            _blockViewPool.ReleaseAndRemove(blockId, stopRoutines, StopBlockMove, StopBlockExit, SetActiveIfChanged);
         }
 
         private void SubscribeBoardEvents()
@@ -99,7 +74,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void HandleBlockMoved(int blockId, Vector2Int fromPosition, Vector2Int toPosition)
         {
-            if (!_activeBlockRootById.TryGetValue(blockId, out var blockView))
+            if (!_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 return;
             }
@@ -118,7 +93,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection,
             DoorOpeningData matchedDoor)
         {
-            if (!_activeBlockRootById.TryGetValue(blockId, out var blockView))
+            if (!_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 return;
             }
@@ -134,7 +109,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var targetWorldPosition = ToWorldPosition(targetGridPosition, GetCurrentLayout());
             var duration = MoveDuration * Mathf.Max(1, distanceInCells);
-            yield return TweenBlockMove(blockView.RootTransform, targetWorldPosition, duration, MoveCurve);
+            yield return BlockMotionTween.TweenMove(blockView.RootTransform, targetWorldPosition, duration, MoveCurve);
             _blockMoveRoutineById.Remove(blockId);
         }
 
@@ -149,77 +124,25 @@ namespace Runtime.Controllers.BlockSceneBuilder
             {
                 var travelDistance = Vector3.Distance(blockTransform.position, clearPosition);
                 var distanceInCells = Mathf.Max(1f, travelDistance / layout.CellSize);
-                yield return TweenBlockMove(blockTransform, clearPosition, MoveDuration * distanceInCells, MoveCurve);
+                yield return BlockMotionTween.TweenMove(blockTransform, clearPosition, MoveDuration * distanceInCells,
+                    MoveCurve);
             }
 
-            AudioManager.Instance.PlayBlockMatchSuccess();
+            audioManager.PlayBlockMatchSuccess();
             PlayDoorMatchFx(matchedDoor);
 
             var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
             if (resolvedExitDirection == Vector2Int.zero)
             {
-                FinalizeClearedBlock(blockId, blockView);
+                FinalizeClearedBlock(blockId);
                 yield break;
             }
 
-            var startPosition = blockTransform.position;
-            var startScale = blockTransform.localScale;
-            var exitVector = new Vector3(resolvedExitDirection.x, resolvedExitDirection.y, 0f);
+            yield return BlockMotionTween.TweenExitThroughDoor(blockTransform, resolvedExitDirection,
+                blockView.LocalCenter, ResolveDoorWorldCenter(matchedDoor, layout), layout.DoorZ, layout.CellSize,
+                ExitDuration, ExitTravelInCells, ExitMoveCurve, ExitScaleCurve, ExitMinScaleMultiplier);
 
-            var blockLocalCenter = blockView.LocalCenter;
-            var doorWorldCenter = ResolveDoorWorldCenter(matchedDoor, layout);
-            var doorWorldZ = layout.DoorZ;
-
-            var doorCenterTargetPosition = new Vector3(
-                doorWorldCenter.x - blockLocalCenter.x,
-                doorWorldCenter.y - blockLocalCenter.y,
-                Mathf.Max(startPosition.z, doorWorldZ + (layout.CellSize * 0.05f)));
-
-            var passThroughDistance = ExitTravelInCells * layout.CellSize * 1.56f;
-            var finalTargetPosition = doorCenterTargetPosition + (exitVector * passThroughDistance);
-            finalTargetPosition.z = doorCenterTargetPosition.z + (layout.CellSize * 0.16f);
-
-            var totalDuration = ExitDuration;
-            var approachDuration = totalDuration * 0.58f;
-            var passDuration = totalDuration - approachDuration;
-            var invApproachDuration = 1f / approachDuration;
-            var invPassDuration = 1f / passDuration;
-            var exitMoveCurve = ExitMoveCurve;
-            var exitScaleCurve = ExitScaleCurve;
-            var minScale = startScale * ExitMinScaleMultiplier;
-            var elapsed = 0f;
-
-            while (elapsed < approachDuration)
-            {
-                elapsed += Time.deltaTime;
-                var normalized = Mathf.Clamp01(elapsed * invApproachDuration);
-                var pullT = normalized * normalized;
-                blockTransform.position = Vector3.LerpUnclamped(startPosition, doorCenterTargetPosition, pullT);
-                blockTransform.localScale = startScale;
-                yield return null;
-            }
-
-            blockTransform.position = doorCenterTargetPosition;
-            blockTransform.localScale = startScale;
-
-            elapsed = 0f;
-
-            while (elapsed < passDuration)
-            {
-                elapsed += Time.deltaTime;
-                var normalized = Mathf.Clamp01(elapsed * invPassDuration);
-                var moveT = EvaluateCurve01(exitMoveCurve, normalized, normalized);
-                var shrinkNormalized = Mathf.Clamp01((normalized - 0.55f) / 0.45f);
-                var scaleT = EvaluateCurve01(exitScaleCurve, shrinkNormalized, 1f - shrinkNormalized);
-
-                blockTransform.position = Vector3.LerpUnclamped(doorCenterTargetPosition, finalTargetPosition, moveT);
-                blockTransform.localScale = Vector3.LerpUnclamped(minScale, startScale, scaleT);
-                yield return null;
-            }
-
-            blockTransform.position = finalTargetPosition;
-
-            FinalizeClearedBlock(blockId, blockView);
+            FinalizeClearedBlock(blockId);
         }
 
         private static Vector2 ResolveDoorWorldCenter(DoorOpeningData matchedDoor, in LayoutMetrics layout)
@@ -229,30 +152,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return new Vector2(
                 layout.BoardOrigin.x + (centerX * layout.CellSize),
                 layout.BoardOrigin.y + (centerY * layout.CellSize));
-        }
-
-        private IEnumerator TweenBlockMove(Transform blockTransform, Vector3 targetPosition, float duration,
-            AnimationCurve easingCurve)
-        {
-            var startPosition = blockTransform.position;
-            if ((startPosition - targetPosition).sqrMagnitude <= 0.0001f)
-            {
-                blockTransform.position = targetPosition;
-                yield break;
-            }
-
-            var elapsed = 0f;
-            var safeDuration = Mathf.Max(0.0001f, duration);
-            while (elapsed < safeDuration)
-            {
-                elapsed += Time.deltaTime;
-                var normalized = Mathf.Clamp01(elapsed / safeDuration);
-                var eased = EvaluateCurve01(easingCurve, normalized, normalized);
-                blockTransform.position = Vector3.LerpUnclamped(startPosition, targetPosition, eased);
-                yield return null;
-            }
-
-            blockTransform.position = targetPosition;
         }
 
         private void StopBlockExit(int blockId)
@@ -291,10 +190,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             StopAllDoorMatchFx();
         }
 
-        private void FinalizeClearedBlock(int blockId, BlockRootView blockView)
+        private void FinalizeClearedBlock(int blockId)
         {
-            ReleaseActiveBlockView(blockId, blockView, false);
-            _activeBlockRootById.Remove(blockId);
+            ReleaseActiveBlockView(blockId, stopRoutines: false);
             _blockExitRoutineById.Remove(blockId);
         }
 
@@ -361,57 +259,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
         {
-            if (requiredCellCount <= blockView.Cells.Count)
-            {
-                return;
-            }
-
-            if (!_sharedBlockCellTemplate)
-            {
-                CacheBlockCellTemplate(blockView);
-                CacheSharedBlockCellTemplateFromPools();
-            }
-
-            poolManager.EnsureBlockRootCellPoolSize(blockView.RootObject, requiredCellCount, _sharedBlockCellTemplate);
-            CacheBlockCellPool(blockView);
-
-            if (!_sharedBlockCellTemplate && blockView.Cells.Count > 0)
-            {
-                _sharedBlockCellTemplate = blockView.Cells[0];
-            }
-        }
-
-        private void CacheSharedBlockCellTemplateFromPools()
-        {
-            foreach (var pair in _inactiveBlockRootsByType)
-            {
-                var pool = pair.Value;
-                for (var i = 0; i < pool.Count; i++)
-                {
-                    var blockView = pool[i];
-                    if (blockView == null || blockView.Cells.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    var candidate = blockView.Cells[0];
-                    if (candidate)
-                    {
-                        _sharedBlockCellTemplate = candidate;
-                        return;
-                    }
-                }
-            }
-
-            foreach (var pair in _gridCellPoolByCell)
-            {
-                var candidate = pair.Value;
-                if (candidate)
-                {
-                    _sharedBlockCellTemplate = candidate;
-                    return;
-                }
-            }
+            _blockViewPool.EnsureBlockCells(poolManager, blockView, requiredCellCount, _gridCellPoolByCell,
+                SetActiveIfChanged);
         }
     }
 }

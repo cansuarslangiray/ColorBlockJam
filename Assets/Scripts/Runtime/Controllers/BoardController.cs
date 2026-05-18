@@ -20,6 +20,7 @@ namespace Runtime.Controllers
         [SerializeField, Min(0f)] private float directionDeadZone = 0.0001f;
 
         [SerializeField] private Camera inputCamera;
+        [SerializeField] private AudioManager audioManager;
 
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
@@ -102,7 +103,7 @@ namespace Runtime.Controllers
             _activeGestureStartBoardPoint = boardWorldPoint;
             _activeGestureAxis = GestureAxis.None;
             _activeGestureAppliedStepCount = 0;
-            AudioManager.Instance.PlayBlockSelect();
+            audioManager.PlayBlockSelect();
             return true;
         }
 
@@ -325,7 +326,7 @@ namespace Runtime.Controllers
             if (reachedDoor)
             {
                 _runtimeBlocks.Remove(blockId);
-                var exitDirection = ResolveExitDirectionForDoor(matchedDoor);
+                var exitDirection = matchedDoor.ResolveExitDirection(_gridDimensions);
                 BlockCleared?.Invoke(blockId, block.Position, exitDirection, matchedDoor);
                 
                 if (_activeGestureBlockId == blockId)
@@ -341,11 +342,6 @@ namespace Runtime.Controllers
             _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
             BlockMoved?.Invoke(blockId, startPosition, currentPosition);
             return true;
-        }
-
-        private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor)
-        {
-            return matchedDoor.ResolveExitDirection(_gridDimensions);
         }
 
         private bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,

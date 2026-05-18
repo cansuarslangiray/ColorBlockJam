@@ -47,3 +47,5 @@ MonoBehaviour:
   startPanel: {fileID: 0}
   endGamePanel: {fileID: 0}
   topBarPanel: {fileID: 0}
+  settingsPanel: {fileID: 0}
+  stateManager: {fileID: 0}

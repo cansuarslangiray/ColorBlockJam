@@ -23,32 +23,28 @@
                 "x": 2,
                 "y": 6
             },
-            "colorType": 2,
-            "openingWidth": 1
+            "colorType": 2
         },
         {
             "position": {
                 "x": 3,
                 "y": 6
             },
-            "colorType": 2,
-            "openingWidth": 1
+            "colorType": 2
         },
         {
             "position": {
                 "x": 1,
                 "y": 0
             },
-            "colorType": 3,
-            "openingWidth": 1
+            "colorType": 3
         },
         {
             "position": {
                 "x": 2,
                 "y": 0
             },
-            "colorType": 3,
-            "openingWidth": 1
+            "colorType": 3
         }
     ],
     "blocks": [
