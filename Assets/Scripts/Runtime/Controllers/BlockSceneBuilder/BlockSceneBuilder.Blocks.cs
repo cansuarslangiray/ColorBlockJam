@@ -12,37 +12,26 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ApplyBlockVisuals(LevelJsonData levelData, in LayoutMetrics layout)
         {
             ReleaseActiveBlockViewsToPool();
-
-            var sourceBlocks = levelData.blocks;
-            if (sourceBlocks == null || sourceBlocks.Count == 0)
+            var blockVisualRequest = new BlockVisualPresenter.BuildRequest
             {
-                return;
-            }
-
-            for (var i = 0; i < sourceBlocks.Count; i++)
-            {
-                if (!boardController.TryGetRuntimeBlock(i, out var runtimeBlock))
-                {
-                    continue;
-                }
-
-                var blockType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
-                var blockView = AcquireBlockRoot(blockType);
-                if (blockView == null)
-                {
-                    continue;
-                }
-
-                blockView.BlockType = blockType;
-                ApplyBlockCells(blockView, runtimeBlock, layout);
-                ApplyWorldTransform(blockView.PlacementTransform, ToWorldPosition(runtimeBlock.Position, layout),
-                    blockRootScale);
-                SetDragHighlightActive(blockView, false);
-
-                _blockViewPool.MarkActive(i, blockView);
-                SetActiveIfChanged(blockView.RootObject, true);
-                ResetBlockAnimatorState(blockView.Animator);
-            }
+                LevelData = levelData,
+                BoardController = boardController,
+                BlockViewPool = _blockViewPool,
+                Layout = layout,
+                BlockCellVisualScale = blockCellVisualScale,
+                BlockRootScale = blockRootScale,
+                IndicatorHeightOffsetInCells = indicatorHeightOffsetInCells,
+                IndicatorLocalZOffset = indicatorLocalZOffset,
+                ResolveMaterial = GetMaterial,
+                EnsureBlockCells = EnsureBlockCells,
+                SetActiveIfChanged = SetActiveIfChanged,
+                ApplyWorldTransform = ApplyWorldTransform,
+                SetDragHighlightActive = SetDragHighlightActive,
+                CacheBlockOutlineGridLoop = CacheBlockOutlineGridLoop,
+                RefreshDragHighlightBounds = RefreshDragHighlightBounds,
+                ResetBlockAnimatorState = ResetBlockAnimatorState
+            };
+            _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
 
             RefreshAllConditionIndicators();
         }
@@ -50,11 +39,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ReleaseActiveBlockViewsToPool()
         {
             _blockViewPool.ReleaseAllActive(StopBlockExit, SetActiveIfChanged, ResetBlockTransientFx);
-        }
-
-        private BlockRootView AcquireBlockRoot(BlockShapeType blockType)
-        {
-            return _blockViewPool.Acquire(blockType);
         }
 
         private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
@@ -69,6 +53,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void SubscribeBoardEvents()
         {
+            if (boardController == null)
+            {
+                return;
+            }
+
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockMoved += HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
@@ -79,6 +68,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void UnsubscribeBoardEvents()
         {
+            if (boardController == null)
+            {
+                return;
+            }
+
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
@@ -109,7 +103,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             StopBlockExit(blockId);
-            ResetBlockTransientFx(blockView);
+            SetDragHighlightActive(blockView, false);
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
 
@@ -119,20 +113,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
             Vector2Int exitDirection, DoorOpeningData matchedDoor)
         {
+            SetDragHighlightActive(blockView, false);
             SyncBlockToGridPosition(blockView, clearedPosition);
 
-            audioManager?.PlayBlockMatchSuccess();
-            PlayDoorMatchFx(matchedDoor);
-
             var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
-            if (resolvedExitDirection == Vector2Int.zero)
+            var exitFxRequest = new BlockExitFxController.ExitSequenceRequest
             {
-                PlayBlockExitDisintegrateFx(blockView);
-                FinalizeClearedBlock(blockId);
-                yield break;
-            }
-
-            yield return AnimateBlockDoorExitSequence(blockView, matchedDoor, resolvedExitDirection);
+                BlockView = blockView,
+                MatchedDoor = matchedDoor,
+                ResolvedExitDirection = resolvedExitDirection,
+                PlayBlockMatchSuccessSfx = () => audioManager?.PlayBlockMatchSuccess(),
+                PlayDoorMatchFx = PlayDoorMatchFx,
+                AnimateBlockDoorExitSequence = AnimateBlockDoorExitSequence,
+                PlayBlockExitDisintegrateFx = (view, direction) => PlayBlockExitDisintegrateFx(view, direction, false)
+            };
+            yield return _blockExitFxController.PlayClearAndExitSequence(exitFxRequest);
+            yield return CleanupDoorExitBurstAfterDelay(blockView, DoorExitBurstCleanupDelay);
             FinalizeClearedBlock(blockId);
         }
 
@@ -178,6 +174,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void FinalizeClearedBlock(int blockId)
         {
+            if (_blockViewPool.TryGetActive(blockId, out var blockView))
+            {
+                ResetBlockTransientFx(blockView);
+            }
+
             ReleaseActiveBlockView(blockId, stopRoutines: false);
             _blockExitRoutineById.Remove(blockId);
         }
@@ -188,6 +189,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 blockView?.DoorPassThroughCellTransformsBuffer,
                 blockView?.DoorPassThroughInitialScalesBuffer,
                 1f);
+            ApplyDoorPassThroughPositions(blockView?.DoorPassThroughCellTransformsBuffer, blockView?.DoorPassThroughInitialPositionsBuffer);
+            ApplyDoorPassThroughRotations(blockView?.DoorPassThroughCellTransformsBuffer, blockView?.DoorPassThroughInitialRotationsBuffer, blockView?.DoorPassThroughScatterRotationBuffer, blockView?.DoorPassThroughScatterDelayBuffer,
+                0f);
             SetDragHighlightActive(blockView, false);
             StopDoorExitBurstParticle(blockView);
             ClearDoorPassThroughVisualOverrides(blockView?.DoorPassThroughCellRendererBuffer);
@@ -213,142 +217,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return new Vector2(
                 layout.BoardOrigin.x + (centerX * layout.CellSize),
                 layout.BoardOrigin.y + (centerY * layout.CellSize));
-        }
-
-        private void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState, in LayoutMetrics layout)
-        {
-            var localCells = blockState.LocalCells ?? System.Array.Empty<Vector2Int>();
-            var cellSize = layout.CellSize;
-            var targetScale = Vector3.one * Mathf.Max(0.01f, cellSize * blockCellVisualScale);
-            var resolvedMaterial = GetMaterial(blockState.ColorType);
-            blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(resolvedMaterial, out var cachedBlockColor);
-            blockView.CachedBlockColor = cachedBlockColor;
-
-            EnsureBlockCells(blockView, localCells.Length);
-            blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
-            blockView.ConditionIndicatorLocalAnchor = ResolveConditionIndicatorLocalAnchor(localCells, cellSize);
-
-            var hasLocalBounds = false;
-            var localBoundsMin = Vector3.zero;
-            var localBoundsMax = Vector3.zero;
-            var localHalfExtents = targetScale * 0.5f;
-
-            for (var i = 0; i < blockView.Cells.Count; i++)
-            {
-                var cellObject = blockView.Cells[i];
-                var isActive = i < localCells.Length;
-                SetActiveIfChanged(cellObject, isActive);
-                if (!isActive)
-                {
-                    continue;
-                }
-
-                var localCell = localCells[i];
-                var localPosition = new Vector3((localCell.x + 0.5f) * cellSize, (localCell.y + 0.5f) * cellSize, 0f);
-                ApplyLocalTransform(cellObject.transform, localPosition, targetScale);
-
-                var cellMin = localPosition - localHalfExtents;
-                var cellMax = localPosition + localHalfExtents;
-                if (!hasLocalBounds)
-                {
-                    localBoundsMin = cellMin;
-                    localBoundsMax = cellMax;
-                    hasLocalBounds = true;
-                }
-                else
-                {
-                    localBoundsMin = Vector3.Min(localBoundsMin, cellMin);
-                    localBoundsMax = Vector3.Max(localBoundsMax, cellMax);
-                }
-
-                if (i < blockView.CellRenderers.Count)
-                {
-                    var cellRenderer = blockView.CellRenderers[i];
-                    if (cellRenderer && resolvedMaterial && cellRenderer.sharedMaterial != resolvedMaterial)
-                    {
-                        cellRenderer.sharedMaterial = resolvedMaterial;
-                    }
-                }
-            }
-
-            blockView.HasCachedLocalBounds = hasLocalBounds;
-            blockView.CachedLocalBoundsMin = localBoundsMin;
-            blockView.CachedLocalBoundsMax = localBoundsMax;
-            CacheBlockOutlineGridLoop(blockView, localCells);
-            RefreshDragHighlightBounds(blockView);
-        }
-
-        private static bool TryResolvePrimaryMaterialColor(Material sourceMaterial, out Color color)
-        {
-            color = Color.white;
-            if (!sourceMaterial)
-            {
-                return false;
-            }
-
-            if (sourceMaterial.HasProperty("_BaseColor"))
-            {
-                color = sourceMaterial.GetColor("_BaseColor");
-                return true;
-            }
-
-            if (sourceMaterial.HasProperty("_Color"))
-            {
-                color = sourceMaterial.GetColor("_Color");
-                return true;
-            }
-
-            return false;
-        }
-
-        private static Vector2 ResolveLocalCenter(Vector2Int[] localCells, float cellSize)
-        {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return Vector2.zero;
-            }
-
-            var minX = int.MaxValue;
-            var minY = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
-
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var cell = localCells[i];
-                if (cell.x < minX) minX = cell.x;
-                if (cell.x > maxX) maxX = cell.x;
-                if (cell.y < minY) minY = cell.y;
-                if (cell.y > maxY) maxY = cell.y;
-            }
-
-            return new Vector2(
-                ((minX + maxX + 1) * 0.5f) * cellSize,
-                ((minY + maxY + 1) * 0.5f) * cellSize);
-        }
-
-        private Vector3 ResolveConditionIndicatorLocalAnchor(Vector2Int[] localCells, float cellSize)
-        {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return new Vector3(cellSize * 0.5f, cellSize * (1f + indicatorHeightOffsetInCells), indicatorLocalZOffset);
-            }
-
-            var minX = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
-
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var cell = localCells[i];
-                if (cell.x < minX) minX = cell.x;
-                if (cell.x > maxX) maxX = cell.x;
-                if (cell.y > maxY) maxY = cell.y;
-            }
-
-            var anchorX = ((minX + maxX + 1) * 0.5f) * cellSize;
-            var anchorY = (maxY + 1f + indicatorHeightOffsetInCells) * cellSize;
-            return new Vector3(anchorX, anchorY, indicatorLocalZOffset);
         }
 
         private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)

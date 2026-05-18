@@ -72,7 +72,6 @@ MonoBehaviour:
     material: {fileID: 2100000, guid: b6c7d8e9f0a16789cd34ef5601782367, type: 2}
   - colorType: 11
     material: {fileID: 2100000, guid: c7d8e9f0a1b27890de45f06712893478, type: 2}
-  boardCellGap: 0.022
   boardCellsZOffset: 0.74
   boardBackdropZOffset: 0.18
   edgeFrameThicknessInCells: 0.52

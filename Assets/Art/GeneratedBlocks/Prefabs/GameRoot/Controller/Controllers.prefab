@@ -45,8 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cellSize: 1
-  boardOrigin: {x: 0, y: 0}
-  gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
   dragActivationInCells: 0.35
   directionDeadZone: 0.0001
   inputCamera: {fileID: 0}

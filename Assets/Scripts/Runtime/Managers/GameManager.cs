@@ -46,6 +46,7 @@ namespace Runtime.Managers
                 return;
             }
 
+            TryResolveSceneReferences();
             if (!HasRequiredReferences())
             {
                 Debug.LogError("GameManager is missing one or more serialized core references.", this);
@@ -54,6 +55,11 @@ namespace Runtime.Managers
             }
 
             InitializeCollaborators();
+        }
+
+        private void OnValidate()
+        {
+            TryResolveSceneReferences();
         }
 
         private void Start()
@@ -329,7 +335,8 @@ namespace Runtime.Managers
             }
 
             var playerData = _localDataManager.GetPlayerData();
-            return Mathf.Max(1, playerData.currentLevel);
+            var maxLevelNumber = ResolveMaxPersistableLevelNumber();
+            return Mathf.Clamp(playerData.currentLevel, 1, maxLevelNumber);
         }
 
         private void PersistCurrentLevelProgress(LevelJsonData levelData)
@@ -340,7 +347,7 @@ namespace Runtime.Managers
             }
 
             var levelNumber = levelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
-            _localDataManager.SetCurrentLevelAsProgress(Mathf.Max(1, levelNumber));
+            _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(levelNumber));
         }
 
         private void PersistUnlockedLevelProgress()
@@ -353,11 +360,69 @@ namespace Runtime.Managers
             if (_levelProgression.TryGetNextLevelData(out var nextLevelData))
             {
                 var nextLevelNumber = nextLevelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber + 1;
-                _localDataManager.SetCurrentLevelAsProgress(Mathf.Max(1, nextLevelNumber));
+                _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(nextLevelNumber));
                 return;
             }
 
-            _localDataManager.SetCurrentLevelAsProgress(_levelProgression.CurrentLevelDisplayNumber);
+            if (_levelProgression.TryGetCurrentLevelData(out var currentLevelData))
+            {
+                var currentLevelNumber = currentLevelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
+                _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(currentLevelNumber));
+                return;
+            }
+
+            _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(_levelProgression.CurrentLevelDisplayNumber));
+        }
+
+        private int ClampLevelNumberToProgressRange(int levelNumber)
+        {
+            var sanitizedLevelNumber = Mathf.Max(1, levelNumber);
+            return Mathf.Clamp(sanitizedLevelNumber, 1, ResolveMaxPersistableLevelNumber());
+        }
+
+        private int ResolveMaxPersistableLevelNumber()
+        {
+            if (levelCollection == null || levelCollection.Count <= 0)
+            {
+                return 1;
+            }
+
+            var maxLevelNumber = 1;
+            for (var i = 0; i < levelCollection.Count; i++)
+            {
+                if (levelCollection.TryGetLevelAt(i, out var levelData) && levelData != null)
+                {
+                    maxLevelNumber = Mathf.Max(maxLevelNumber, Mathf.Max(1, levelData.levelNumber));
+                    continue;
+                }
+
+                maxLevelNumber = Mathf.Max(maxLevelNumber, i + 1);
+            }
+
+            return Mathf.Max(1, maxLevelNumber);
+        }
+
+        private void TryResolveSceneReferences()
+        {
+            if (!gameObject.scene.IsValid())
+            {
+                return;
+            }
+
+            boardController ??= FindObjectOfType<BoardController>();
+            blockSceneBuilder ??= FindObjectOfType<BlockSceneBuilder>();
+            stateManager ??= StateManager.Instance != null ? StateManager.Instance : FindObjectOfType<StateManager>();
+            uiManager ??= UIManager.Instance != null ? UIManager.Instance : FindObjectOfType<UIManager>();
+            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindObjectOfType<AudioManager>();
+
+            if (gameplayCamera == null)
+            {
+                gameplayCamera = Camera.main;
+                if (gameplayCamera == null)
+                {
+                    gameplayCamera = FindObjectOfType<Camera>();
+                }
+            }
         }
 
     }

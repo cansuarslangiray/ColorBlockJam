@@ -36,6 +36,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public Coroutine DoorExitBurstCleanupRoutine { get; set; }
         public List<Transform> DoorPassThroughCellTransformsBuffer { get; } = new();
         public List<Vector3> DoorPassThroughInitialScalesBuffer { get; } = new();
+        public List<Vector3> DoorPassThroughInitialPositionsBuffer { get; } = new();
+        public List<Vector3> DoorPassThroughScatterDirectionBuffer { get; } = new();
+        public List<Quaternion> DoorPassThroughInitialRotationsBuffer { get; } = new();
+        public List<float> DoorPassThroughScatterRotationBuffer { get; } = new();
+        public List<float> DoorPassThroughScatterDelayBuffer { get; } = new();
         public List<Renderer> DoorPassThroughCellRendererBuffer { get; } = new();
     }
 }

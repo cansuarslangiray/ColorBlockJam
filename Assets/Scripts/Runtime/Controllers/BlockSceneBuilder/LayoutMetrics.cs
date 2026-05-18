@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
 {
-    internal readonly struct LayoutMetrics
+    public readonly struct LayoutMetrics
     {
         public LayoutMetrics(Vector2 boardOrigin, float cellSize, float gridZ, float blockZ, float frameThickness,
             float frameDepth, float borderZ, float doorDepth, float doorZ)

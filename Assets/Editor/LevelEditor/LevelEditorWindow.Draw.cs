@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
@@ -10,6 +11,15 @@ namespace Editor.LevelEditor
 {
     public partial class LevelEditorWindow
     {
+        private string _shapeCreatorKey = "Shape_Custom_1";
+        private bool _shapeCreatorUseCustom = true;
+        private int _shapeCreatorWidth = 2;
+        private int _shapeCreatorHeight = 2;
+        private int _shapeCreatorGridWidth = 4;
+        private int _shapeCreatorGridHeight = 4;
+        private readonly List<Vector2Int> _shapeCreatorCustomCells = new() { Vector2Int.zero };
+        private bool _showShapeCreator = true;
+
         private void DrawBaseSettings()
         {
             EditorGUILayout.BeginVertical("box");
@@ -45,10 +55,8 @@ namespace Editor.LevelEditor
             EditorGUILayout.LabelField("Available Colors", EditorStyles.boldLabel);
 
             DrawAvailableColors();
+            DrawAvailableShapes();
             EditorGUILayout.Space(4f);
-            EditorGUILayout.HelpBox(
-                "Available Shapes listesi bloklardan otomatik senkronlanir. Manuel tik secimi kaldirildi.",
-                MessageType.None);
 
             EditorGUILayout.EndVertical();
         }
@@ -102,6 +110,276 @@ namespace Editor.LevelEditor
             }
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawAvailableShapes()
+        {
+            EditorGUILayout.Space(10f);
+            EditorGUILayout.LabelField("Available Shapes");
+
+            if (_shapeRegistry == null || _shapeRegistry.Shapes.Count == 0)
+            {
+                EditorGUILayout.HelpBox("Shape JSON bulunamadi. Önce Shape JSON dosyalarını ekleyin.", MessageType.Info);
+                return;
+            }
+
+            IReadOnlyList<BlockShapeJsonData> shapes = _shapeRegistry.Shapes;
+            const int rowsPerColumn = 8;
+            int columnCount = Mathf.CeilToInt(shapes.Count / (float)rowsPerColumn);
+
+            EditorGUILayout.BeginHorizontal();
+            for (int column = 0; column < columnCount; column++)
+            {
+                EditorGUILayout.BeginVertical(GUILayout.MaxWidth(170f));
+
+                int startIndex = column * rowsPerColumn;
+                int endIndex = Mathf.Min(startIndex + rowsPerColumn, shapes.Count);
+                for (int i = startIndex; i < endIndex; i++)
+                {
+                    BlockShapeJsonData shape = shapes[i];
+                    string shapeKey = shape != null ? shape.ShapeKey : string.Empty;
+                    string shapeLabel = string.IsNullOrWhiteSpace(shapeKey) ? $"Shape_{i}" : shapeKey;
+
+                    if (string.IsNullOrWhiteSpace(shapeKey))
+                    {
+                        EditorGUILayout.LabelField($"{shapeLabel} (invalid key)");
+                        continue;
+                    }
+
+                    bool hasShape = ContainsShapeKey(_activeLevel.availableShapeKeys, shapeKey);
+                    bool next = EditorGUILayout.ToggleLeft(shapeLabel, hasShape);
+
+                    if (next == hasShape)
+                    {
+                        continue;
+                    }
+
+                    RecordLevelChange("Edit Available Shapes");
+                    if (next)
+                    {
+                        if (!ContainsShapeKey(_activeLevel.availableShapeKeys, shapeKey))
+                        {
+                            _activeLevel.availableShapeKeys.Add(shapeKey);
+                        }
+                    }
+                    else
+                    {
+                        _activeLevel.availableShapeKeys.RemoveAll(key => string.Equals(key, shapeKey, StringComparison.Ordinal));
+                    }
+
+                    SaveLevelChange();
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+
+            EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawShapeCreator()
+        {
+            EditorGUILayout.Space(10f);
+            _showShapeCreator = EditorGUILayout.BeginFoldoutHeaderGroup(_showShapeCreator, "Shape Oluşturma");
+
+            if (!_showShapeCreator)
+            {
+                EditorGUILayout.EndFoldoutHeaderGroup();
+                return;
+            }
+
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("Yeni Shape Oluştur", EditorStyles.boldLabel);
+
+            _shapeCreatorKey = EditorGUILayout.TextField("Shape Key", _shapeCreatorKey);
+            _shapeCreatorUseCustom = EditorGUILayout.Toggle("useCustomShape", _shapeCreatorUseCustom);
+
+            if (_shapeCreatorUseCustom)
+            {
+                _shapeCreatorGridWidth = Mathf.Max(1, EditorGUILayout.IntField("Grid Width", _shapeCreatorGridWidth));
+                _shapeCreatorGridHeight = Mathf.Max(1, EditorGUILayout.IntField("Grid Height", _shapeCreatorGridHeight));
+                DrawShapeCreatorGrid();
+            }
+            else
+            {
+                _shapeCreatorWidth = Mathf.Max(1, EditorGUILayout.IntField("Width", _shapeCreatorWidth));
+                _shapeCreatorHeight = Mathf.Max(1, EditorGUILayout.IntField("Height", _shapeCreatorHeight));
+            }
+
+            EditorGUILayout.Space(6f);
+            if (GUILayout.Button("Shape JSON Oluştur", GUILayout.Height(26f), GUILayout.Width(170f)))
+            {
+                TryCreateShapeFromTool();
+            }
+
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndFoldoutHeaderGroup();
+        }
+
+        private void DrawShapeCreatorGrid()
+        {
+            EnsureShapeCreatorGridCellsValid();
+
+            EditorGUILayout.LabelField("Shape Hücreleri (tıklayarak ekle/çıkar)");
+            const float cellSize = 24f;
+            int gridWidth = _shapeCreatorGridWidth;
+            int gridHeight = _shapeCreatorGridHeight;
+            Color previousColor = GUI.backgroundColor;
+
+            for (int y = gridHeight - 1; y >= 0; y--)
+            {
+                EditorGUILayout.BeginHorizontal();
+                for (int x = 0; x < gridWidth; x++)
+                {
+                    Vector2Int cell = new(x, y);
+                    bool isSelected = _shapeCreatorCustomCells.Contains(cell);
+                    GUI.backgroundColor = isSelected
+                        ? new Color(0.25f, 0.50f, 0.95f, 1f)
+                        : new Color(0.86f, 0.88f, 0.92f, 1f);
+                    bool clicked = GUILayout.Button(
+                        isSelected ? "■" : string.Empty,
+                        GUILayout.Width(cellSize),
+                        GUILayout.Height(cellSize));
+
+                    if (clicked)
+                    {
+                        if (!isSelected)
+                        {
+                            _shapeCreatorCustomCells.Add(cell);
+                        }
+                        else
+                        {
+                            _shapeCreatorCustomCells.Remove(cell);
+                        }
+                    }
+                }
+
+                EditorGUILayout.EndHorizontal();
+            }
+
+            GUI.backgroundColor = previousColor;
+        }
+
+        private void EnsureShapeCreatorGridCellsValid()
+        {
+            int gridWidth = Mathf.Max(1, _shapeCreatorGridWidth);
+            int gridHeight = Mathf.Max(1, _shapeCreatorGridHeight);
+            _shapeCreatorGridWidth = gridWidth;
+            _shapeCreatorGridHeight = gridHeight;
+
+            for (int i = _shapeCreatorCustomCells.Count - 1; i >= 0; i--)
+            {
+                Vector2Int cell = _shapeCreatorCustomCells[i];
+                if (cell.x < 0 || cell.y < 0 || cell.x >= gridWidth || cell.y >= gridHeight)
+                {
+                    _shapeCreatorCustomCells.RemoveAt(i);
+                }
+            }
+
+            if (_shapeCreatorCustomCells.Count == 0)
+            {
+                _shapeCreatorCustomCells.Add(Vector2Int.zero);
+            }
+        }
+
+        private void TryCreateShapeFromTool()
+        {
+            if (_shapeCreatorKey == null)
+            {
+                return;
+            }
+
+            string shapeKey = _shapeCreatorKey.Trim();
+            if (string.IsNullOrWhiteSpace(shapeKey))
+            {
+                EditorGUILayout.HelpBox("Shape Key boş olamaz.", MessageType.Warning);
+                return;
+            }
+
+            if (!IsValidShapeKey(shapeKey))
+            {
+                EditorGUILayout.HelpBox("Shape Key yalnızca harf, rakam, '_' ve '-' içerebilir.", MessageType.Warning);
+                return;
+            }
+
+            if (!AssetDatabase.IsValidFolder(ShapeJsonFolder))
+            {
+                EditorGUILayout.HelpBox($"Shape klasörü bulunamadı: {ShapeJsonFolder}", MessageType.Error);
+                return;
+            }
+
+            string path = $"{ShapeJsonFolder}/{shapeKey}.json";
+            if (File.Exists(path) &&
+                !EditorUtility.DisplayDialog(
+                    "Shape zaten var",
+                    $"{shapeKey}.json zaten mevcut. Üzerine yazılsın mı?",
+                    "Evet",
+                    "Hayır"))
+            {
+                return;
+            }
+
+            List<Vector2Int> customCells = _shapeCreatorCustomCells;
+            if (_shapeCreatorUseCustom && (customCells == null || customCells.Count == 0))
+            {
+                EditorGUILayout.HelpBox("Özel shape için en az bir hücre seçmelisin.", MessageType.Warning);
+                return;
+            }
+
+            int width = _shapeCreatorUseCustom ? _shapeCreatorGridWidth : _shapeCreatorWidth;
+            int height = _shapeCreatorUseCustom ? _shapeCreatorGridHeight : _shapeCreatorHeight;
+
+            var shape = new BlockShapeJsonData
+            {
+                shapeKey = shapeKey,
+                width = Mathf.Max(1, width),
+                height = Mathf.Max(1, height),
+                useCustomShape = _shapeCreatorUseCustom,
+                customCells = _shapeCreatorUseCustom
+                    ? new List<Vector2Int>(_shapeCreatorCustomCells)
+                    : new List<Vector2Int> { Vector2Int.zero }
+            };
+
+            string json = BlockShapeJsonSerialization.Serialize(shape, true);
+            File.WriteAllText(path, json);
+            AssetDatabase.ImportAsset(path);
+
+            MarkShapeRegistryCacheDirty();
+            EnsureShapeRegistryLoaded(true);
+
+            if (_activeLevel != null && !ContainsShapeKey(_activeLevel.availableShapeKeys, shapeKey))
+            {
+                RecordLevelChange("Edit Available Shapes");
+                _activeLevel.availableShapeKeys.Add(shapeKey);
+                SaveLevelChange();
+            }
+
+            _selectedBlockShape = _shapeRegistry != null && _shapeRegistry.TryResolveShape(shapeKey, out BlockShapeJsonData createdShape)
+                ? createdShape
+                : null;
+            var createdAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
+            if (createdAsset != null)
+            {
+                EditorGUIUtility.PingObject(createdAsset);
+            }
+        }
+
+        private static bool IsValidShapeKey(string shapeKey)
+        {
+            if (string.IsNullOrWhiteSpace(shapeKey))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < shapeKey.Length; i++)
+            {
+                char c = shapeKey[i];
+                if (!(char.IsLetterOrDigit(c) || c == '_' || c == '-'))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void DrawEditModeToolbar()

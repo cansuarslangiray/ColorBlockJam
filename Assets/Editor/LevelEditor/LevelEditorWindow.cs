@@ -55,6 +55,7 @@ namespace Editor.LevelEditor
         private bool _projectJsonCacheDirty = true;
         private bool _shapeRegistryCacheDirty = true;
         private int _newLevelNumber = 1;
+        private bool _shapeCreatorOnlyMode;
 
         [MenuItem("Tools/Color Block Jam/Level Editor")]
         private static void OpenWindow()
@@ -62,6 +63,22 @@ namespace Editor.LevelEditor
             LevelEditorWindow window = GetWindow<LevelEditorWindow>();
             window.titleContent = new GUIContent("Level Editor");
             window.minSize = new Vector2(920f, 640f);
+            window._shapeCreatorOnlyMode = false;
+            window.Show();
+        }
+
+        [MenuItem("Tools/Color Block Jam/Shape Editor")]
+        private static void OpenShapeEditor()
+        {
+            OpenShapeEditorInternal();
+        }
+
+        private static void OpenShapeEditorInternal()
+        {
+            LevelEditorWindow window = GetWindow<LevelEditorWindow>();
+            window.titleContent = new GUIContent("Shape Editor");
+            window.minSize = new Vector2(760f, 520f);
+            window._shapeCreatorOnlyMode = true;
             window.Show();
         }
 
@@ -83,7 +100,15 @@ namespace Editor.LevelEditor
 
             if (_activeLevel == null)
             {
-                EditorGUILayout.HelpBox("Önce bir level JSON dosyası seç veya yeni oluştur.", MessageType.Info);
+                if (_shapeCreatorOnlyMode)
+                {
+                    DrawShapeCreatorOnlyMode();
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("Önce bir level JSON dosyası seç veya yeni oluştur.", MessageType.Info);
+                }
+
                 return;
             }
 
@@ -104,6 +129,12 @@ namespace Editor.LevelEditor
             DrawBlockList();
 
             EditorGUILayout.EndScrollView();
+        }
+
+        private void DrawShapeCreatorOnlyMode()
+        {
+            EditorGUILayout.LabelField("Shape Creator", EditorStyles.boldLabel);
+            DrawShapeCreator();
         }
 
         private void DrawHeader()

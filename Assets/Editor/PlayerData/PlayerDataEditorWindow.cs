@@ -19,7 +19,7 @@ namespace Editor.PlayerData
         private string _statusMessage = string.Empty;
         private string _playerDataPath = string.Empty;
 
-        [MenuItem("Tools/ColorBlockJam/Player Data")]
+        [MenuItem("Tools/Color Block Jam/Player Data")]
         private static void OpenWindow()
         {
             var window = GetWindow<PlayerDataEditorWindow>("Player Data");

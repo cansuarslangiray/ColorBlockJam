@@ -6715,6 +6715,10 @@ PrefabInstance:
       propertyPath: stateManager
       value: 
       objectReference: {fileID: 7978760179327782691}
+    - target: {fileID: 3294855360333595644, guid: 548c7bb8bf0f345f49ce145a46b59600, type: 3}
+      propertyPath: audioManager
+      value: 
+      objectReference: {fileID: 7978760179327782690}
     - target: {fileID: 6725030478631479255, guid: 548c7bb8bf0f345f49ce145a46b59600, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -7110,14 +7114,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1909112169}
     m_Modifications:
-    - target: {fileID: 1858835396414741536, guid: 18a08504abd1b4de894c02942f3b3ebf, type: 3}
-      propertyPath: boardRoot
-      value: 
-      objectReference: {fileID: 1436938859}
-    - target: {fileID: 1858835396414741536, guid: 18a08504abd1b4de894c02942f3b3ebf, type: 3}
-      propertyPath: blocksRoot
-      value: 
-      objectReference: {fileID: 146836358}
     - target: {fileID: 1858835396414741536, guid: 18a08504abd1b4de894c02942f3b3ebf, type: 3}
       propertyPath: poolManager
       value: 

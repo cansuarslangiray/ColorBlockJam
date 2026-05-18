@@ -24,18 +24,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             target.localScale = scale;
         }
 
-        private static void ApplyLocalTransform(Transform target, Vector3 localPosition, Vector3 localScale)
-        {
-            if (!target)
-            {
-                return;
-            }
-
-            target.localPosition = localPosition;
-            target.localRotation = Quaternion.identity;
-            target.localScale = localScale;
-        }
-
         private Material GetMaterial(BlockColor colorType)
         {
             return _visualCache.ResolveMaterial(colorType, materialsByColor, this);

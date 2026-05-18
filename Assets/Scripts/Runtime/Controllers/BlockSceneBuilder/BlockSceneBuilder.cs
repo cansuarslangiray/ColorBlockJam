@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
@@ -22,9 +21,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly BlockViewRuntimePool _blockViewPool = new();
 
         [Header("Board Layout")] [SerializeField]
-        private float boardCellGap = 0.08f;
-
-        [SerializeField] private float boardCellsZOffset = 0.75f;
+        private float boardCellsZOffset = 0.75f;
 
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
@@ -68,30 +65,30 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
         private readonly List<GameObject> _doorPool = new();
         private readonly Dictionary<BlockShapeType, int> _requiredBlockRootCountByType = new();
+        private readonly ConditionIndicatorPresenter _conditionIndicatorPresenter = new();
+        private readonly DragHighlightPresenter _dragHighlightPresenter = new();
+        private readonly BlockExitFxController _blockExitFxController = new();
+        private readonly BoardVisualBuilder _boardVisualBuilder = new();
+        private readonly BlockVisualPresenter _blockVisualPresenter = new();
 
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;
         private LayoutMetrics _currentLayout;
         private bool _hasCurrentLayout;
-        private readonly StringBuilder _indicatorTextBuilder = new(96);
-        private Material _dragOutlineMaterial;
         private MaterialPropertyBlock _fxRendererPropertyBlock;
         private readonly List<ParticleSystem> _doorExitBurstParticlePool = new();
         private readonly Stack<ParticleSystem> _availableDoorExitBurstParticles = new();
         private readonly HashSet<int> _availableDoorExitBurstParticleIds = new();
         private readonly Dictionary<int, ParticleSystemRenderer> _doorExitBurstRendererByParticleId = new();
-        private readonly HashSet<Vector2Int> _outlineOccupiedCellsBuffer = new();
-        private readonly Dictionary<UndirectedGridEdgeKey, DirectedGridEdge> _outlineBoundaryEdgesBuffer = new();
-        private readonly Dictionary<Vector2Int, Vector2Int> _outlineOutgoingEdgesBuffer = new();
-        private readonly List<Vector2> _outlineVerticesBuffer = new();
-        private int _visibleConditionIndicatorCount;
-        private bool _needsConditionBillboardRefresh;
-        private Quaternion _lastIndicatorCameraRotation;
-        private bool _hasLastIndicatorCameraRotation;
 
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
+
+        private void Awake()
+        {
+            TryResolveSceneReferences();
+        }
 
         private LayoutMetrics ResolveLayoutMetrics()
         {
@@ -111,11 +108,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void OnEnable()
         {
+            TryResolveSceneReferences();
             SubscribeBoardEvents();
         }
 
         private void OnValidate()
         {
+            TryResolveSceneReferences();
             _visualCache.InvalidateMaterialCache();
             blockRootScale.x = Mathf.Max(0.01f, blockRootScale.x);
             blockRootScale.y = Mathf.Max(0.01f, blockRootScale.y);
@@ -136,9 +135,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             StopAllBlockRoutines();
             ReleaseRuntimeFxResources();
             _visualCache.ClearRuntimeCaches();
-            _visibleConditionIndicatorCount = 0;
-            _needsConditionBillboardRefresh = false;
-            _hasLastIndicatorCameraRotation = false;
+            _conditionIndicatorPresenter.ResetRuntimeState();
+            _dragHighlightPresenter.ResetRuntimeResources();
             _hasCurrentLayout = false;
         }
 
@@ -146,6 +144,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             if (levelData == null)
             {
+                return;
+            }
+
+            TryResolveSceneReferences();
+            if (!HasRequiredReferences())
+            {
+                Debug.LogError("BlockSceneBuilder requires BoardController and BlockScenePoolManager references.", this);
                 return;
             }
 
@@ -308,6 +313,35 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             return _currentLayout;
+        }
+
+        private bool HasRequiredReferences()
+        {
+            return boardController != null && poolManager != null;
+        }
+
+        private void TryResolveSceneReferences()
+        {
+            if (!gameObject.scene.IsValid())
+            {
+                return;
+            }
+
+            boardController ??= GetComponent<BoardController>();
+            poolManager ??= GetComponent<BlockScenePoolManager>();
+
+            boardController ??= FindObjectOfType<BoardController>();
+            poolManager ??= FindObjectOfType<BlockScenePoolManager>();
+            audioManager ??= AudioManager.Instance != null ? AudioManager.Instance : FindObjectOfType<AudioManager>();
+
+            if (indicatorCamera == null)
+            {
+                indicatorCamera = Camera.main;
+                if (indicatorCamera == null)
+                {
+                    indicatorCamera = FindObjectOfType<Camera>();
+                }
+            }
         }
     }
 }
