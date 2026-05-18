@@ -102,7 +102,7 @@ namespace Editor.AssetTools
 
             if (_overwriteExistingAssets)
             {
-                material.color = BlockColorUtility.GetColor(colorType);
+                material.color = BlockColorPalette.GetColor(colorType);
                 EditorUtility.SetDirty(material);
             }
 

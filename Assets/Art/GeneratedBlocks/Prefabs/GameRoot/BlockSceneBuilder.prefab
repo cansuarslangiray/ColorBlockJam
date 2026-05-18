@@ -58,6 +58,20 @@ MonoBehaviour:
     material: {fileID: 2100000, guid: c6446b903872a4b05b2322234f375b0b, type: 2}
   - colorType: 4
     material: {fileID: 2100000, guid: 7d9c968e35de94a209c8d90674f284ff, type: 2}
+  - colorType: 5
+    material: {fileID: 2100000, guid: c1d2e3f4a5b64712bc34de56f7890a12, type: 2}
+  - colorType: 6
+    material: {fileID: 2100000, guid: d2e3f4a5b6c74823cd45ef67a8901b23, type: 2}
+  - colorType: 7
+    material: {fileID: 2100000, guid: e3f4a5b6c7d84934de56f078b9012c34, type: 2}
+  - colorType: 8
+    material: {fileID: 2100000, guid: f4a5b6c7d8e94567ab12cd34ef560145, type: 2}
+  - colorType: 9
+    material: {fileID: 2100000, guid: a5b6c7d8e9f05678bc23de45f0671256, type: 2}
+  - colorType: 10
+    material: {fileID: 2100000, guid: b6c7d8e9f0a16789cd34ef5601782367, type: 2}
+  - colorType: 11
+    material: {fileID: 2100000, guid: c7d8e9f0a1b27890de45f06712893478, type: 2}
   boardCellGap: 0.022
   boardCellsZOffset: 0.74
   boardBackdropPaddingInCells: 0.06

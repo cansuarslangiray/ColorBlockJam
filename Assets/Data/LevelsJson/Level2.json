@@ -12,8 +12,8 @@
         3
     ],
     "availableShapeKeys": [
-        "Shape_L_3x2",
-        "Shape_LO_3x2",
+        "Shape_L_SW_3x2",
+        "Shape_L_NW_3x2",
         "Shape_3x1",
         "Shape_1x3"
     ],
@@ -54,6 +54,7 @@
                 "y": 2
             },
             "shapeKey": "Shape_1x3",
+            "blockType": 4,
             "movementConstraint": 0,
             "colorType": 3
         },
@@ -63,6 +64,7 @@
                 "y": 2
             },
             "shapeKey": "Shape_1x3",
+            "blockType": 4,
             "movementConstraint": 0,
             "colorType": 2
         }

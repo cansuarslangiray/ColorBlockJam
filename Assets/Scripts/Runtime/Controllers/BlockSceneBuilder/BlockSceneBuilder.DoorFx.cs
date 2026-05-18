@@ -72,7 +72,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             Vector3 baseWorldPosition,
             float cellSize)
         {
-            yield return DoorMatchFxTween.LowerAndRaise(doorTransform, baseWorldPosition, cellSize,
+            yield return BlockMotionTween.LowerAndRaiseDoor(doorTransform, baseWorldPosition, cellSize,
                 DoorMatchDropDistanceInCells, DoorMatchLowerDuration, DoorMatchHoldDuration, DoorMatchRaiseDuration);
 
             if (doorIndex >= 0 && doorIndex < _doorMotionRoutineByIndex.Count)

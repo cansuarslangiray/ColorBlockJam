@@ -60,4 +60,27 @@ namespace Runtime.Helpers
             return fallbackDirection != Vector2Int.zero ? fallbackDirection : opening.EdgeDirection.ToVector();
         }
     }
+
+    public static class BlockColorPalette
+    {
+        public static Color GetColor(BlockColor color)
+        {
+            return color switch
+            {
+                BlockColor.Red => new Color(0.9f, 0.25f, 0.25f),
+                BlockColor.Blue => new Color(0.2f, 0.45f, 0.95f),
+                BlockColor.Green => new Color(0.2f, 0.78f, 0.35f),
+                BlockColor.Yellow => new Color(0.95f, 0.82f, 0.2f),
+                BlockColor.Purple => new Color(0.62f, 0.32f, 0.88f),
+                BlockColor.Orange => new Color(0.98f, 0.56f, 0.18f),
+                BlockColor.Cyan => new Color(0.15f, 0.82f, 0.9f),
+                BlockColor.Pink => new Color(0.98f, 0.42f, 0.67f),
+                BlockColor.Mint => new Color(0.42f, 0.92f, 0.72f),
+                BlockColor.Indigo => new Color(0.34f, 0.34f, 0.9f),
+                BlockColor.Coral => new Color(0.96f, 0.5f, 0.44f),
+                BlockColor.Lime => new Color(0.72f, 0.9f, 0.24f),
+                _ => Color.white
+            };
+        }
+    }
 }

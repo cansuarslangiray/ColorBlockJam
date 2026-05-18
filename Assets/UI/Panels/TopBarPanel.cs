@@ -26,7 +26,6 @@ namespace UI.Panels
         private WaitForSeconds _tickWaitInstruction;
         private float _cachedTickInterval = -1f;
         private int _resolvedWarningThreshold;
-        private UIManager _uiManager;
 
         public event Action ReloadRequested;
         public event Action SettingsRequested;
@@ -52,21 +51,6 @@ namespace UI.Panels
             RefreshTimerStyleThreshold();
             _cachedTickInterval = -1f;
             _tickWaitInstruction = null;
-        }
-
-        public void SubscribeToState(UIManager uiManager)
-        {
-            _uiManager = uiManager;
-            _uiManager.GameStateChanged += HandleGameStateChanged;
-        }
-
-        public void UnsubscribeFromState()
-        {
-            if (_uiManager != null)
-            {
-                _uiManager.GameStateChanged -= HandleGameStateChanged;
-                _uiManager = null;
-            }
         }
 
         public void StartTimer(float durationSeconds)
@@ -159,7 +143,7 @@ namespace UI.Panels
             RaiseTimerExpired();
         }
 
-        private void HandleGameStateChanged(GameState state)
+        protected override void OnGameStateChanged(GameState state)
         {
             Show();
             _reloadButton.SetEnabled(state == GameState.Playing);

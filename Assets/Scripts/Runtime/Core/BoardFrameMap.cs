@@ -19,7 +19,7 @@ namespace Runtime.Core
                    cell.y == gridDimensions.y - 1;
         }
 
-        public static void CollectFrameCells(Vector2Int gridDimensions, List<Vector2Int> resultCells)
+        private static void CollectFrameCells(Vector2Int gridDimensions, List<Vector2Int> resultCells)
         {
             resultCells?.Clear();
             if (resultCells == null || gridDimensions.x <= 0 || gridDimensions.y <= 0)

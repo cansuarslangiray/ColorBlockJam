@@ -14,8 +14,8 @@
     ],
     "availableShapeKeys": [
         "Shape_1x2",
-        "Shape_LO_3x2",
-        "Shape_L_3x2"
+        "Shape_L_NW_3x2",
+        "Shape_L_SW_3x2"
     ],
     "doors": [
         {
@@ -82,6 +82,7 @@
                 "y": 3
             },
             "shapeKey": "Shape_1x2",
+            "blockType": 2,
             "movementConstraint": 0,
             "colorType": 0
         },
@@ -90,7 +91,8 @@
                 "x": 2,
                 "y": 3
             },
-            "shapeKey": "Shape_LO_3x2",
+            "shapeKey": "Shape_L_NW_3x2",
+            "blockType": 100,
             "movementConstraint": 0,
             "colorType": 1
         },
@@ -99,7 +101,8 @@
                 "x": 3,
                 "y": 2
             },
-            "shapeKey": "Shape_L_3x2",
+            "shapeKey": "Shape_L_SW_3x2",
+            "blockType": 100,
             "movementConstraint": 0,
             "colorType": 3
         }

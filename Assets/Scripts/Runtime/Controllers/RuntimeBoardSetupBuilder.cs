@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
-using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using UnityEngine;
 
@@ -35,10 +34,7 @@ namespace Runtime.Controllers
             {
                 var blockData = levelData.blocks[i];
                 var fallbackCellCount = 1;
-                var resolvedBlockType = blockData.ResolveBlockType(fallbackCellCount);
-                var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedBlockType);
-                blockData.blockType = resolvedBlockType;
-                blockData.shapeKey = resolvedShapeKey;
+                var resolvedShapeKey = blockData.ResolveShapeKey(fallbackCellCount);
 
                 if (!string.IsNullOrWhiteSpace(resolvedShapeKey) &&
                     (shapeRegistry == null || !shapeRegistry.TryResolveShape(resolvedShapeKey, out _)))

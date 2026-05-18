@@ -15,7 +15,6 @@ namespace UI.Panels
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
-        private UIManager _uiManager;
 
         public event Action ActionRequested;
         protected override bool UseSafeAreaPadding => false;
@@ -29,22 +28,7 @@ namespace UI.Panels
             Hide();
         }
 
-        public void SubscribeToState(UIManager uiManager)
-        {
-            _uiManager = uiManager;
-            _uiManager.GameStateChanged += HandleGameStateChanged;
-        }
-
-        public void UnsubscribeFromState()
-        {
-            if (_uiManager != null)
-            {
-                _uiManager.GameStateChanged -= HandleGameStateChanged;
-                _uiManager = null;
-            }
-        }
-
-        private void HandleGameStateChanged(GameState state)
+        protected override void OnGameStateChanged(GameState state)
         {
             switch (state)
             {
@@ -96,19 +80,19 @@ namespace UI.Panels
             switch (state)
             {
                 case GameState.LevelCompleted:
-                    actionKey = LocalizationKeys.Gameplay.EndLevelCompletedAction;
-                    titleKey = LocalizationKeys.Gameplay.EndLevelCompletedTitle;
-                    subtitleKey = LocalizationKeys.Gameplay.EndLevelCompletedSubtitle;
+                    actionKey = LocalizationKeys.EndLevelCompletedAction;
+                    titleKey = LocalizationKeys.EndLevelCompletedTitle;
+                    subtitleKey = LocalizationKeys.EndLevelCompletedSubtitle;
                     return;
                 case GameState.LevelFailed:
-                    actionKey = LocalizationKeys.Gameplay.EndLevelFailedAction;
-                    titleKey = LocalizationKeys.Gameplay.EndLevelFailedTitle;
-                    subtitleKey = LocalizationKeys.Gameplay.EndLevelFailedSubtitle;
+                    actionKey = LocalizationKeys.EndLevelFailedAction;
+                    titleKey = LocalizationKeys.EndLevelFailedTitle;
+                    subtitleKey = LocalizationKeys.EndLevelFailedSubtitle;
                     return;
                 case GameState.GameCompleted:
-                    actionKey = LocalizationKeys.Gameplay.EndGameCompletedAction;
-                    titleKey = LocalizationKeys.Gameplay.EndGameCompletedTitle;
-                    subtitleKey = LocalizationKeys.Gameplay.EndGameCompletedSubtitle;
+                    actionKey = LocalizationKeys.EndGameCompletedAction;
+                    titleKey = LocalizationKeys.EndGameCompletedTitle;
+                    subtitleKey = LocalizationKeys.EndGameCompletedSubtitle;
                     return;
                 default:
                     actionKey = string.Empty;

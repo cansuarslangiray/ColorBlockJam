@@ -41,59 +41,15 @@ namespace Editor.LevelEditor
         private void DrawAvailabilitySettings()
         {
             EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField("Available Colors & Shapes", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Available Colors", EditorStyles.boldLabel);
 
             DrawAvailableColors();
-            DrawAvailableShapes();
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                "Available Shapes listesi bloklardan otomatik senkronlanir. Manuel tik secimi kaldirildi.",
+                MessageType.None);
 
             EditorGUILayout.EndVertical();
-        }
-
-        private void DrawAvailableShapes()
-        {
-            EditorGUILayout.Space(4f);
-            EditorGUILayout.LabelField("Available Shapes");
-
-            if (_shapeRegistry == null || _shapeRegistry.Shapes.Count == 0)
-            {
-                EditorGUILayout.HelpBox("Shape JSON bulunamadı. Assets/Data/BlockShapes altındaki .json dosyalarını kontrol et.", MessageType.Warning);
-                return;
-            }
-
-            IReadOnlyList<BlockShapeJsonData> shapes = _shapeRegistry.Shapes;
-            for (int i = 0; i < shapes.Count; i++)
-            {
-                BlockShapeJsonData shape = shapes[i];
-                if (shape == null)
-                {
-                    continue;
-                }
-
-                string key = shape.ShapeKey;
-                if (string.IsNullOrWhiteSpace(key))
-                {
-                    continue;
-                }
-
-                bool hasShape = ContainsShapeKey(_activeLevel.availableShapeKeys, key);
-                bool nextHasShape = EditorGUILayout.ToggleLeft(key, hasShape);
-                if (nextHasShape == hasShape)
-                {
-                    continue;
-                }
-
-                RecordLevelChange("Edit Available Shapes");
-                if (nextHasShape)
-                {
-                    _activeLevel.availableShapeKeys.Add(key);
-                }
-                else
-                {
-                    RemoveAvailableShapeByKey(key);
-                }
-
-                SaveLevelChange();
-            }
         }
 
         private void DrawAvailableColors()
@@ -101,31 +57,51 @@ namespace Editor.LevelEditor
             EditorGUILayout.LabelField("Available Colors");
 
             BlockColor[] allColors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
-            for (int i = 0; i < allColors.Length; i++)
+            if (allColors.Length == 0)
             {
-                BlockColor color = allColors[i];
-                bool hasColor = _activeLevel.availableColors.Contains(color);
-                bool next = EditorGUILayout.ToggleLeft(color.ToString(), hasColor);
-
-                if (next == hasColor)
-                {
-                    continue;
-                }
-
-                RecordLevelChange("Edit Available Colors");
-                if (next)
-                {
-                    _activeLevel.availableColors.Add(color);
-                }
-                else
-                {
-                    _activeLevel.availableColors.Remove(color);
-                    RemoveDoorsWithColor(color);
-                    RemoveBlocksWithColor(color);
-                }
-
-                SaveLevelChange();
+                return;
             }
+
+            const int rowsPerColumn = 6;
+            int columnCount = Mathf.CeilToInt(allColors.Length / (float)rowsPerColumn);
+
+            EditorGUILayout.BeginHorizontal();
+            for (int column = 0; column < columnCount; column++)
+            {
+                EditorGUILayout.BeginVertical(GUILayout.MaxWidth(170f));
+
+                int startIndex = column * rowsPerColumn;
+                int endIndex = Mathf.Min(startIndex + rowsPerColumn, allColors.Length);
+                for (int i = startIndex; i < endIndex; i++)
+                {
+                    BlockColor color = allColors[i];
+                    bool hasColor = _activeLevel.availableColors.Contains(color);
+                    bool next = EditorGUILayout.ToggleLeft(color.ToString(), hasColor);
+
+                    if (next == hasColor)
+                    {
+                        continue;
+                    }
+
+                    RecordLevelChange("Edit Available Colors");
+                    if (next)
+                    {
+                        _activeLevel.availableColors.Add(color);
+                    }
+                    else
+                    {
+                        _activeLevel.availableColors.Remove(color);
+                        RemoveDoorsWithColor(color);
+                        RemoveBlocksWithColor(color);
+                    }
+
+                    SaveLevelChange();
+                }
+
+                EditorGUILayout.EndVertical();
+            }
+
+            EditorGUILayout.EndHorizontal();
         }
 
         private void DrawEditModeToolbar()
@@ -189,28 +165,14 @@ namespace Editor.LevelEditor
             }
 
             IReadOnlyList<BlockShapeJsonData> shapes = _shapeRegistry.Shapes;
-            string[] options = new string[shapes.Count];
-            int selectedIndex = -1;
-
-            for (int i = 0; i < shapes.Count; i++)
+            int selectedIndex = 0;
+            if (_selectedBlockShape != null &&
+                _shapeOptionIndexByKey.TryGetValue(_selectedBlockShape.ShapeKey, out int resolvedIndex))
             {
-                BlockShapeJsonData shape = shapes[i];
-                string key = shape != null ? shape.ShapeKey : string.Empty;
-                options[i] = string.IsNullOrWhiteSpace(key) ? $"Shape_{i}" : key;
-
-                if (_selectedBlockShape != null && shape != null &&
-                    string.Equals(_selectedBlockShape.ShapeKey, shape.ShapeKey, StringComparison.Ordinal))
-                {
-                    selectedIndex = i;
-                }
+                selectedIndex = Mathf.Clamp(resolvedIndex, 0, _shapeOptionLabels.Length - 1);
             }
 
-            if (selectedIndex < 0)
-            {
-                selectedIndex = 0;
-            }
-
-            int nextIndex = EditorGUILayout.Popup("Shape", selectedIndex, options);
+            int nextIndex = EditorGUILayout.Popup("Shape", selectedIndex, _shapeOptionLabels);
             _selectedBlockShape = nextIndex >= 0 && nextIndex < shapes.Count ? shapes[nextIndex] : null;
         }
 
@@ -285,20 +247,6 @@ namespace Editor.LevelEditor
             EditorGUILayout.LabelField("Border Alani = Dis halka hucreleri (oynanamaz)");
         }
 
-        private static Vector2Int ResolvePlayableGridDimensions(Vector2Int grid)
-        {
-            if (grid.x < 3 || grid.y < 3)
-            {
-                return new Vector2Int(
-                    Mathf.Max(1, grid.x),
-                    Mathf.Max(1, grid.y));
-            }
-
-            return new Vector2Int(
-                grid.x - 2,
-                grid.y - 2);
-        }
-
         private void DrawLayoutValidationReport()
         {
             EnsureGridLookupCache();
@@ -341,14 +289,23 @@ namespace Editor.LevelEditor
             EditorGUILayout.BeginVertical("box");
             EditorGUILayout.LabelField("Blocks In Level", EditorStyles.boldLabel);
 
+            if (_activeLevel.blocks.Count == 0)
+            {
+                EditorGUILayout.LabelField("Bu levelde henuz blok yok.");
+                EditorGUILayout.EndVertical();
+                return;
+            }
+
             for (int i = 0; i < _activeLevel.blocks.Count; i++)
             {
                 LevelJsonBlockData block = _activeLevel.blocks[i];
                 Vector2Int size = block.GetSize(_shapeRegistry);
+                string resolvedShapeKey = block.ResolveShapeKey();
 
+                EditorGUILayout.BeginVertical("box");
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField(
-                    $"#{i} Pos:{block.position} Size:{size.x}x{size.y} Color:{block.colorType} Move:{block.movementConstraint}");
+                    $"#{i} Pos:{block.position} Shape:{resolvedShapeKey} Size:{size.x}x{size.y} Color:{block.colorType} Move:{block.movementConstraint}");
 
                 if (GUILayout.Button("Delete", GUILayout.Width(64f)))
                 {
@@ -356,13 +313,76 @@ namespace Editor.LevelEditor
                     _activeLevel.blocks.RemoveAt(i);
                     SaveLevelChange();
                     EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.EndVertical();
                     break;
                 }
 
                 EditorGUILayout.EndHorizontal();
+
+                DrawBlockShapeEditor(i, block);
+                EditorGUILayout.EndVertical();
             }
 
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawBlockShapeEditor(int blockIndex, LevelJsonBlockData block)
+        {
+            if (_shapeRegistry == null || _shapeRegistry.Shapes.Count == 0)
+            {
+                EditorGUILayout.HelpBox("Shape registry bulunamadi.", MessageType.Warning);
+                return;
+            }
+
+            IReadOnlyList<BlockShapeJsonData> shapes = _shapeRegistry.Shapes;
+            string currentShapeKey = block.ResolveShapeKey();
+            bool hasShapeMatch = _shapeOptionIndexByKey.TryGetValue(currentShapeKey, out int selectedIndex);
+            selectedIndex = Mathf.Clamp(selectedIndex, 0, _shapeOptionLabels.Length - 1);
+
+            if (!hasShapeMatch && !string.IsNullOrWhiteSpace(currentShapeKey))
+            {
+                EditorGUILayout.HelpBox(
+                    $"Mevcut shape '{currentShapeKey}' registry'de yok. Asagidan secip guncelleyebilirsin.",
+                    MessageType.Warning);
+            }
+
+            EditorGUI.BeginChangeCheck();
+            int nextIndex = EditorGUILayout.Popup("Shape", selectedIndex, _shapeOptionLabels);
+            if (!EditorGUI.EndChangeCheck())
+            {
+                return;
+            }
+
+            if (nextIndex < 0 || nextIndex >= shapes.Count)
+            {
+                return;
+            }
+
+            BlockShapeJsonData nextShape = shapes[nextIndex];
+            string nextShapeKey = nextShape != null ? nextShape.ShapeKey : string.Empty;
+            if (string.IsNullOrWhiteSpace(nextShapeKey) ||
+                string.Equals(nextShapeKey, currentShapeKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!CanReplaceBlockShape(blockIndex, block.position, nextShape))
+            {
+                ShowNotification(new GUIContent("Shape guncellenemedi: Cakisiyor veya grid disina tasiyor."));
+                return;
+            }
+
+            RecordLevelChange("Edit Block Shape");
+            block.shapeKey = nextShapeKey;
+            block.blockType = BlockShapeTypeUtility.FromShapeKey(nextShapeKey);
+            _activeLevel.blocks[blockIndex] = block;
+
+            if (!ContainsShapeKey(_activeLevel.availableShapeKeys, nextShapeKey))
+            {
+                _activeLevel.availableShapeKeys.Add(nextShapeKey);
+            }
+
+            SaveLevelChange();
         }
     }
 }

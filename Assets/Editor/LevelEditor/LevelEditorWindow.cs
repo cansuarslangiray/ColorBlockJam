@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Runtime.Core;
 using Runtime.Data;
@@ -12,6 +13,7 @@ namespace Editor.LevelEditor
     {
         private const float GridCellPixelSize = 26f;
         private const string ShapeJsonFolder = "Assets/Data/BlockShapes";
+        private const string LevelJsonFolder = "Assets/Data/LevelsJson";
 
         private TextAsset _activeLevelJson;
         private string _activeLevelJsonPath;
@@ -35,8 +37,12 @@ namespace Editor.LevelEditor
         private bool _gridLookupCacheDirty = true;
         private readonly List<string> _projectJsonPaths = new List<string>(128);
         private readonly Dictionary<string, int> _projectJsonIndexByPath = new Dictionary<string, int>(128);
+        private readonly Dictionary<string, int> _shapeOptionIndexByKey = new Dictionary<string, int>(64, StringComparer.Ordinal);
+        private string[] _shapeOptionLabels = Array.Empty<string>();
         private string[] _projectJsonOptions = { "None" };
         private bool _projectJsonCacheDirty = true;
+        private bool _shapeRegistryCacheDirty = true;
+        private int _newLevelNumber = 1;
 
         [MenuItem("Tools/Color Block Jam/Level Editor")]
         private static void OpenWindow()
@@ -51,6 +57,7 @@ namespace Editor.LevelEditor
         {
             EditorApplication.projectChanged += HandleProjectAssetsChanged;
             MarkProjectJsonCacheDirty();
+            MarkShapeRegistryCacheDirty();
         }
 
         private void OnDisable()
@@ -100,9 +107,13 @@ namespace Editor.LevelEditor
             EditorGUILayout.LabelField("Shape JSON Count", shapeCount.ToString());
 
             EditorGUILayout.BeginHorizontal();
+            _newLevelNumber = Mathf.Max(
+                1,
+                EditorGUILayout.IntField("New Level", _newLevelNumber, GUILayout.Width(170f)));
+
             if (GUILayout.Button("Create New Level JSON", GUILayout.Height(24f)))
             {
-                CreateNewLevelJson();
+                CreateNewLevelJson(_newLevelNumber);
             }
 
             bool canSave = _activeLevel != null && !string.IsNullOrWhiteSpace(_activeLevelJsonPath);
@@ -163,11 +174,17 @@ namespace Editor.LevelEditor
         private void HandleProjectAssetsChanged()
         {
             MarkProjectJsonCacheDirty();
+            MarkShapeRegistryCacheDirty();
         }
 
         private void MarkProjectJsonCacheDirty()
         {
             _projectJsonCacheDirty = true;
+        }
+
+        private void MarkShapeRegistryCacheDirty()
+        {
+            _shapeRegistryCacheDirty = true;
         }
 
     }

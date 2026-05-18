@@ -36,14 +36,29 @@ namespace Runtime.Data
 
         public BlockShapeType ResolveBlockType(int fallbackCellCount = 1)
         {
-            if (blockType != BlockShapeType.Unknown)
+            if (!string.IsNullOrWhiteSpace(shapeKey))
             {
+                string currentShapeKey = shapeKey.Trim();
+                BlockShapeType typeFromShapeKey = BlockShapeTypeUtility.FromShapeKey(currentShapeKey, fallbackCellCount);
+
+                if (blockType == BlockShapeType.Unknown)
+                {
+                    return typeFromShapeKey;
+                }
+
+                string shapeKeyFromBlockType = BlockShapeTypeUtility.ToShapeKey(blockType);
+                if (string.IsNullOrWhiteSpace(shapeKeyFromBlockType) ||
+                    !string.Equals(shapeKeyFromBlockType, currentShapeKey, StringComparison.Ordinal))
+                {
+                    return typeFromShapeKey;
+                }
+
                 return blockType;
             }
 
-            if (!string.IsNullOrWhiteSpace(shapeKey))
+            if (blockType != BlockShapeType.Unknown)
             {
-                return BlockShapeTypeUtility.FromShapeKey(shapeKey, fallbackCellCount);
+                return blockType;
             }
 
             return fallbackCellCount <= 1 ? BlockShapeType.Shape1x1 : BlockShapeType.Custom;
@@ -51,11 +66,18 @@ namespace Runtime.Data
 
         public void NormalizeBlockType()
         {
+            var currentShapeKey = string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
             var resolvedType = ResolveBlockType();
             blockType = resolvedType;
 
+            if (resolvedType == BlockShapeType.Custom)
+            {
+                shapeKey = currentShapeKey;
+                return;
+            }
+
             var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
-            shapeKey = string.IsNullOrWhiteSpace(resolvedShapeKey) ? string.Empty : resolvedShapeKey;
+            shapeKey = string.IsNullOrWhiteSpace(resolvedShapeKey) ? currentShapeKey : resolvedShapeKey;
         }
 
         public Vector2Int[] GetLocalCells(BlockShapeRegistry shapeRegistry)

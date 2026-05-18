@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Runtime.Core
 {
-    public abstract class DoorOpeningMap
+    public static class DoorOpeningMap
     {
         private static readonly Vector2Int[] Neighbors =
         {
@@ -173,7 +173,7 @@ namespace Runtime.Core
             return true;
         }
 
-        public static bool TryGetDoorDirection(Vector2Int cell, Vector2Int gridDimensions, out Direction edgeDirection)
+        private static bool TryGetDoorDirection(Vector2Int cell, Vector2Int gridDimensions, out Direction edgeDirection)
         {
             int maxX = gridDimensions.x - 1;
             int maxY = gridDimensions.y - 1;

@@ -32,22 +32,35 @@ namespace Editor.LevelEditor
             Repaint();
         }
 
-        private void CreateNewLevelJson()
+        private void CreateNewLevelJson(int levelNumber)
         {
-            string path = EditorUtility.SaveFilePanelInProject(
-                "Create Level JSON",
-                "Level",
-                "json",
-                "Yeni level json kaydet");
+            levelNumber = Math.Max(1, levelNumber);
+            _newLevelNumber = levelNumber;
 
-            if (string.IsNullOrWhiteSpace(path))
+            if (!AssetDatabase.IsValidFolder(LevelJsonFolder))
             {
+                EditorUtility.DisplayDialog(
+                    "Level Folder Missing",
+                    $"Level JSON klasoru bulunamadi: {LevelJsonFolder}",
+                    "Tamam");
+                return;
+            }
+
+            string levelKey = BuildLevelKey(levelNumber);
+            string path = BuildLevelJsonPath(levelNumber);
+            if (File.Exists(path) || AssetDatabase.LoadAssetAtPath<TextAsset>(path) != null)
+            {
+                EditorUtility.DisplayDialog(
+                    "Level Already Exists",
+                    $"{levelKey}.json zaten olusturulmus. Lutfen farkli bir level numarasi gir.",
+                    "Tamam");
                 return;
             }
 
             _activeLevel = new LevelJsonData
             {
-                levelKey = Path.GetFileNameWithoutExtension(path)
+                levelKey = levelKey,
+                levelNumber = levelNumber
             };
             _activeLevel.Sanitize();
             MarkGridLookupCacheDirty();
@@ -57,7 +70,7 @@ namespace Editor.LevelEditor
             AssetDatabase.Refresh();
             MarkProjectJsonCacheDirty();
 
-            _activeLevelJson = AssetDatabase.LoadAssetAtPath<TextAsset>(_activeLevelJsonPath);
+            LoadLevelFromJsonPath(_activeLevelJsonPath);
             if (_activeLevelJson != null)
             {
                 EditorGUIUtility.PingObject(_activeLevelJson);
@@ -79,6 +92,7 @@ namespace Editor.LevelEditor
             }
 
             _activeLevel = LevelJsonSerialization.Deserialize(jsonAsset.text, jsonAsset.name);
+            _newLevelNumber = Math.Max(1, _activeLevel.levelNumber);
             MarkGridLookupCacheDirty();
         }
 
@@ -109,7 +123,7 @@ namespace Editor.LevelEditor
 
         private void EnsureShapeRegistryLoaded(bool forceReload = false)
         {
-            if (_shapeRegistry != null && !forceReload)
+            if (_shapeRegistry != null && !_shapeRegistryCacheDirty && !forceReload)
             {
                 return;
             }
@@ -143,6 +157,8 @@ namespace Editor.LevelEditor
             }
 
             _shapeRegistry = BlockShapeRegistry.FromJsonAssets(shapeJsonFiles);
+            RebuildShapeOptionCache();
+            _shapeRegistryCacheDirty = false;
             MarkGridLookupCacheDirty();
 
             BlockShapeJsonData resolvedShape = null;
@@ -173,13 +189,16 @@ namespace Editor.LevelEditor
             _projectJsonPaths.Clear();
             _projectJsonIndexByPath.Clear();
 
-            string[] guids = AssetDatabase.FindAssets("t:TextAsset", new[] { "Assets" });
-            for (int i = 0; i < guids.Length; i++)
+            if (AssetDatabase.IsValidFolder(LevelJsonFolder))
             {
-                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                string[] guids = AssetDatabase.FindAssets("t:TextAsset", new[] { LevelJsonFolder });
+                for (int i = 0; i < guids.Length; i++)
                 {
-                    _projectJsonPaths.Add(path);
+                    string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                    if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _projectJsonPaths.Add(path);
+                    }
                 }
             }
 
@@ -194,6 +213,16 @@ namespace Editor.LevelEditor
                 _projectJsonOptions[optionIndex] = path;
                 _projectJsonIndexByPath[path] = optionIndex;
             }
+        }
+
+        private static string BuildLevelKey(int levelNumber)
+        {
+            return $"Level{Math.Max(1, levelNumber)}";
+        }
+
+        private static string BuildLevelJsonPath(int levelNumber)
+        {
+            return $"{LevelJsonFolder}/{BuildLevelKey(levelNumber)}.json";
         }
 
         private static bool ContainsShapeKey(List<string> shapeKeys, string shapeKey)
@@ -214,21 +243,31 @@ namespace Editor.LevelEditor
             return false;
         }
 
-        private void RemoveAvailableShapeByKey(string shapeKey)
+        private void RebuildShapeOptionCache()
         {
-            if (_activeLevel.availableShapeKeys == null || string.IsNullOrWhiteSpace(shapeKey))
+            _shapeOptionIndexByKey.Clear();
+
+            if (_shapeRegistry == null || _shapeRegistry.Shapes.Count == 0)
             {
+                _shapeOptionLabels = Array.Empty<string>();
                 return;
             }
 
-            for (int i = _activeLevel.availableShapeKeys.Count - 1; i >= 0; i--)
+            IReadOnlyList<BlockShapeJsonData> shapes = _shapeRegistry.Shapes;
+            _shapeOptionLabels = new string[shapes.Count];
+
+            for (int i = 0; i < shapes.Count; i++)
             {
-                var currentKey = _activeLevel.availableShapeKeys[i];
-                if (string.IsNullOrWhiteSpace(currentKey) || string.Equals(currentKey, shapeKey, StringComparison.Ordinal))
+                BlockShapeJsonData shape = shapes[i];
+                string key = shape != null ? shape.ShapeKey : string.Empty;
+                _shapeOptionLabels[i] = string.IsNullOrWhiteSpace(key) ? $"Shape_{i}" : key;
+
+                if (!string.IsNullOrWhiteSpace(key) && !_shapeOptionIndexByKey.ContainsKey(key))
                 {
-                    _activeLevel.availableShapeKeys.RemoveAt(i);
+                    _shapeOptionIndexByKey.Add(key, i);
                 }
             }
         }
+
     }
 }

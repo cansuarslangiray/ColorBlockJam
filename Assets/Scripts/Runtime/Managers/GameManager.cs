@@ -30,7 +30,9 @@ namespace Runtime.Managers
         private float _cachedLevelCompleteDelay = -1f;
         private LevelProgression _levelProgression;
         private GameplayCameraFramer _cameraFramer;
-        private GameManagerEventBindings _eventBindings;
+        private bool _boardEventsRegistered;
+        private bool _stateEventsRegistered;
+        private bool _uiEventsRegistered;
 
         protected override void Awake()
         {
@@ -68,30 +70,71 @@ namespace Runtime.Managers
 
         private void OnEnable()
         {
-            if (!enabled || _eventBindings == null)
+            if (!enabled)
             {
                 return;
             }
 
-            _eventBindings.Register();
+            RegisterEvents();
         }
 
-        private void OnDisable() => _eventBindings?.Unregister();
+        private void OnDisable() => UnregisterEvents();
 
         private void InitializeCollaborators()
         {
             _levelProgression = new LevelProgression(levelCollection);
             _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera);
-            _eventBindings = new GameManagerEventBindings(
-                boardController,
-                stateManager,
-                uiManager,
-                OnLevelCompleted,
-                HandleStateChanged,
-                HandleTimerExpired,
-                HandleStartRequested,
-                HandleEndGameActionRequested,
-                HandleReloadRequested);
+        }
+
+        private void RegisterEvents()
+        {
+            if (!_boardEventsRegistered && boardController != null)
+            {
+                boardController.LevelCompleted += OnLevelCompleted;
+                _boardEventsRegistered = true;
+            }
+
+            if (!_stateEventsRegistered && stateManager != null)
+            {
+                stateManager.OnStateChanged += HandleStateChanged;
+                _stateEventsRegistered = true;
+            }
+
+            if (!_uiEventsRegistered && uiManager != null)
+            {
+                uiManager.LevelTimerExpired += HandleTimerExpired;
+                uiManager.StartRequested += HandleStartRequested;
+                uiManager.EndGameActionRequested += HandleEndGameActionRequested;
+                uiManager.ReloadRequested += HandleReloadRequested;
+                _uiEventsRegistered = true;
+            }
+        }
+
+        private void UnregisterEvents()
+        {
+            if (_boardEventsRegistered && boardController != null)
+            {
+                boardController.LevelCompleted -= OnLevelCompleted;
+            }
+
+            _boardEventsRegistered = false;
+
+            if (_stateEventsRegistered && stateManager != null)
+            {
+                stateManager.OnStateChanged -= HandleStateChanged;
+            }
+
+            _stateEventsRegistered = false;
+
+            if (_uiEventsRegistered && uiManager != null)
+            {
+                uiManager.LevelTimerExpired -= HandleTimerExpired;
+                uiManager.StartRequested -= HandleStartRequested;
+                uiManager.EndGameActionRequested -= HandleEndGameActionRequested;
+                uiManager.ReloadRequested -= HandleReloadRequested;
+            }
+
+            _uiEventsRegistered = false;
         }
 
         private void InitializeRun()

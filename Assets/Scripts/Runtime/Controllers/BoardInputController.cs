@@ -25,10 +25,14 @@ namespace Runtime.Controllers
 
         private void Awake()
         {
-            if (!TryResolveDependencies())
+            if (boardController == null)
             {
+                Debug.LogError("BoardInputController requires an assigned BoardController.", this);
                 enabled = false;
+                return;
             }
+
+            _pointerEventData = uiEventSystem != null ? new PointerEventData(uiEventSystem) : null;
         }
 
         private void OnEnable()
@@ -156,12 +160,6 @@ namespace Runtime.Controllers
             _uiRaycastResults.Clear();
             uiEventSystem.RaycastAll(_pointerEventData, _uiRaycastResults);
             return _uiRaycastResults.Count > 0;
-        }
-
-        private bool TryResolveDependencies()
-        {
-            _pointerEventData ??= new PointerEventData(uiEventSystem);
-            return true;
         }
 
         private bool TryResolveInputActions()

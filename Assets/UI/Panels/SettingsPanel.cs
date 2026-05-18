@@ -27,22 +27,6 @@ namespace UI.Panels
         private VisualElement _scrim;
         private bool _isOpen;
         private bool _settingsEventsRegistered;
-        private UIManager _uiManager;
-
-        public void SubscribeToState(UIManager uiManager)
-        {
-            _uiManager = uiManager;
-            _uiManager.GameStateChanged += HandleGameStateChanged;
-        }
-
-        public void UnsubscribeFromState()
-        {
-            if (_uiManager != null)
-            {
-                _uiManager.GameStateChanged -= HandleGameStateChanged;
-                _uiManager = null;
-            }
-        }
 
         protected override void CacheElements()
         {
@@ -183,7 +167,7 @@ namespace UI.Panels
             _languageToggleButton.text = shouldSwitchToTurkish ? "TR" : "EN";
         }
 
-        private void HandleGameStateChanged(GameState _) => Hide();
+        protected override void OnGameStateChanged(GameState _) => Hide();
 
         private void HandleCloseClicked() => ClosePanel();
 

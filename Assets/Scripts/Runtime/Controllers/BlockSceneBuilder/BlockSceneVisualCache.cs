@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Runtime.Data;
 using Runtime.Domain.Enums;
+using Runtime.Helpers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -8,6 +9,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
     public sealed class BlockSceneVisualCache
     {
         private readonly Dictionary<BlockColor, Material> _materialByColor = new();
+        private readonly Dictionary<BlockColor, Material> _runtimeFallbackMaterialByColor = new();
         private readonly Dictionary<int, Renderer[]> _rendererCacheByObjectId = new();
         private bool _isMaterialCacheDirty = true;
 
@@ -19,12 +21,18 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public void ClearRuntimeCaches()
         {
             _rendererCacheByObjectId.Clear();
+            ReleaseRuntimeFallbackMaterials();
         }
 
         public Material ResolveMaterial(BlockColor colorType, IReadOnlyList<BlockColorMaterialEntry> materialsByColor)
         {
             EnsureMaterialCache(materialsByColor);
-            return _materialByColor.GetValueOrDefault(colorType);
+            if (_materialByColor.TryGetValue(colorType, out var material) && material)
+            {
+                return material;
+            }
+
+            return GetOrCreateRuntimeFallbackMaterial(colorType);
         }
 
         public void ApplySharedMaterial(GameObject target, Material material)
@@ -85,6 +93,57 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _isMaterialCacheDirty = false;
+        }
+
+        private Material GetOrCreateRuntimeFallbackMaterial(BlockColor colorType)
+        {
+            if (_runtimeFallbackMaterialByColor.TryGetValue(colorType, out var fallback) && fallback)
+            {
+                return fallback;
+            }
+
+            var shader = Shader.Find("Standard");
+            if (shader == null)
+            {
+                shader = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            if (shader == null)
+            {
+                return null;
+            }
+
+            fallback = new Material(shader)
+            {
+                name = "MAT_Runtime_Block_" + colorType,
+                color = BlockColorPalette.GetColor(colorType)
+            };
+
+            _runtimeFallbackMaterialByColor[colorType] = fallback;
+            return fallback;
+        }
+
+        private void ReleaseRuntimeFallbackMaterials()
+        {
+            foreach (var pair in _runtimeFallbackMaterialByColor)
+            {
+                var material = pair.Value;
+                if (!material)
+                {
+                    continue;
+                }
+
+                if (Application.isPlaying)
+                {
+                    Object.Destroy(material);
+                }
+                else
+                {
+                    Object.DestroyImmediate(material);
+                }
+            }
+
+            _runtimeFallbackMaterialByColor.Clear();
         }
     }
 }

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using Runtime.Domain.Enums;
 using Runtime.Localization;
+using Runtime.Managers;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
@@ -15,6 +17,7 @@ namespace UI.Panels
         private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
         private readonly List<LocalizedTextBinding> _localizedTextBindings = new();
         private bool _isLocalizationEventsRegistered;
+        private UIManager _statePublisher;
        
         [SerializeField] private UIDocument uiDocument;
 
@@ -48,6 +51,32 @@ namespace UI.Panels
 
         public virtual void RefreshLocalization() => ApplyLocalizedTextBindings();
 
+        public void SubscribeToState(UIManager uiManager)
+        {
+            if (_statePublisher == uiManager)
+            {
+                return;
+            }
+
+            UnsubscribeFromState();
+            _statePublisher = uiManager;
+            if (_statePublisher != null)
+            {
+                _statePublisher.GameStateChanged += HandlePublishedGameStateChanged;
+            }
+        }
+
+        public void UnsubscribeFromState()
+        {
+            if (_statePublisher == null)
+            {
+                return;
+            }
+
+            _statePublisher.GameStateChanged -= HandlePublishedGameStateChanged;
+            _statePublisher = null;
+        }
+
         protected virtual void OnEnable()
         {
             RegisterLocalizationEvents();
@@ -56,7 +85,15 @@ namespace UI.Panels
 
         protected virtual void OnDisable() => UnregisterLocalizationEvents();
 
-        protected virtual void OnDestroy() => UnregisterLocalizationEvents();
+        protected virtual void OnDestroy()
+        {
+            UnsubscribeFromState();
+            UnregisterLocalizationEvents();
+        }
+
+        protected virtual void OnGameStateChanged(GameState state)
+        {
+        }
 
         private static void ConfigurePanelSettings(PanelSettings panelSettings)
         {
@@ -252,6 +289,8 @@ namespace UI.Panels
             var localized = LocalizationSettings.StringDatabase.GetLocalizedString(LocalizationKeys.TableName, key);
             return string.IsNullOrEmpty(localized) ? key : localized;
         }
+
+        private void HandlePublishedGameStateChanged(GameState state) => OnGameStateChanged(state);
 
         private void HandleLocaleChanged(Locale _) => RefreshLocalization();
     }

@@ -10,12 +10,7 @@ namespace Runtime.Data
     [Serializable]
     public sealed class LevelJsonData
     {
-        private static readonly List<BlockColor> DefaultColors = new()
-        {
-            BlockColor.Red,
-            BlockColor.Blue,
-            BlockColor.Green
-        };
+        private static readonly List<BlockColor> DefaultColors = CreateDefaultColors();
 
         public string levelKey = string.Empty;
         public int levelNumber = 1;
@@ -23,12 +18,7 @@ namespace Runtime.Data
         public Vector2Int gridDimensions = new(6, 8);
         public List<Vector2Int> blockedCells = new();
 
-        public List<BlockColor> availableColors = new()
-        {
-            BlockColor.Red,
-            BlockColor.Blue,
-            BlockColor.Green
-        };
+        public List<BlockColor> availableColors = CreateDefaultColors();
 
         public List<string> availableShapeKeys = new();
         public List<DoorData> doors = new();
@@ -110,6 +100,12 @@ namespace Runtime.Data
             }
 
             return new List<BlockColor>(source);
+        }
+
+        private static List<BlockColor> CreateDefaultColors()
+        {
+            var colors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
+            return new List<BlockColor>(colors);
         }
 
         private static List<string> SanitizeShapeKeys(List<string> source)

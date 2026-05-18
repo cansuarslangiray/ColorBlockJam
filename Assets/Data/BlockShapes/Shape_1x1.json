@@ -1,12 +1,12 @@
 {
-  "shapeKey": "Shape_1x1",
-  "width": 1,
-  "height": 1,
-  "useCustomShape": false,
-  "customCells": [
-    {
-      "x": 0,
-      "y": 0
-    }
-  ]
+    "shapeKey": "Shape_1x1",
+    "width": 1,
+    "height": 1,
+    "useCustomShape": false,
+    "customCells": [
+        {
+            "x": 0,
+            "y": 0
+        }
+    ]
 }

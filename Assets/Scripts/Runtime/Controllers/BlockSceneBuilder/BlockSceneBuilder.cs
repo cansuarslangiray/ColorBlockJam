@@ -23,10 +23,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Board Layout")] [SerializeField]
         private float boardCellGap = 0.08f;
         private float boardCellsZOffset = 0.75f;
-        [SerializeField] private float boardBackdropPaddingInCells = 0.4f;
         [SerializeField] private float boardBackdropZOffset = 0.95f;
         [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
-        [SerializeField, Min(0f)] private float edgeFramePaddingInCells = 0.03f;
         [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
         [SerializeField, Min(0f)] private float doorInsetInCells = 0.02f;
         [SerializeField, Min(0f)] private float doorDepthBiasFromFrame = 0.02f;
@@ -66,14 +64,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var gridZ = Mathf.Abs(boardCellsZOffset);
             var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
             var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize);
-            var framePadding = Mathf.Max(0f, edgeFramePaddingInCells * cellSize);
             var borderZ = gridZ - 0.01f;
             var doorDepth = frameDepth * 1.08f;
             var doorDepthBias = Mathf.Max(0.005f, doorDepthBiasFromFrame);
 
             return new LayoutMetrics(BoardOrigin, cellSize, gridZ,
                 gridZ - Mathf.Max(0.01f, blockLayerForwardOffsetFromGrid), frameThickness,
-                frameDepth, framePadding, borderZ, doorDepth, borderZ - doorDepthBias);
+                frameDepth, borderZ, doorDepth, borderZ - doorDepthBias);
         }
 
 

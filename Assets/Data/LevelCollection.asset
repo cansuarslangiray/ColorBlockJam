@@ -18,6 +18,7 @@ MonoBehaviour:
   - {fileID: 4900000, guid: 852c8650d52f42c684d3bb50d80b3297, type: 3}
   - {fileID: 4900000, guid: 6b22869c51704054837d23e621e2d167, type: 3}
   - {fileID: 4900000, guid: c1605f59e98d4a2cb13e4e07009abf56, type: 3}
+  - {fileID: 4900000, guid: 055b3aac548f444bd91f26d8f6bdad8a, type: 3}
   blockShapeJsonFiles:
   - {fileID: 4900000, guid: a45a5a9d43df44b6da1aa78bf2723ca5, type: 3}
   - {fileID: 4900000, guid: ca1f90966e8d249078ffae98cfc9c103, type: 3}
@@ -27,3 +28,6 @@ MonoBehaviour:
   - {fileID: 4900000, guid: 316a712e7f68440fd8ee686e37a673c7, type: 3}
   - {fileID: 4900000, guid: 33625d4dc76de4c8b8077feae12631aa, type: 3}
   - {fileID: 4900000, guid: e45e7d40800b04417b0420376ee8632a, type: 3}
+  - {fileID: 4900000, guid: 2b10e1900802847bc92579522c7cd7b5, type: 3}
+  - {fileID: 4900000, guid: cf0d997f906a94d41bb8242eb0b641d7, type: 3}
+  - {fileID: 4900000, guid: 2bc42b3a8563a439084676a156cfb784, type: 3}

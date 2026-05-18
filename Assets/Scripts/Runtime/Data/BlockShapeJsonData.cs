@@ -53,6 +53,28 @@ namespace Runtime.Data
             if (useCustomShape)
             {
                 customCells = GetSanitizedCustomCells();
+                var maxX = 0;
+                var maxY = 0;
+                for (var i = 0; i < customCells.Count; i++)
+                {
+                    var cell = customCells[i];
+                    if (cell.x > maxX)
+                    {
+                        maxX = cell.x;
+                    }
+
+                    if (cell.y > maxY)
+                    {
+                        maxY = cell.y;
+                    }
+                }
+
+                width = Mathf.Max(1, maxX + 1);
+                height = Mathf.Max(1, maxY + 1);
+            }
+            else
+            {
+                customCells = new List<Vector2Int> { Vector2Int.zero };
             }
 
             _isCacheDirty = true;

@@ -11,7 +11,6 @@ namespace UI.Panels
         [SerializeField] private AudioManager audioManager;
 
         private Button _startButton;
-        private UIManager _uiManager;
         public event Action StartRequested;
         protected override bool UseSafeAreaPadding => false;
 
@@ -22,22 +21,7 @@ namespace UI.Panels
             Show();
         }
 
-        public void SubscribeToState(UIManager uiManager)
-        {
-            _uiManager = uiManager;
-            _uiManager.GameStateChanged += HandleGameStateChanged;
-        }
-
-        public void UnsubscribeFromState()
-        {
-            if (_uiManager != null)
-            {
-                _uiManager.GameStateChanged -= HandleGameStateChanged;
-                _uiManager = null;
-            }
-        }
-
-        private void HandleGameStateChanged(GameState state)
+        protected override void OnGameStateChanged(GameState state)
         {
             if (state == GameState.StartScreen)
             {

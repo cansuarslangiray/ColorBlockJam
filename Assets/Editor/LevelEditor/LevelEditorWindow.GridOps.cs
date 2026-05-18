@@ -3,7 +3,7 @@ using Runtime.Core;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
-using UnityEditor;
+using Runtime.Helpers;
 using UnityEngine;
 
 namespace Editor.LevelEditor
@@ -12,12 +12,6 @@ namespace Editor.LevelEditor
     {
         private void HandleCellClick(Vector2Int cell)
         {
-            if (_editMode != LevelEditorMode.Doors && IsFrameCell(cell))
-            {
-                ShowNotification(new GUIContent("Kenar hucreler border alani. Bu alana blok/blocked yerlestirilemez."));
-                return;
-            }
-
             switch (_editMode)
             {
                 case LevelEditorMode.BlockedCells:
@@ -32,11 +26,11 @@ namespace Editor.LevelEditor
             }
         }
 
+        
         private void ToggleBlockedCell(Vector2Int cell)
         {
             if (IsFrameCell(cell))
             {
-                ShowNotification(new GUIContent("Kenar hucreler border alani olarak ayrildi."));
                 return;
             }
 
@@ -68,13 +62,13 @@ namespace Editor.LevelEditor
                 return;
             }
 
-            if (!IsEdgeCell(cell))
+            if (!IsFrameCell(cell))
             {
                 ShowNotification(new GUIContent("Door sadece kenar hücresine konabilir."));
                 return;
             }
 
-            if (IsCornerCell(cell))
+            if (DoorOpeningMap.IsCornerCell(cell, _activeLevel.gridDimensions))
             {
                 ShowNotification(new GUIContent("Door kose hucreye konamaz. Kosenin yanindaki kenar hucreyi sec."));
                 return;
@@ -187,6 +181,45 @@ namespace Editor.LevelEditor
             return true;
         }
 
+        private bool CanReplaceBlockShape(int blockIndex, Vector2Int anchorPosition, BlockShapeJsonData shape)
+        {
+            if (shape == null)
+            {
+                return false;
+            }
+
+            Vector2Int[] localCells = shape.GetLocalCells();
+
+            for (int i = 0; i < localCells.Length; i++)
+            {
+                Vector2Int worldCell = anchorPosition + localCells[i];
+                if (worldCell.x < 0 || worldCell.y < 0 ||
+                    worldCell.x >= _activeLevel.gridDimensions.x ||
+                    worldCell.y >= _activeLevel.gridDimensions.y)
+                {
+                    return false;
+                }
+
+                if (IsFrameCell(worldCell))
+                {
+                    return false;
+                }
+
+                if (IsBlockedCell(worldCell))
+                {
+                    return false;
+                }
+
+                int occupiedBlockIndex = GetBlockAtCell(worldCell);
+                if (occupiedBlockIndex >= 0 && occupiedBlockIndex != blockIndex)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private Color GetCellColor(Vector2Int cell)
         {
             if (IsBlockedCell(cell))
@@ -198,7 +231,7 @@ namespace Editor.LevelEditor
             if (blockIndex >= 0)
             {
                 BlockColor color = _activeLevel.blocks[blockIndex].colorType;
-                Color baseColor = BlockColorUtility.GetColor(color);
+                Color baseColor = BlockColorPalette.GetColor(color);
                 baseColor.a = 0.9f;
                 return baseColor;
             }
@@ -207,7 +240,7 @@ namespace Editor.LevelEditor
             if (doorIndex >= 0)
             {
                 BlockColor color = _activeLevel.doors[doorIndex].colorType;
-                Color doorColor = BlockColorUtility.GetColor(color);
+                Color doorColor = BlockColorPalette.GetColor(color);
                 return Color.Lerp(doorColor, Color.white, 0.35f);
             }
 
@@ -376,16 +409,6 @@ namespace Editor.LevelEditor
             }
 
             return true;
-        }
-
-        private bool IsEdgeCell(Vector2Int cell)
-        {
-            return IsFrameCell(cell);
-        }
-
-        private bool IsCornerCell(Vector2Int cell)
-        {
-            return DoorOpeningMap.IsCornerCell(cell, _activeLevel.gridDimensions);
         }
 
         private bool IsFrameCell(Vector2Int cell)
