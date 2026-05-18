@@ -139,16 +139,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             yield return BlockMotionTween.TweenExitThroughDoor(blockTransform, resolvedExitDirection,
-                blockView.LocalCenter, ResolveDoorWorldCenter(matchedDoor, layout), layout.DoorZ, layout.CellSize,
+                blockView.LocalCenter, ResolveDoorWorldCenter(matchedDoor, boardController.GridDimensions, layout),
+                layout.DoorZ, layout.CellSize,
                 ExitDuration, ExitTravelInCells, ExitMoveCurve, ExitScaleCurve, ExitMinScaleMultiplier);
 
             FinalizeClearedBlock(blockId);
         }
 
-        private static Vector2 ResolveDoorWorldCenter(DoorOpeningData matchedDoor, in LayoutMetrics layout)
+        private static Vector2 ResolveDoorWorldCenter(DoorOpeningData matchedDoor, Vector2Int gridDimensions,
+            in LayoutMetrics layout)
         {
-            var centerX = (matchedDoor.MinCell.x + matchedDoor.MaxCell.x + 1) * 0.5f;
-            var centerY = (matchedDoor.MinCell.y + matchedDoor.MaxCell.y + 1) * 0.5f;
+            var mappedMinX = MapLogicalToVisualCellIndex(matchedDoor.MinCell.x, gridDimensions.x);
+            var mappedMaxX = MapLogicalToVisualCellIndex(matchedDoor.MaxCell.x, gridDimensions.x);
+            var mappedMinY = MapLogicalToVisualCellIndex(matchedDoor.MinCell.y, gridDimensions.y);
+            var mappedMaxY = MapLogicalToVisualCellIndex(matchedDoor.MaxCell.y, gridDimensions.y);
+            var centerX = (mappedMinX + mappedMaxX + 1) * 0.5f;
+            var centerY = (mappedMinY + mappedMaxY + 1) * 0.5f;
             return new Vector2(
                 layout.BoardOrigin.x + (centerX * layout.CellSize),
                 layout.BoardOrigin.y + (centerY * layout.CellSize));

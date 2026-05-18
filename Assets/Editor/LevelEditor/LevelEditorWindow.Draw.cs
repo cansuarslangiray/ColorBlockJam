@@ -282,6 +282,21 @@ namespace Editor.LevelEditor
         {
             EditorGUILayout.LabelField("Legend:");
             EditorGUILayout.LabelField("X = Blocked, D = Door, B = Block coverage");
+            EditorGUILayout.LabelField("Border Alani = Dis halka hucreleri (oynanamaz)");
+        }
+
+        private static Vector2Int ResolvePlayableGridDimensions(Vector2Int grid)
+        {
+            if (grid.x < 3 || grid.y < 3)
+            {
+                return new Vector2Int(
+                    Mathf.Max(1, grid.x),
+                    Mathf.Max(1, grid.y));
+            }
+
+            return new Vector2Int(
+                grid.x - 2,
+                grid.y - 2);
         }
 
         private void DrawLayoutValidationReport()

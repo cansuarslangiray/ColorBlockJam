@@ -283,22 +283,41 @@ namespace Runtime.Controllers
             var hasMoved = false;
             var reachedDoor = false;
             var matchedDoor = default(DoorOpeningData);
+            var currentlyOverlappingDoor = IsOverlappingAnyDoorOpening(block, currentPosition, _doorOpenings);
 
             while (requestedCells > 0)
             {
                 requestedCells--;
                 var nextPosition = currentPosition + directionVector;
+
+                var canExitThroughDoor = DoorExitEvaluator.TryResolveDoorExit(block, nextPosition, direction, _doorOpenings,
+                    out var resolvedDoor);
+                var nextOverlapsDoor = IsOverlappingAnyDoorOpening(block, nextPosition, _doorOpenings);
+
+                if (canExitThroughDoor && nextOverlapsDoor && !currentlyOverlappingDoor)
+                {
+                    matchedDoor = resolvedDoor;
+                    reachedDoor = true;
+                    hasMoved = true;
+                    break;
+                }
+
+                if (!canExitThroughDoor && nextOverlapsDoor && !currentlyOverlappingDoor)
+                {
+                    break;
+                }
+
                 if (!_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
                 {
                     break;
                 }
 
                 currentPosition = nextPosition;
+                currentlyOverlappingDoor = nextOverlapsDoor;
                 hasMoved = true;
                 movedCellCount++;
 
-                if (!DoorExitEvaluator.TryResolveDoorExit(block, currentPosition, direction, _doorOpenings,
-                        out var resolvedDoor))
+                if (!canExitThroughDoor)
                 {
                     continue;
                 }
@@ -313,6 +332,18 @@ namespace Runtime.Controllers
             {
                 matchedDoor = pulledDoor;
                 reachedDoor = true;
+            }
+
+            if (hasMoved && !reachedDoor)
+            {
+                var frontCellPosition = currentPosition + directionVector;
+                if (DoorExitEvaluator.TryResolveDoorExit(block, frontCellPosition, direction, _doorOpenings,
+                        out var frontDoor) &&
+                    !IsOverlappingAnyDoorOpening(block, currentPosition, _doorOpenings))
+                {
+                    matchedDoor = frontDoor;
+                    reachedDoor = true;
+                }
             }
 
             if (!hasMoved)
@@ -342,6 +373,33 @@ namespace Runtime.Controllers
             _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
             BlockMoved?.Invoke(blockId, startPosition, currentPosition);
             return true;
+        }
+
+        private static bool IsOverlappingAnyDoorOpening(RuntimeBlockState block, Vector2Int anchorPosition,
+            IReadOnlyList<DoorOpeningData> doorOpenings)
+        {
+            if (doorOpenings == null || doorOpenings.Count == 0 || block.LocalCells == null || block.LocalCells.Length == 0)
+            {
+                return false;
+            }
+
+            for (var cellIndex = 0; cellIndex < block.LocalCells.Length; cellIndex++)
+            {
+                var worldCell = anchorPosition + block.LocalCells[cellIndex];
+                for (var openingIndex = 0; openingIndex < doorOpenings.Count; openingIndex++)
+                {
+                    var opening = doorOpenings[openingIndex];
+                    if (worldCell.x < opening.MinCell.x || worldCell.x > opening.MaxCell.x ||
+                        worldCell.y < opening.MinCell.y || worldCell.y > opening.MaxCell.y)
+                    {
+                        continue;
+                    }
+
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,
