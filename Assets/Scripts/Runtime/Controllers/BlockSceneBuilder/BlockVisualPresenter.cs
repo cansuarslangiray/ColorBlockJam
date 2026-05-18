@@ -11,7 +11,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         public struct BuildRequest
         {
-            public LevelJsonData LevelData;
+            public LevelDefinition LevelData;
             public BoardController BoardController;
             public BlockViewRuntimePool BlockViewPool;
             public LayoutMetrics Layout;
@@ -52,14 +52,25 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                var blockType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
-                var blockView = blockViewPool.Acquire(blockType);
+                var poolKey = sourceBlocks[i].ResolveShapeKey();
+                if (string.IsNullOrWhiteSpace(poolKey))
+                {
+                    var resolvedType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
+                    poolKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
+                }
+
+                if (string.IsNullOrWhiteSpace(poolKey))
+                {
+                    poolKey = "Shape_1x1";
+                }
+
+                var blockView = blockViewPool.Acquire(poolKey);
                 if (blockView == null)
                 {
                     continue;
                 }
 
-                blockView.BlockType = blockType;
+                blockView.PoolKey = poolKey;
                 ApplyBlockCells(blockView, runtimeBlock, request);
 
                 var placementTransform = blockView.PlacementTransform

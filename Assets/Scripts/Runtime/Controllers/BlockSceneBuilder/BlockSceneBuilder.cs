@@ -17,6 +17,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
 
+        
         private readonly BlockSceneVisualCache _visualCache = new();
         private readonly BlockViewRuntimePool _blockViewPool = new();
 
@@ -46,7 +47,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [SerializeField] private Camera indicatorCamera;
 
         [Header("Particle FX")] [SerializeField]
-        private ParticleSystem doorExitBurstParticlePrefab;
+        private List<ParticleSystem> doorExitBurstParticles = new();
 
         [SerializeField, Min(0)] private int doorExitBurstPoolWarmupCount = 8;
         [SerializeField] private Material dragOutlineSourceMaterial;
@@ -64,7 +65,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
         private readonly List<GameObject> _doorPool = new();
-        private readonly Dictionary<BlockShapeType, int> _requiredBlockRootCountByType = new();
+        private readonly Dictionary<string, int> _requiredBlockRootCountByKey = new(System.StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _requiredBlockCellCountByKey = new(System.StringComparer.Ordinal);
         private readonly ConditionIndicatorPresenter _conditionIndicatorPresenter = new();
         private readonly DragHighlightPresenter _dragHighlightPresenter = new();
         private readonly BlockExitFxController _blockExitFxController = new();
@@ -133,7 +135,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _hasCurrentLayout = false;
         }
 
-        public void BuildForLevel(LevelJsonData levelData)
+        public void BuildForLevel(LevelDefinition levelData)
         {
             if (levelData == null)
             {
@@ -164,9 +166,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SubscribeBoardEvents();
         }
 
-        private void ConfigurePoolsFromManager(LevelJsonData levelData)
+        private void ConfigurePoolsFromManager(LevelDefinition levelData)
         {
-            poolManager.RefreshPools(ensureMinimumSizes: false);
+            poolManager.RefreshPools(validateAuthoringTargets: true);
             EnsurePoolCoverage(levelData);
             BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
             BindBoardVisualReferences(poolManager.BorderObjects, poolManager.BackdropObject);
@@ -174,7 +176,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             BindBlockRootPools();
         }
 
-        private void EnsurePoolCoverage(LevelJsonData levelData)
+        private void EnsurePoolCoverage(LevelDefinition levelData)
         {
             var gridSize = levelData.gridDimensions;
             var requiredGridCellCount = Mathf.Max(0, gridSize.x * gridSize.y);
@@ -183,7 +185,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var openings = levelData.GetDoorOpenings();
             poolManager.EnsureDoorPoolSize(openings?.Count ?? 0);
 
-            poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByType);
+            poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByKey, _requiredBlockCellCountByKey);
         }
 
         private void BindGridCellPool(IReadOnlyList<GameObject> gridCellObjects, Vector2Int levelGridSize)
@@ -266,12 +268,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void BindBlockRootPools()
         {
-            _blockViewPool.Rebind(poolManager.BlockObjectsByType, SetActiveIfChanged);
+            _blockViewPool.Rebind(poolManager.BlockObjectsByKey, SetActiveIfChanged);
         }
 
-        private void CacheRequiredBlockRootCounts(LevelJsonData levelData)
+        private void CacheRequiredBlockRootCounts(LevelDefinition levelData)
         {
-            _requiredBlockRootCountByType.Clear();
+            _requiredBlockRootCountByKey.Clear();
+            _requiredBlockCellCountByKey.Clear();
             var sourceBlocks = levelData != null ? levelData.blocks : null;
             if (sourceBlocks == null)
             {
@@ -285,9 +288,27 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                var blockType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
-                _requiredBlockRootCountByType[blockType] =
-                    _requiredBlockRootCountByType.GetValueOrDefault(blockType) + 1;
+                var poolKey = sourceBlocks[i].ResolveShapeKey();
+                if (string.IsNullOrWhiteSpace(poolKey))
+                {
+                    var resolvedType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
+                    poolKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
+                }
+
+                if (string.IsNullOrWhiteSpace(poolKey))
+                {
+                    poolKey = "Shape_1x1";
+                }
+
+                _requiredBlockRootCountByKey.TryGetValue(poolKey, out var existingCount);
+                _requiredBlockRootCountByKey[poolKey] = existingCount + 1;
+
+                var cellCount = Mathf.Max(1, runtimeBlock.LocalCells?.Length ?? 1);
+                if (!_requiredBlockCellCountByKey.TryGetValue(poolKey, out var existingCellCount) ||
+                    cellCount > existingCellCount)
+                {
+                    _requiredBlockCellCountByKey[poolKey] = cellCount;
+                }
             }
         }
 

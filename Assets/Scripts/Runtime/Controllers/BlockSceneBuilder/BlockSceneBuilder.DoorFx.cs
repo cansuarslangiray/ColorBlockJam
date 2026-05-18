@@ -153,19 +153,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return existingParent;
             }
 
-            var anchorObject = new GameObject(DoorPlacementAnchorPrefix + doorObject.GetInstanceID());
-            var anchorTransform = anchorObject.transform;
-            anchorTransform.SetParent(existingParent, false);
-            anchorTransform.SetPositionAndRotation(doorTransform.position, doorTransform.rotation);
-            anchorTransform.localScale = doorTransform.localScale;
-
-            doorTransform.SetParent(anchorTransform, true);
-            doorTransform.localPosition = Vector3.zero;
-            doorTransform.localRotation = Quaternion.identity;
-            doorTransform.localScale = Vector3.one;
-
-            _doorPlacementRootByIndex[doorIndex] = anchorTransform;
-            return anchorTransform;
+            _doorPlacementRootByIndex[doorIndex] = doorTransform;
+            return doorTransform;
         }
 
         private void EnsureDoorPlacementSlot(int doorIndex)

@@ -9,6 +9,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class ConditionIndicatorPresenter
     {
+        private const string ConditionIndicatorObjectName = "ConditionIndicator";
+
         public struct RefreshRequest
         {
             public BoardController BoardController;
@@ -162,35 +164,86 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var indicatorObject = new GameObject("ConditionIndicator");
-            var indicatorTransform = indicatorObject.transform;
-            if (blockView == null) return;
-            indicatorTransform.SetParent(blockView.RootTransform, false);
-            indicatorTransform.localPosition = blockView.ConditionIndicatorLocalAnchor;
-            indicatorTransform.localScale = Vector3.one;
-
-            var textMesh = indicatorObject.AddComponent<TextMesh>();
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.fontSize = Mathf.Max(8, indicatorFontSize);
-            textMesh.characterSize = Mathf.Max(0.01f, indicatorCharacterSizeInCells * cellSize);
-            textMesh.color = indicatorTextColor;
-            textMesh.text = string.Empty;
-
-            var font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            if (!font)
+            if (blockView?.RootTransform == null)
             {
-                font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                return;
             }
 
-            if (font)
+            if (!TryResolveConditionIndicatorFromPool(blockView, out var indicatorObject, out var textMesh))
             {
-                textMesh.font = font;
+                CreateConditionIndicator(blockView, cellSize, indicatorCharacterSizeInCells, indicatorFontSize,
+                    indicatorTextColor, out indicatorObject, out textMesh);
             }
 
-            indicatorObject.SetActive(false);
             blockView.ConditionIndicatorObject = indicatorObject;
             blockView.ConditionIndicatorText = textMesh;
+            blockView.HasLoggedMissingConditionIndicator = false;
+        }
+
+        private static bool TryResolveConditionIndicatorFromPool(
+            BlockRootView blockView,
+            out GameObject indicatorObject,
+            out TextMesh textMesh)
+        {
+            indicatorObject = null;
+            textMesh = null;
+            if (blockView?.RootTransform == null)
+            {
+                return false;
+            }
+
+            var meshes = blockView.RootTransform.GetComponentsInChildren<TextMesh>(true);
+            for (var i = 0; i < meshes.Length; i++)
+            {
+                var candidateMesh = meshes[i];
+                if (!candidateMesh)
+                {
+                    continue;
+                }
+
+                var candidateObject = candidateMesh.gameObject;
+                if (!candidateObject)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(candidateObject.name, ConditionIndicatorObjectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                indicatorObject = candidateObject;
+                textMesh = candidateMesh;
+                indicatorObject.SetActive(false);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void CreateConditionIndicator(
+            BlockRootView blockView,
+            float cellSize,
+            float indicatorCharacterSizeInCells,
+            int indicatorFontSize,
+            Color indicatorTextColor,
+            out GameObject indicatorObject,
+            out TextMesh textMesh)
+        {
+            indicatorObject = new GameObject(ConditionIndicatorObjectName);
+            var indicatorTransform = indicatorObject.transform;
+            indicatorTransform.SetParent(blockView.RootTransform, false);
+            indicatorTransform.localPosition = blockView.ConditionIndicatorLocalAnchor;
+            indicatorTransform.localRotation = Quaternion.identity;
+            indicatorTransform.localScale = Vector3.one;
+
+            textMesh = indicatorObject.AddComponent<TextMesh>();
+            textMesh.anchor = TextAnchor.MiddleCenter;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.characterSize = Mathf.Max(0.01f, indicatorCharacterSizeInCells * cellSize);
+            textMesh.fontSize = Mathf.Max(8, indicatorFontSize);
+            textMesh.color = indicatorTextColor;
+            indicatorObject.SetActive(false);
         }
 
         private string BuildConditionIndicatorText(RuntimeBlockState runtimeBlock)

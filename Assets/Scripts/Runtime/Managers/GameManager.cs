@@ -46,13 +46,6 @@ namespace Runtime.Managers
                 return;
             }
 
-            if (!HasRequiredReferences())
-            {
-                Debug.LogError("GameManager is missing one or more serialized core references.", this);
-                enabled = false;
-                return;
-            }
-
             InitializeCollaborators();
         }
 
@@ -163,7 +156,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            boardController.Setup(levelData, _levelProgression.RuntimeShapeRegistry);
+            boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
             blockSceneBuilder.BuildForLevel(levelData);
             _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
             blockSceneBuilder.RefreshConditionIndicatorBillboards();
@@ -251,7 +244,7 @@ namespace Runtime.Managers
             uiManager.SetLevel(_levelProgression.CurrentLevelDisplayNumber);
         }
 
-        private void RefreshStaticUI(LevelJsonData levelData)
+        private void RefreshStaticUI(LevelDefinition levelData)
         {
             var levelNumber = levelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
             uiManager.SetLevel(levelNumber);
@@ -311,16 +304,7 @@ namespace Runtime.Managers
         }
 
         private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
-
-        private bool HasRequiredReferences() =>
-            levelCollection != null &&
-            boardController != null &&
-            blockSceneBuilder != null &&
-            stateManager != null &&
-            uiManager != null &&
-            audioManager != null &&
-            gameplayCamera != null;
-
+        
         private int ResolveSavedCurrentLevelNumber()
         {
             if (_localDataManager == null)
@@ -333,7 +317,7 @@ namespace Runtime.Managers
             return Mathf.Clamp(playerData.currentLevel, 1, maxLevelNumber);
         }
 
-        private void PersistCurrentLevelProgress(LevelJsonData levelData)
+        private void PersistCurrentLevelProgress(LevelDefinition levelData)
         {
             if (_localDataManager == null)
             {

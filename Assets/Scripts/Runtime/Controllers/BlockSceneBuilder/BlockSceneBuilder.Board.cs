@@ -5,7 +5,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private void ApplyBoardVisuals(LevelJsonData levelData, in LayoutMetrics layout)
+        private void ApplyBoardVisuals(LevelDefinition levelData, in LayoutMetrics layout)
         {
             var dims = levelData.gridDimensions;
             var openings = levelData.GetDoorOpenings();
@@ -37,11 +37,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             if (axisSize < 1)
             {
                 return 0;
-            }
-
-            if (axisSize >= 3)
-            {
-                return Mathf.Clamp(logicalIndex, 1, axisSize - 2);
             }
 
             return Mathf.Clamp(logicalIndex, 0, axisSize - 1);

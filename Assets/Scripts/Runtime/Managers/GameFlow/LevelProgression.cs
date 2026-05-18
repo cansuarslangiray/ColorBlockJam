@@ -15,7 +15,7 @@ namespace Runtime.Managers.GameFlow
         }
 
         public int CurrentLevelDisplayNumber => _currentLevelIndex + 1;
-        public BlockShapeRegistry RuntimeShapeRegistry => _levelCollection.RuntimeShapeRegistry;
+        public BlockShapeCatalog RuntimeShapeCatalog => _levelCollection.RuntimeShapeCatalog;
 
         public void SetCurrentLevelFromSavedNumber(int savedLevelNumber)
         {
@@ -59,7 +59,7 @@ namespace Runtime.Managers.GameFlow
             return true;
         }
 
-        public bool TryGetNextLevelData(out LevelJsonData levelData)
+        public bool TryGetNextLevelData(out LevelDefinition levelData)
         {
             var nextLevelIndex = _currentLevelIndex + 1;
             if (_levelCollection != null && _levelCollection.TryGetLevelAt(nextLevelIndex, out var resolvedLevelData))
@@ -72,7 +72,7 @@ namespace Runtime.Managers.GameFlow
             return false;
         }
 
-        public bool TryGetCurrentLevelData(out LevelJsonData levelData)
+        public bool TryGetCurrentLevelData(out LevelDefinition levelData)
         {
             if (_levelCollection != null && _levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
             {

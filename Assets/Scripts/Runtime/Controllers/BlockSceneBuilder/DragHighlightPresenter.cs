@@ -7,6 +7,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class DragHighlightPresenter
     {
+        private const string DragOutlineObjectName = "BlockDragOutline";
         public delegate bool TryResolveBlockColorDelegate(BlockRootView blockView, out Color blockColor);
 
         public readonly struct DragHighlightSettings
@@ -82,13 +83,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static readonly int ZTestPropertyId = Shader.PropertyToID("_ZTest");
-        private static readonly int ZWritePropertyId = Shader.PropertyToID("_ZWrite");
-        private const int CompareFunctionAlways = 8;
         private const int DragOutlineCornerVertices = 4;
         private const int DragOutlineCapVertices = 2;
 
-        private Material _dragOutlineMaterial;
         private readonly HashSet<Vector2Int> _outlineOccupiedCellsBuffer = new();
         private readonly Dictionary<UndirectedGridEdgeKey, DirectedGridEdge> _outlineBoundaryEdgesBuffer = new();
         private readonly Dictionary<Vector2Int, Vector2Int> _outlineOutgoingEdgesBuffer = new();
@@ -100,22 +97,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _outlineBoundaryEdgesBuffer.Clear();
             _outlineOutgoingEdgesBuffer.Clear();
             _outlineVerticesBuffer.Clear();
-
-            if (!_dragOutlineMaterial)
-            {
-                return;
-            }
-
-            if (Application.isPlaying)
-            {
-                UnityEngine.Object.Destroy(_dragOutlineMaterial);
-            }
-            else
-            {
-                UnityEngine.Object.DestroyImmediate(_dragOutlineMaterial);
-            }
-
-            _dragOutlineMaterial = null;
         }
 
         public void SetDragHighlightActive(BlockRootView blockView, bool isActive, in DragHighlightSettings settings,
@@ -143,8 +124,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var outlineColor = ResolveDragOutlineColor(blockView, settings, tryResolveBlockColor);
             var outlineMaterial =
                 ResolveDragOutlineMaterial(settings, outlineRenderer ? outlineRenderer.sharedMaterial : null);
-            ApplyDragOutlineColor(outlineMaterial, outlineColor);
-            if (outlineRenderer != null && outlineMaterial)
+            if (outlineRenderer != null && outlineMaterial && outlineRenderer.sharedMaterial != outlineMaterial)
             {
                 outlineRenderer.sharedMaterial = outlineMaterial;
             }
@@ -248,17 +228,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var outlineObject = new GameObject("BlockDragOutline");
-            var outlineTransform = outlineObject.transform;
-            outlineTransform.SetParent(blockView.RootTransform, false);
-            outlineTransform.localPosition = Vector3.zero;
-            outlineTransform.localRotation = Quaternion.identity;
-            outlineTransform.localScale = Vector3.one;
+            if (!TryResolveDragOutlineRendererFromPool(blockView, out var outlineRenderer))
+            {
+                if (!blockView.HasLoggedMissingDragOutline)
+                {
+                    Debug.LogWarning(
+                        $"Block '{blockView.RootObject.name}' is missing a pooled '{DragOutlineObjectName}' LineRenderer. " +
+                        "Runtime drag-outline creation is disabled.",
+                        blockView.RootObject);
+                    blockView.HasLoggedMissingDragOutline = true;
+                }
 
-            var outlineRenderer = outlineObject.AddComponent<LineRenderer>();
+                return;
+            }
+
             outlineRenderer.useWorldSpace = false;
             outlineRenderer.loop = true;
-            outlineRenderer.positionCount = 0;
             outlineRenderer.alignment = LineAlignment.View;
             outlineRenderer.numCornerVertices = DragOutlineCornerVertices;
             outlineRenderer.numCapVertices = DragOutlineCapVertices;
@@ -274,71 +259,46 @@ namespace Runtime.Controllers.BlockSceneBuilder
             outlineRenderer.sharedMaterial = ResolveDragOutlineMaterial(settings, outlineRenderer.sharedMaterial);
 
             blockView.DragOutlineRenderer = outlineRenderer;
-            outlineObject.SetActive(false);
+            blockView.HasLoggedMissingDragOutline = false;
+            if (outlineRenderer.gameObject)
+            {
+                outlineRenderer.gameObject.SetActive(false);
+            }
         }
 
         private Material ResolveDragOutlineMaterial(in DragHighlightSettings settings, Material fallbackSourceMaterial)
         {
-            if (_dragOutlineMaterial)
-            {
-                ApplyDragOutlineColor(_dragOutlineMaterial, settings.DefaultOutlineColor);
-                ApplyDragOutlineRenderOverrides(_dragOutlineMaterial);
-                return _dragOutlineMaterial;
-            }
-
             var sourceMaterial = settings.SourceMaterial ? settings.SourceMaterial : fallbackSourceMaterial;
-            if (!sourceMaterial)
-            {
-                return null;
-            }
-
-            _dragOutlineMaterial = new Material(sourceMaterial)
-            {
-                hideFlags = HideFlags.HideAndDontSave,
-                name = "Runtime_BlockDragOutline_Mat"
-            };
-
-            ApplyDragOutlineColor(_dragOutlineMaterial, settings.DefaultOutlineColor);
-            ApplyDragOutlineRenderOverrides(_dragOutlineMaterial);
-            return _dragOutlineMaterial;
+            return sourceMaterial ? sourceMaterial : null;
         }
 
-        private static void ApplyDragOutlineColor(Material material, Color outlineColor)
+        private static bool TryResolveDragOutlineRendererFromPool(BlockRootView blockView, out LineRenderer lineRenderer)
         {
-            if (!material)
+            lineRenderer = null;
+            if (blockView?.RootTransform == null)
             {
-                return;
+                return false;
             }
 
-            if (material.HasProperty("_Color"))
+            var renderers = blockView.RootTransform.GetComponentsInChildren<LineRenderer>(true);
+            for (var i = 0; i < renderers.Length; i++)
             {
-                material.SetColor("_Color", outlineColor);
+                var candidate = renderers[i];
+                if (!candidate || !candidate.gameObject)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(candidate.gameObject.name, DragOutlineObjectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                lineRenderer = candidate;
+                return true;
             }
 
-            if (material.HasProperty("_BaseColor"))
-            {
-                material.SetColor("_BaseColor", outlineColor);
-            }
-        }
-
-        private static void ApplyDragOutlineRenderOverrides(Material material)
-        {
-            if (!material)
-            {
-                return;
-            }
-
-            if (material.HasProperty(ZTestPropertyId))
-            {
-                material.SetInt(ZTestPropertyId, CompareFunctionAlways);
-            }
-
-            if (material.HasProperty(ZWritePropertyId))
-            {
-                material.SetInt(ZWritePropertyId, 0);
-            }
-
-            material.renderQueue = Mathf.Max(material.renderQueue, 4000);
+            return false;
         }
 
         private void RefreshDragOutlineFrame(BlockRootView blockView, IReadOnlyList<Vector2> outlineVertices,

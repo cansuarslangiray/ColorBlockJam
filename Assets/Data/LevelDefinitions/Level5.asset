@@ -1,0 +1,116 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9e52aedbcc7c440d9f7322097d900c1, type: 3}
+  m_Name: Level5
+  m_EditorClassIdentifier: 
+  levelKey: Level5
+  levelNumber: 5
+  timeLimit: 60
+  gridDimensions: {x: 7, y: 8}
+  blockedCells: []
+  availableColors:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  doors:
+  - position:
+      x: 0
+      y: 2
+    colorType: 3
+  - position:
+      x: 0
+      y: 1
+    colorType: 3
+  - position:
+      x: 4
+      y: 7
+    colorType: 2
+  - position:
+      x: 5
+      y: 7
+    colorType: 2
+  - position:
+      x: 2
+      y: 0
+    colorType: 1
+  - position:
+      x: 3
+      y: 0
+    colorType: 1
+  - position:
+      x: 4
+      y: 0
+    colorType: 1
+  - position:
+      x: 6
+      y: 2
+    colorType: 0
+  - position:
+      x: 6
+      y: 1
+    colorType: 0
+  - position:
+      x: 1
+      y: 7
+    colorType: 4
+  - position:
+      x: 2
+      y: 7
+    colorType: 4
+  blocks:
+  - position:
+      x: 3
+      y: 4
+    shapeKey: Shape_1x3
+    blockType: 4
+    shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 1
+  - position:
+      x: 1
+      y: 3
+    shapeKey: Shape_2x2
+    blockType: 6
+    shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 2
+  - position:
+      x: 4
+      y: 3
+    shapeKey: Shape_2x2
+    blockType: 6
+    shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 4
+  - position:
+      x: 2
+      y: 2
+    shapeKey: Shape_3x1
+    blockType: 5
+    shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 3
+  - position:
+      x: 2
+      y: 1
+    shapeKey: Shape_3x1
+    blockType: 5
+    shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 0

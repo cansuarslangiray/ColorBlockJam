@@ -9,7 +9,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private void ApplyBlockVisuals(LevelJsonData levelData, in LayoutMetrics layout)
+        private void ApplyBlockVisuals(LevelDefinition levelData, in LayoutMetrics layout)
         {
             ReleaseActiveBlockViewsToPool();
             var blockVisualRequest = new BlockVisualPresenter.BuildRequest

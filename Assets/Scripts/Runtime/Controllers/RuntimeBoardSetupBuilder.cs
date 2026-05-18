@@ -12,7 +12,7 @@ namespace Runtime.Controllers
         private static readonly HashSet<Vector2Int> UniqueBlockedCellBuffer = new();
         private static readonly List<Vector2Int> FrameCellBuffer = new(256);
 
-        public static void Populate(LevelJsonData levelData, BlockShapeRegistry shapeRegistry, BoardOccupancyMap occupancyMap,
+        public static void Populate(LevelDefinition levelData, BlockShapeCatalog shapeCatalog, BoardOccupancyMap occupancyMap,
             Dictionary<int, RuntimeBlockState> runtimeBlocks, List<DoorOpeningData> doorOpenings)
         {
             occupancyMap.Configure(levelData.gridDimensions.x, levelData.gridDimensions.y);
@@ -37,18 +37,21 @@ namespace Runtime.Controllers
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
-                blockData.NormalizeMovementConstraint();
-                var fallbackCellCount = 1;
-                var resolvedShapeKey = blockData.ResolveShapeKey(fallbackCellCount);
+                blockData.Normalize();
+                var resolvedShapeKey = blockData.ResolveShapeKey();
+                var fallbackType = blockData.ResolveBlockType();
+                var resolvedShape = shapeCatalog != null
+                    ? shapeCatalog.ResolveShape(resolvedShapeKey, fallbackType)
+                    : null;
+                var localCells = resolvedShape != null ? resolvedShape.GetLocalCells() : blockData.GetLocalCells(shapeCatalog);
 
-                if (!string.IsNullOrWhiteSpace(resolvedShapeKey) &&
-                    (shapeRegistry == null || !shapeRegistry.TryResolveShape(resolvedShapeKey, out _)))
+                if (resolvedShape == null)
                 {
                     Debug.LogWarning(
                         $"Level '{levelData.levelKey}' has unresolved shape key '{resolvedShapeKey}' on block index {i}. Falling back to 1x1.");
                 }
 
-                var runtimeBlock = new RuntimeBlockState(i, blockData.position, blockData.GetLocalCells(shapeRegistry),
+                var runtimeBlock = new RuntimeBlockState(i, blockData.position, localCells,
                     blockData.blockFeatures, blockData.movementConstraint, blockData.colorType);
 
                 if (!occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
@@ -61,7 +64,7 @@ namespace Runtime.Controllers
             }
         }
 
-        private static void CollectBlockedCells(LevelJsonData levelData, IReadOnlyList<DoorOpeningData> openings,
+        private static void CollectBlockedCells(LevelDefinition levelData, IReadOnlyList<DoorOpeningData> openings,
             List<Vector2Int> result)
         {
             result.Clear();

@@ -19,7 +19,7 @@ namespace Runtime.Controllers
         public BoardOccupancyMap OccupancyMap => _occupancyMap;
         public int ActiveBlockCount => _runtimeBlocks.Count;
 
-        public void Setup(LevelJsonData levelData, BlockShapeRegistry shapeRegistry)
+        public void Setup(LevelDefinition levelData, BlockShapeCatalog shapeCatalog)
         {
             IsInitialized = false;
             _runtimeBlocks.Clear();
@@ -34,7 +34,7 @@ namespace Runtime.Controllers
             }
 
             GridDimensions = levelData.gridDimensions;
-            RuntimeBoardSetupBuilder.Populate(levelData, shapeRegistry, _occupancyMap, _runtimeBlocks, _doorOpenings);
+            RuntimeBoardSetupBuilder.Populate(levelData, shapeCatalog, _occupancyMap, _runtimeBlocks, _doorOpenings);
             _occupancyMap.RebuildDoorOverlap(_doorOpenings);
             IsInitialized = true;
         }

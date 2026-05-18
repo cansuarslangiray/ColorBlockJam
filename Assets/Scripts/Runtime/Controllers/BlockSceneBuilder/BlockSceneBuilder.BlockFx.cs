@@ -18,6 +18,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private const float DoorPassThroughMinScale = 0.06f;
         private const float DoorPassThroughRotationRangeInDegrees = 280f;
         private const float DoorPassThroughBurstAtProgress = 0.66f;
+        private const string RuntimeDoorExitBurstNamePrefix = "PS_DoorExitBurst_Runtime_";
 
         private static readonly ParticleSystem.Burst[] DoorExitBurstPattern =
         {
@@ -397,21 +398,84 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void EnsureDoorExitBurstPoolCapacity(int requiredCount)
         {
-            if (requiredCount <= 0 || !doorExitBurstParticlePrefab)
+            RebindDoorExitBurstPoolFromScene();
+
+            if (requiredCount <= 0)
             {
                 return;
             }
 
-            while (_doorExitBurstParticlePool.Count < requiredCount)
+            if (_doorExitBurstParticlePool.Count < requiredCount)
             {
-                var createdParticle = CreateDoorExitBurstPoolParticle();
-                if (createdParticle == null)
+                ExpandDoorExitBurstPool(requiredCount);
+            }
+        }
+
+        private void ExpandDoorExitBurstPool(int requiredCount)
+        {
+            var missingCount = Mathf.Max(0, requiredCount - _doorExitBurstParticlePool.Count);
+            for (var i = 0; i < missingCount; i++)
+            {
+                var burstParticle = CreateDoorExitBurstParticle(_doorExitBurstParticlePool.Count);
+                if (burstParticle == null)
                 {
-                    break;
+                    return;
                 }
 
-                ReturnDoorExitBurstParticleToPool(createdParticle);
+                ReturnDoorExitBurstParticleToPool(burstParticle);
             }
+        }
+
+        private ParticleSystem CreateDoorExitBurstParticle(int index)
+        {
+            ParticleSystem burstParticle;
+            var template = ResolveDoorExitBurstTemplate();
+            if (template)
+            {
+                burstParticle = Instantiate(template, transform);
+                burstParticle.name = $"{RuntimeDoorExitBurstNamePrefix}{index:000}";
+            }
+            else
+            {
+                var burstObject = new GameObject($"{RuntimeDoorExitBurstNamePrefix}{index:000}");
+                burstObject.transform.SetParent(transform, false);
+                burstParticle = burstObject.AddComponent<ParticleSystem>();
+            }
+
+            burstParticle.TryGetComponent<ParticleSystemRenderer>(out var particleRenderer);
+            _doorExitBurstParticlePool.Add(burstParticle);
+            _doorExitBurstRendererByParticleId[burstParticle.GetInstanceID()] = particleRenderer;
+            ResetDoorExitBurstParticleState(burstParticle, disableObject: true, disableRenderer: true);
+            ConfigureDoorExitBurstParticle(burstParticle, Vector3.right, particleRenderer);
+            return burstParticle;
+        }
+
+        private ParticleSystem ResolveDoorExitBurstTemplate()
+        {
+            for (var i = 0; i < _doorExitBurstParticlePool.Count; i++)
+            {
+                var pooledParticle = _doorExitBurstParticlePool[i];
+                if (pooledParticle)
+                {
+                    return pooledParticle;
+                }
+            }
+
+            if (doorExitBurstParticles == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < doorExitBurstParticles.Count; i++)
+            {
+                var pooledParticle = doorExitBurstParticles[i];
+                if (pooledParticle)
+                {
+                    return pooledParticle;
+                }
+            }
+
+            return null;
         }
 
         private ParticleSystem AcquireDoorExitBurstParticle()
@@ -428,31 +492,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return pooledParticle;
             }
 
-            return CreateDoorExitBurstPoolParticle();
+            return null;
         }
 
-        private ParticleSystem CreateDoorExitBurstPoolParticle()
-        {
-            if (!doorExitBurstParticlePrefab)
-            {
-                return null;
-            }
-
-            var burstParticle = Instantiate(doorExitBurstParticlePrefab, transform);
-            if (burstParticle == null)
-            {
-                return null;
-            }
-
-            burstParticle.gameObject.name = "Pooled_DoorExitBurst_" + _doorExitBurstParticlePool.Count;
-            burstParticle.TryGetComponent<ParticleSystemRenderer>(out var particleRenderer);
-            _doorExitBurstRendererByParticleId[burstParticle.GetInstanceID()] = particleRenderer;
-            ResetDoorExitBurstParticleState(burstParticle, disableObject: false, disableRenderer: true);
-            _doorExitBurstParticlePool.Add(burstParticle);
-            return burstParticle;
-        }
-
-        private void ReturnDoorExitBurstParticleToPool(ParticleSystem burstParticle)
+        private void ReturnDoorExitBurstParticleToPool(ParticleSystem burstParticle, bool allowReparent = true)
         {
             if (burstParticle == null)
             {
@@ -469,7 +512,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             if (burstObject != null)
             {
                 var burstTransform = burstObject.transform;
-                if (burstTransform.parent != transform)
+                if (allowReparent && burstTransform.parent != transform)
                 {
                     burstTransform.SetParent(transform, false);
                 }
@@ -516,6 +559,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void RecycleAllDoorExitBurstParticles()
         {
+            RebindDoorExitBurstPoolFromScene();
             _availableDoorExitBurstParticles.Clear();
             _availableDoorExitBurstParticleIds.Clear();
 
@@ -528,8 +572,57 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                ReturnDoorExitBurstParticleToPool(pooledParticle);
+                ReturnDoorExitBurstParticleToPool(pooledParticle, allowReparent: false);
             }
+        }
+
+        private void RebindDoorExitBurstPoolFromScene()
+        {
+            _doorExitBurstParticlePool.Clear();
+            _doorExitBurstRendererByParticleId.Clear();
+            _availableDoorExitBurstParticles.Clear();
+            _availableDoorExitBurstParticleIds.Clear();
+
+            if (doorExitBurstParticles != null)
+            {
+                for (var i = 0; i < doorExitBurstParticles.Count; i++)
+                {
+                    var pooledParticle = doorExitBurstParticles[i];
+                    AddDoorExitBurstParticleToRuntimePool(pooledParticle);
+                }
+            }
+
+            var childCount = transform.childCount;
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = transform.GetChild(i);
+                if (!child || !child.name.StartsWith(RuntimeDoorExitBurstNamePrefix, System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                AddDoorExitBurstParticleToRuntimePool(child.GetComponent<ParticleSystem>());
+            }
+        }
+
+        private void AddDoorExitBurstParticleToRuntimePool(ParticleSystem pooledParticle)
+        {
+            if (!pooledParticle)
+            {
+                return;
+            }
+
+            if (_doorExitBurstParticlePool.Contains(pooledParticle))
+            {
+                return;
+            }
+
+            _doorExitBurstParticlePool.Add(pooledParticle);
+            pooledParticle.TryGetComponent<ParticleSystemRenderer>(out var particleRenderer);
+            _doorExitBurstRendererByParticleId[pooledParticle.GetInstanceID()] = particleRenderer;
+            ResetDoorExitBurstParticleState(pooledParticle, disableObject: true, disableRenderer: true);
+            _availableDoorExitBurstParticleIds.Add(pooledParticle.GetInstanceID());
+            _availableDoorExitBurstParticles.Push(pooledParticle);
         }
 
         private ParticleSystemRenderer ResolveDoorExitBurstRendererFromCache(ParticleSystem burstParticle)

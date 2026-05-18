@@ -51,14 +51,15 @@ namespace Runtime.Controllers
             RefreshProjectionState();
         }
 
-        public void Setup(LevelJsonData levelData, BlockShapeRegistry shapeRegistry)
+
+        public void Setup(LevelDefinition levelData, BlockShapeCatalog shapeCatalog)
         {
             EnsureDependencies();
             _levelCompletedRaised = false;
             _pointerGestureController.EndPointerGesture();
             ClearGestureHighlight();
 
-            _runtimeState.Setup(levelData, shapeRegistry);
+            _runtimeState.Setup(levelData, shapeCatalog);
             RefreshProjectionState();
         }
 
@@ -119,7 +120,8 @@ namespace Runtime.Controllers
                 }
 
                 var exitDirection = slideResult.MatchedDoor.ResolveExitDirection(GridDimensions);
-                BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection, slideResult.MatchedDoor);
+                BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection,
+                    slideResult.MatchedDoor);
                 EvaluateCompletionState();
                 return true;
             }
@@ -148,7 +150,7 @@ namespace Runtime.Controllers
                 new BoardBlockSlideService(_runtimeState.RuntimeBlocks, _runtimeState.DoorOpenings,
                     _runtimeState.OccupancyMap);
         }
-        
+
 
         private void RefreshProjectionState()
         {

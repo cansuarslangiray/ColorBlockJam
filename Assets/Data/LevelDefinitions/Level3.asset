@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9e52aedbcc7c440d9f7322097d900c1, type: 3}
+  m_Name: Level3
+  m_EditorClassIdentifier: 
+  levelKey: Level3
+  levelNumber: 3
+  timeLimit: 60
+  gridDimensions: {x: 7, y: 8}
+  blockedCells: []
+  availableColors:
+  - 0
+  - 1
+  - 3
+  doors:
+  - position:
+      x: 5
+      y: 0
+    colorType: 3
+  - position:
+      x: 0
+      y: 3
+    colorType: 0
+  - position:
+      x: 0
+      y: 4
+    colorType: 0
+  - position:
+      x: 6
+      y: 4
+    colorType: 0
+  - position:
+      x: 6
+      y: 3
+    colorType: 0
+  - position:
+      x: 1
+      y: 7
+    colorType: 1
+  - position:
+      x: 2
+      y: 7
+    colorType: 1
+  - position:
+      x: 4
+      y: 0
+    colorType: 3
+  blocks:
+  - position:
+      x: 3
+      y: 3
+    shapeKey: Shape_1x2
+    blockType: 2
+    shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 0
+  - position:
+      x: 2
+      y: 3
+    shapeKey: Shape_L_NW_3x2
+    blockType: 100
+    shapeDefinition: {fileID: 11400000, guid: 029083401127f0813468547901b53840, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 1
+  - position:
+      x: 3
+      y: 2
+    shapeKey: Shape_L_SW_3x2
+    blockType: 100
+    shapeDefinition: {fileID: 11400000, guid: 66cd8cd1f87c209b0f12fcec10eebef4, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 3

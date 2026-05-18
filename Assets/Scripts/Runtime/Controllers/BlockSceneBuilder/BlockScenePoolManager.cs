@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -7,15 +6,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
     [DisallowMultipleComponent]
     public sealed class BlockScenePoolManager : MonoBehaviour
     {
-        private const string BlockCellNamePrefix = "BlockCell_";
+        public const int TargetBoardPoolWidth = 25;
+        public const int TargetBoardPoolHeight = 25;
+        public const int TargetDoorPoolCount = 16;
+        public const int TargetBlockPoolCountPerShape = 5;
 
         [Header("Shared Root")] [SerializeField]
         private Transform poolRoot;
 
         [Header("Grid Cell Pool")] [SerializeField]
-        private GameObject gridCellPrefab;
-
-        [SerializeField] private List<GameObject> gridCellObjects = new(64);
+        private List<GameObject> gridCellObjects = new(625);
 
         [Header("Board Frame")] [SerializeField]
         private List<GameObject> borderObjects = new(4);
@@ -23,149 +23,81 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [SerializeField] private GameObject backdropObject;
 
         [Header("Door Pool")] [SerializeField]
-        private GameObject doorPrefab;
-
-        [SerializeField] private List<GameObject> doorObjects = new(16);
+        private List<GameObject> doorObjects = new(16);
 
         [Header("Block Pools")] [SerializeField]
-        private GameObject defaultBlockRootPrefab;
+        private List<BlockTypePoolEntry> blockTypePools = new(20);
 
-        [SerializeField] private List<BlockTypePoolEntry> blockTypePools = new(8);
-
-        [Header("Fixed Pool Sizes")] [SerializeField, Min(0)]
-        private int minimumGridCellPoolCount = 56;
-
-        [SerializeField, Min(0)] private int minimumDoorPoolCount = 8;
-        [SerializeField, Min(0)] private int minimumBlockRootPoolCountPerType = 8;
-
-        private readonly Dictionary<BlockShapeType, List<GameObject>> _blockObjectsByType = new();
+        private readonly Dictionary<string, List<GameObject>> _blockObjectsByKey =
+            new(System.StringComparer.Ordinal);
 
         public IReadOnlyList<GameObject> GridCellObjects => gridCellObjects;
         public IReadOnlyList<GameObject> BorderObjects => borderObjects;
         public IReadOnlyList<GameObject> DoorObjects => doorObjects;
-        public IReadOnlyDictionary<BlockShapeType, List<GameObject>> BlockObjectsByType => _blockObjectsByType;
+        public IReadOnlyDictionary<string, List<GameObject>> BlockObjectsByKey => _blockObjectsByKey;
         public GameObject BackdropObject => backdropObject;
+        public int RequiredBoardGridCellCount => TargetBoardPoolWidth * TargetBoardPoolHeight;
 
-        public void RefreshPools(bool ensureMinimumSizes = true)
+        public void RefreshPools(bool validateAuthoringTargets = true)
         {
             SanitizePoolList(gridCellObjects);
             SanitizePoolList(borderObjects);
             SanitizePoolList(doorObjects);
             SanitizeBlockTypePools();
-            if (ensureMinimumSizes)
-            {
-                EnsureMinimumPoolSizes();
-            }
-
             RebuildBlockTypeLookup();
+
+            if (validateAuthoringTargets)
+            {
+                ValidateAuthoringTargets();
+            }
         }
 
         public void EnsureGridCellPoolSize(int requiredCount)
         {
             gridCellObjects ??= new List<GameObject>();
-            requiredCount = Mathf.Max(requiredCount, minimumGridCellPoolCount);
-            EnsurePoolSize(
-                gridCellObjects,
-                gridCellPrefab,
-                "GridCell",
-                requiredCount,
-                useCubeFallback: true);
+            SanitizePoolList(gridCellObjects);
+            WarnIfScenePoolIsShort("grid cell", gridCellObjects.Count, requiredCount);
         }
 
         public void EnsureDoorPoolSize(int requiredCount)
         {
             doorObjects ??= new List<GameObject>();
-            requiredCount = Mathf.Max(requiredCount, minimumDoorPoolCount);
-            EnsurePoolSize(
-                doorObjects,
-                doorPrefab,
-                "Door",
-                requiredCount,
-                useCubeFallback: true);
+            SanitizePoolList(doorObjects);
+            WarnIfScenePoolIsShort("door", doorObjects.Count, requiredCount);
         }
 
-        public void EnsureBlockPoolSizes(IReadOnlyDictionary<BlockShapeType, int> requiredCountByType)
+        public void EnsureBlockPoolSizes(IReadOnlyDictionary<string, int> requiredCountByKey,
+            IReadOnlyDictionary<string, int> requiredCellCountByKey = null)
         {
             SanitizeBlockTypePools();
-            if (requiredCountByType != null)
+            if (requiredCountByKey != null)
             {
-                foreach (var pair in requiredCountByType)
+                foreach (var pair in requiredCountByKey)
                 {
-                    var poolEntry = GetOrCreateBlockPoolEntry(pair.Key);
-                    var requiredCount = Mathf.Max(pair.Value, minimumBlockRootPoolCountPerType);
-                    EnsurePoolSize(
-                        poolEntry.blockObjects,
-                        ResolveBlockTemplate(poolEntry),
-                        "BlockRoot_" + pair.Key,
-                        requiredCount,
-                        useCubeFallback: false);
+                    var requiredCount = Mathf.Max(0, pair.Value);
+                    if (!TryGetBlockPoolEntry(pair.Key, out var poolEntry))
+                    {
+                        Debug.LogWarning(
+                            $"BlockScenePoolManager missing block pool entry for shape '{pair.Key}'. " +
+                            $"Add a pool entry with at least {TargetBlockPoolCountPerShape} objects.",
+                            this);
+                        continue;
+                    }
+
+                    WarnIfScenePoolIsShort($"block root ({poolEntry.ResolvePoolKey()})",
+                        poolEntry.blockObjects?.Count ?? 0, requiredCount);
                 }
             }
 
-            EnsureMinimumBlockPoolSizePerType();
+            WarnIfBlockPoolIsBelowAuthoringMinimum();
 
             RebuildBlockTypeLookup();
-        }
-
-        public void EnsureBlockRootCellPoolSize(GameObject blockRootObject, int requiredCellCount,
-            GameObject cellTemplate = null)
-        {
-            if (!blockRootObject || requiredCellCount <= 0)
-            {
-                return;
-            }
-
-            var blockRootTransform = blockRootObject.transform;
-            var resolvedTemplate = ResolveBlockCellTemplate(cellTemplate, blockRootObject);
-            var blockCellCount = CountBlockCellChildren(blockRootTransform);
-            while (blockCellCount < requiredCellCount)
-            {
-                var cellIndex = ResolveNextBlockCellIndex(blockRootTransform);
-                var createdCell = CreateBlockCellObject(resolvedTemplate, blockRootTransform, cellIndex);
-                if (!createdCell)
-                {
-                    break;
-                }
-
-                blockCellCount++;
-            }
-        }
-
-        private void EnsurePoolSize(
-            List<GameObject> serializedPool,
-            GameObject explicitPrefab,
-            string objectNamePrefix,
-            int requiredCount,
-            bool useCubeFallback)
-        {
-            if (serializedPool == null)
-            {
-                return;
-            }
-
-            SanitizePoolList(serializedPool);
-
-            requiredCount = Mathf.Max(0, requiredCount);
-            var targetCount = Mathf.Max(serializedPool.Count, requiredCount);
-            var template = ResolveTemplate(explicitPrefab, serializedPool);
-            var poolParent = ResolvePoolRoot();
-
-            while (serializedPool.Count < targetCount)
-            {
-                var created = CreatePoolObject(template, poolParent, objectNamePrefix, serializedPool.Count,
-                    useCubeFallback);
-                if (!created)
-                {
-                    break;
-                }
-
-                serializedPool.Add(created);
-            }
         }
 
         private void SanitizeBlockTypePools()
         {
             blockTypePools ??= new List<BlockTypePoolEntry>();
+            var seenKeys = new HashSet<string>(System.StringComparer.Ordinal);
 
             for (var i = blockTypePools.Count - 1; i >= 0; i--)
             {
@@ -176,14 +108,45 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                poolEntry.blockObjects ??= new List<GameObject>(16);
+                poolEntry.shapeKey = string.IsNullOrWhiteSpace(poolEntry.shapeKey) ? string.Empty : poolEntry.shapeKey.Trim();
+                if (string.IsNullOrWhiteSpace(poolEntry.shapeKey) || !seenKeys.Add(poolEntry.shapeKey))
+                {
+                    blockTypePools.RemoveAt(i);
+                    continue;
+                }
+
+                poolEntry.blockObjects ??= new List<GameObject>(TargetBlockPoolCountPerShape);
                 SanitizePoolList(poolEntry.blockObjects);
             }
         }
 
-        private void EnsureMinimumBlockPoolSizePerType()
+        private bool TryGetBlockPoolEntry(string poolKey, out BlockTypePoolEntry entry)
         {
-            if (minimumBlockRootPoolCountPerType <= 0 || blockTypePools == null || blockTypePools.Count == 0)
+            entry = null;
+            if (string.IsNullOrWhiteSpace(poolKey) || blockTypePools == null)
+            {
+                return false;
+            }
+
+            var normalizedPoolKey = poolKey.Trim();
+
+            for (var i = 0; i < blockTypePools.Count; i++)
+            {
+                var poolEntry = blockTypePools[i];
+                if (poolEntry != null &&
+                    string.Equals(poolEntry.ResolvePoolKey(), normalizedPoolKey, System.StringComparison.Ordinal))
+                {
+                    entry = poolEntry;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void WarnIfBlockPoolIsBelowAuthoringMinimum()
+        {
+            if (blockTypePools == null || blockTypePools.Count == 0)
             {
                 return;
             }
@@ -196,47 +159,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                EnsurePoolSize(
-                    poolEntry.blockObjects,
-                    ResolveBlockTemplate(poolEntry),
-                    "BlockRoot_" + poolEntry.blockType,
-                    minimumBlockRootPoolCountPerType,
-                    useCubeFallback: false);
+                WarnIfScenePoolIsShort($"block root ({poolEntry.ResolvePoolKey()})",
+                    poolEntry.blockObjects?.Count ?? 0, TargetBlockPoolCountPerShape);
             }
-        }
-
-        private void EnsureMinimumPoolSizes()
-        {
-            EnsureGridCellPoolSize(minimumGridCellPoolCount);
-            EnsureDoorPoolSize(minimumDoorPoolCount);
-            EnsureMinimumBlockPoolSizePerType();
-        }
-
-        private BlockTypePoolEntry GetOrCreateBlockPoolEntry(BlockShapeType blockType)
-        {
-            for (var i = 0; i < blockTypePools.Count; i++)
-            {
-                var poolEntry = blockTypePools[i];
-                if (poolEntry != null && poolEntry.blockType == blockType)
-                {
-                    return poolEntry;
-                }
-            }
-
-            var createdPool = new BlockTypePoolEntry
-            {
-                blockType = blockType,
-                blockPrefab = defaultBlockRootPrefab,
-                blockObjects = new List<GameObject>(16)
-            };
-
-            blockTypePools.Add(createdPool);
-            return createdPool;
         }
 
         private void RebuildBlockTypeLookup()
         {
-            _blockObjectsByType.Clear();
+            _blockObjectsByKey.Clear();
             for (var i = 0; i < blockTypePools.Count; i++)
             {
                 var poolEntry = blockTypePools[i];
@@ -245,29 +175,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                poolEntry.blockObjects ??= new List<GameObject>(16);
-                if (_blockObjectsByType.ContainsKey(poolEntry.blockType))
+                poolEntry.blockObjects ??= new List<GameObject>(TargetBlockPoolCountPerShape);
+                var poolKey = poolEntry.ResolvePoolKey();
+                if (_blockObjectsByKey.ContainsKey(poolKey))
                 {
                     continue;
                 }
 
-                _blockObjectsByType[poolEntry.blockType] = poolEntry.blockObjects;
+                _blockObjectsByKey[poolKey] = poolEntry.blockObjects;
             }
-        }
-
-        private GameObject ResolveBlockTemplate(BlockTypePoolEntry poolEntry)
-        {
-            if (poolEntry != null && poolEntry.blockPrefab)
-            {
-                return poolEntry.blockPrefab;
-            }
-
-            if (defaultBlockRootPrefab)
-            {
-                return defaultBlockRootPrefab;
-            }
-
-            return poolEntry != null ? ResolveFirstAlive(poolEntry.blockObjects) : null;
         }
 
         private static void SanitizePoolList(List<GameObject> pool)
@@ -286,180 +202,26 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static GameObject ResolveTemplate(GameObject explicitPrefab, IReadOnlyList<GameObject> serializedPool)
+        private void ValidateAuthoringTargets()
         {
-            if (explicitPrefab)
-            {
-                return explicitPrefab;
-            }
-
-            return ResolveFirstAlive(serializedPool);
+            WarnIfScenePoolIsShort("grid cell", gridCellObjects?.Count ?? 0, RequiredBoardGridCellCount);
+            WarnIfScenePoolIsShort("door", doorObjects?.Count ?? 0, TargetDoorPoolCount);
+            WarnIfScenePoolIsShort("border", borderObjects?.Count ?? 0, 4);
+            WarnIfBlockPoolIsBelowAuthoringMinimum();
         }
 
-        private static GameObject ResolveFirstAlive(IReadOnlyList<GameObject> pool)
+        private void WarnIfScenePoolIsShort(string poolName, int availableCount, int requiredCount)
         {
-            if (pool == null)
+            requiredCount = Mathf.Max(0, requiredCount);
+            if (availableCount >= requiredCount)
             {
-                return null;
+                return;
             }
 
-            for (var i = 0; i < pool.Count; i++)
-            {
-                if (pool[i])
-                {
-                    return pool[i];
-                }
-            }
-
-            return null;
-        }
-
-        private GameObject ResolveBlockCellTemplate(GameObject explicitTemplate, GameObject blockRootObject)
-        {
-            if (explicitTemplate)
-            {
-                return explicitTemplate;
-            }
-
-            if (blockRootObject)
-            {
-                var rootTransform = blockRootObject.transform;
-                if (rootTransform && rootTransform.childCount > 0)
-                {
-                    for (var i = 0; i < rootTransform.childCount; i++)
-                    {
-                        var child = rootTransform.GetChild(i);
-                        if (child && child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
-                        {
-                            return child.gameObject;
-                        }
-                    }
-
-                    var firstChild = rootTransform.GetChild(0);
-                    if (firstChild)
-                    {
-                        return firstChild.gameObject;
-                    }
-                }
-            }
-
-            if (gridCellPrefab)
-            {
-                return gridCellPrefab;
-            }
-
-            return ResolveFirstAlive(gridCellObjects);
-        }
-
-        private static GameObject CreateBlockCellObject(GameObject template, Transform parent, int index)
-        {
-            GameObject createdCell;
-            if (template)
-            {
-                createdCell = Instantiate(template, parent);
-            }
-            else
-            {
-                createdCell = new GameObject();
-                if (parent)
-                {
-                    createdCell.transform.SetParent(parent, false);
-                }
-            }
-
-            createdCell.name = "BlockCell_" + index;
-            createdCell.SetActive(false);
-            return createdCell;
-        }
-
-        private static int CountBlockCellChildren(Transform rootTransform)
-        {
-            if (!rootTransform)
-            {
-                return 0;
-            }
-
-            var count = 0;
-            for (var i = 0; i < rootTransform.childCount; i++)
-            {
-                var child = rootTransform.GetChild(i);
-                if (child && child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
-                {
-                    count++;
-                }
-            }
-
-            return count;
-        }
-
-        private static int ResolveNextBlockCellIndex(Transform rootTransform)
-        {
-            if (!rootTransform)
-            {
-                return 0;
-            }
-
-            var nextIndex = 0;
-            for (var i = 0; i < rootTransform.childCount; i++)
-            {
-                var child = rootTransform.GetChild(i);
-                if (!child || !child.name.StartsWith(BlockCellNamePrefix, System.StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                var suffix = child.name.Substring(BlockCellNamePrefix.Length);
-                if (!int.TryParse(suffix, out var parsedIndex))
-                {
-                    continue;
-                }
-
-                nextIndex = Mathf.Max(nextIndex, parsedIndex + 1);
-            }
-
-            return nextIndex;
-        }
-
-        private static GameObject CreatePoolObject(
-            GameObject template,
-            Transform parent,
-            string objectNamePrefix,
-            int index,
-            bool useCubeFallback)
-        {
-            GameObject created;
-            if (template)
-            {
-                created = Instantiate(template, parent);
-            }
-            else if (useCubeFallback)
-            {
-                created = GameObject.CreatePrimitive(PrimitiveType.Cube);
-
-                if (parent)
-                {
-                    created.transform.SetParent(parent, false);
-                }
-            }
-            else
-            {
-                created = new GameObject();
-                if (parent)
-                {
-                    created.transform.SetParent(parent, false);
-                }
-            }
-
-            created.name = string.IsNullOrWhiteSpace(objectNamePrefix)
-                ? "Pooled_" + index
-                : objectNamePrefix + "_" + index;
-            created.SetActive(false);
-            return created;
-        }
-
-        private Transform ResolvePoolRoot()
-        {
-            return poolRoot ? poolRoot : transform;
+            Debug.LogWarning(
+                $"BlockScenePoolManager has {availableCount} {poolName} objects assigned, but this level needs {requiredCount}. " +
+                "Add the missing authored pool objects to the scene or prefab and assign them on BlockScenePoolManager.",
+                this);
         }
     }
 }

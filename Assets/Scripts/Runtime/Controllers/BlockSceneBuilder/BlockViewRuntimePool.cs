@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -8,23 +7,24 @@ namespace Runtime.Controllers.BlockSceneBuilder
     public sealed class BlockViewRuntimePool
     {
         private const string PlacementAnchorPrefix = "__BlockPlacementAnchor_";
-        private readonly Dictionary<BlockShapeType, List<BlockRootView>> _inactiveBlockRootsByType = new();
+        private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
+            new(StringComparer.Ordinal);
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
 
         public void Rebind(
-            IReadOnlyDictionary<BlockShapeType, List<GameObject>> blockObjectsByType,
+            IReadOnlyDictionary<string, List<GameObject>> blockObjectsByKey,
             Action<GameObject, bool> setActiveIfChanged)
         {
             _activeBlockRootById.Clear();
-            _inactiveBlockRootsByType.Clear();
+            _inactiveBlockRootsByKey.Clear();
 
-            if (blockObjectsByType == null)
+            if (blockObjectsByKey == null)
             {
                 return;
             }
 
             var pooledRootIds = new HashSet<int>();
-            foreach (var pair in blockObjectsByType)
+            foreach (var pair in blockObjectsByKey)
             {
                 AddBlockViewsFromPool(pair.Key, pair.Value, pooledRootIds, setActiveIfChanged);
             }
@@ -77,9 +77,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        public BlockRootView Acquire(BlockShapeType blockType)
+        public BlockRootView Acquire(string poolKey)
         {
-            if (!_inactiveBlockRootsByType.TryGetValue(blockType, out var typePool) || typePool.Count == 0)
+            if (string.IsNullOrWhiteSpace(poolKey))
+            {
+                return null;
+            }
+
+            if (!_inactiveBlockRootsByKey.TryGetValue(poolKey, out var typePool) || typePool.Count == 0)
             {
                 return null;
             }
@@ -122,17 +127,23 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            poolManager.EnsureBlockRootCellPoolSize(blockView.RootObject, requiredCellCount);
-            CacheBlockCellPool(blockView, setActiveIfChanged);
+            if (!blockView.HasLoggedMissingBlockCells)
+            {
+                Debug.LogWarning(
+                    $"Block pool object '{blockView.RootObject.name}' has {blockView.Cells.Count} cells but level needs {requiredCellCount}. " +
+                    "Runtime cell generation is disabled. Add missing BlockCell_* children in prefab/scene pool.",
+                    blockView.RootObject);
+                blockView.HasLoggedMissingBlockCells = true;
+            }
         }
 
         private void AddBlockViewsFromPool(
-            BlockShapeType blockType,
+            string poolKey,
             IReadOnlyList<GameObject> sourcePool,
             HashSet<int> pooledRootIds,
             Action<GameObject, bool> setActiveIfChanged)
         {
-            if (sourcePool == null)
+            if (string.IsNullOrWhiteSpace(poolKey) || sourcePool == null)
             {
                 return;
             }
@@ -154,28 +165,28 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 var blockView = new BlockRootView(rootObject)
                 {
-                    BlockType = blockType
+                    PoolKey = poolKey
                 };
 
                 rootObject.TryGetComponent(out Animator animator);
                 blockView.Animator = animator;
-                blockView.PlacementTransform = EnsurePlacementAnchor(rootObject);
+                blockView.PlacementTransform = ResolvePlacementTransform(rootObject);
 
                 CacheBlockCellPool(blockView, setActiveIfChanged);
-                GetOrCreateInactivePool(blockType).Add(blockView);
+                GetOrCreateInactivePool(poolKey).Add(blockView);
                 setActiveIfChanged?.Invoke(rootObject, false);
             }
         }
 
-        private List<BlockRootView> GetOrCreateInactivePool(BlockShapeType blockType)
+        private List<BlockRootView> GetOrCreateInactivePool(string poolKey)
         {
-            if (_inactiveBlockRootsByType.TryGetValue(blockType, out var pool))
+            if (_inactiveBlockRootsByKey.TryGetValue(poolKey, out var pool))
             {
                 return pool;
             }
 
             pool = new List<BlockRootView>(16);
-            _inactiveBlockRootsByType[blockType] = pool;
+            _inactiveBlockRootsByKey[poolKey] = pool;
             return pool;
         }
 
@@ -247,10 +258,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             setActiveIfChanged?.Invoke(blockView.RootObject, false);
-            GetOrCreateInactivePool(blockView.BlockType).Add(blockView);
+            GetOrCreateInactivePool(blockView.PoolKey).Add(blockView);
         }
 
-        private static Transform EnsurePlacementAnchor(GameObject rootObject)
+        private static Transform ResolvePlacementTransform(GameObject rootObject)
         {
             if (!rootObject)
             {
@@ -267,18 +278,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return existingParent;
             }
 
-            var anchorObject = new GameObject(PlacementAnchorPrefix + rootObject.GetInstanceID());
-            var anchorTransform = anchorObject.transform;
-            anchorTransform.SetParent(existingParent, false);
-            anchorTransform.SetPositionAndRotation(rootTransform.position, rootTransform.rotation);
-            anchorTransform.localScale = rootTransform.localScale;
-
-            rootTransform.SetParent(anchorTransform, true);
-            rootTransform.localPosition = Vector3.zero;
-            rootTransform.localRotation = Quaternion.identity;
-            rootTransform.localScale = Vector3.one;
-
-            return anchorTransform;
+            return rootTransform;
         }
     }
 }

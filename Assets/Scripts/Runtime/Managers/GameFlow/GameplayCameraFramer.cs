@@ -25,7 +25,7 @@ namespace Runtime.Managers.GameFlow
             _baseDistanceToBoardPlane = ResolveDistanceToBoardPlane();
         }
 
-        public void CenterToLevel(LevelJsonData levelData, int levelDisplayNumber)
+        public void CenterToLevel(LevelDefinition levelData, int levelDisplayNumber)
         {
             if (!_gameplayCamera || _boardController == null || levelData == null)
             {

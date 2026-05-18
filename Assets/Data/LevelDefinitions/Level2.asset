@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9e52aedbcc7c440d9f7322097d900c1, type: 3}
+  m_Name: Level2
+  m_EditorClassIdentifier: 
+  levelKey: Level2
+  levelNumber: 2
+  timeLimit: 60
+  gridDimensions: {x: 5, y: 7}
+  blockedCells: []
+  availableColors:
+  - 2
+  - 3
+  doors:
+  - position:
+      x: 2
+      y: 6
+    colorType: 2
+  - position:
+      x: 3
+      y: 6
+    colorType: 2
+  - position:
+      x: 1
+      y: 0
+    colorType: 3
+  - position:
+      x: 2
+      y: 0
+    colorType: 3
+  blocks:
+  - position:
+      x: 3
+      y: 2
+    shapeKey: Shape_1x3
+    blockType: 4
+    shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 3
+  - position:
+      x: 1
+      y: 2
+    shapeKey: Shape_1x3
+    blockType: 4
+    shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
+    blockFeatures: 0
+    movementConstraint: 0
+    colorType: 2

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -16,7 +15,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public GameObject RootObject { get; }
         public Transform RootTransform { get; }
         public Transform PlacementTransform { get; set; }
-        public BlockShapeType BlockType { get; set; } = BlockShapeType.Shape1x1;
+        public string PoolKey { get; set; } = "Shape_1x1";
         public List<GameObject> Cells { get; } = new();
         public List<Renderer> CellRenderers { get; } = new();
         public List<Vector2Int> CachedOutlineGridLoop { get; } = new();
@@ -25,6 +24,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public Vector3 CachedLocalBoundsMax { get; set; }
         public bool HasCachedBlockColor { get; set; }
         public Color CachedBlockColor { get; set; }
+        public bool HasLoggedMissingBlockCells { get; set; }
+        public bool HasLoggedMissingConditionIndicator { get; set; }
+        public bool HasLoggedMissingDragOutline { get; set; }
         public Vector2 LocalCenter { get; set; }
         public Vector3 ConditionIndicatorLocalAnchor { get; set; }
         public GameObject ConditionIndicatorObject { get; set; }
