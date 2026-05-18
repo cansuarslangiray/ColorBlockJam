@@ -107,13 +107,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Material GetMaterial(BlockColor colorType)
         {
-            var configuredMaterial = GetConfiguredMaterial(colorType);
-            if (configuredMaterial != null)
-            {
-                return configuredMaterial;
-            }
-
-            return visualProfile ? visualProfile.GetMaterial(colorType) : null;
+            return GetConfiguredMaterial(colorType);
         }
 
         private Material GetConfiguredMaterial(BlockColor colorType)

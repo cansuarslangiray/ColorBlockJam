@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Helpers;
 using UnityEditor;
@@ -15,7 +13,6 @@ namespace Editor.AssetTools
         private string _outputRootPath = DefaultRootPath;
         private bool _generatePrefabs = true;
         private bool _overwriteExistingAssets = true;
-        private bool _generateVisualProfile = true;
 
         [MenuItem("Tools/Color Block Jam/Block Asset Factory")]
         private static void OpenWindow()
@@ -33,7 +30,6 @@ namespace Editor.AssetTools
 
             _outputRootPath = EditorGUILayout.TextField("Output Root", _outputRootPath);
             _generatePrefabs = EditorGUILayout.Toggle("Generate Prefabs", _generatePrefabs);
-            _generateVisualProfile = EditorGUILayout.Toggle("Generate Visual Profile", _generateVisualProfile);
             _overwriteExistingAssets = EditorGUILayout.Toggle("Overwrite Existing", _overwriteExistingAssets);
 
             EditorGUILayout.Space();
@@ -66,34 +62,16 @@ namespace Editor.AssetTools
                 EnsureFolder(prefabsFolder);
             }
 
-            List<BlockColorMaterialEntry> entries = new List<BlockColorMaterialEntry>();
-            GameObject firstPrefab = null;
-
             BlockColor[] allColors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
             for (int i = 0; i < allColors.Length; i++)
             {
                 BlockColor colorType = allColors[i];
                 Material material = CreateOrUpdateMaterial(materialsFolder, colorType);
 
-                entries.Add(new BlockColorMaterialEntry
-                {
-                    colorType = colorType,
-                    material = material
-                });
-
                 if (_generatePrefabs)
                 {
-                    GameObject prefab = CreateOrUpdatePrefab(prefabsFolder, colorType, material);
-                    if (firstPrefab == null)
-                    {
-                        firstPrefab = prefab;
-                    }
+                    CreateOrUpdatePrefab(prefabsFolder, colorType, material);
                 }
-            }
-
-            if (_generateVisualProfile)
-            {
-                CreateOrUpdateVisualProfile(_outputRootPath, entries, firstPrefab);
             }
 
             AssetDatabase.SaveAssets();
@@ -152,29 +130,6 @@ namespace Editor.AssetTools
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(temp, prefabPath);
             DestroyImmediate(temp);
             return prefab;
-        }
-
-        private void CreateOrUpdateVisualProfile(
-            string rootFolder,
-            List<BlockColorMaterialEntry> entries,
-            GameObject firstPrefab)
-        {
-            string profilePath = rootFolder + "/BlockVisualProfile.asset";
-            BlockVisualProfile profile = AssetDatabase.LoadAssetAtPath<BlockVisualProfile>(profilePath);
-
-            if (profile == null)
-            {
-                profile = CreateInstance<BlockVisualProfile>();
-                AssetDatabase.CreateAsset(profile, profilePath);
-            }
-
-            profile.materialsByColor = entries;
-            if (firstPrefab != null)
-            {
-                profile.defaultBlockPrefab = firstPrefab;
-            }
-
-            EditorUtility.SetDirty(profile);
         }
 
         private void EnsureFolder(string folderPath)

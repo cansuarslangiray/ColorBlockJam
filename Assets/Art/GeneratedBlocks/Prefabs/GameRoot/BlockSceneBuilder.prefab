@@ -46,7 +46,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardController: {fileID: 0}
   sourceLevel: {fileID: 0}
-  visualProfile: {fileID: 11400000, guid: 276d87f5a66da4299b19a5cb94e75e29, type: 2}
   gameplayConfig: {fileID: 11400000, guid: e9f963931e2e4d8f99acfd0d6df2fda6, type: 2}
   boardRoot: {fileID: 0}
   blocksRoot: {fileID: 0}

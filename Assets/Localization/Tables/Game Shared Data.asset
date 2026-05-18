@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: Game Shared Data
+  m_EditorClassIdentifier: 
+  m_TableCollectionName: Game
+  m_TableCollectionNameGuidString: f1c32955ccc194fe1a78d048682da54b
+  m_Entries:
+  - m_Id: 372236288
+    m_Key: ui.start.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430592
+    m_Key: ui.start.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430593
+    m_Key: ui.start.action
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430594
+    m_Key: ui.end.level_completed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430595
+    m_Key: ui.end.level_completed.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430596
+    m_Key: ui.end.level_completed.action
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430597
+    m_Key: ui.end.level_failed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430598
+    m_Key: ui.end.level_failed.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430599
+    m_Key: ui.end.level_failed.action
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430600
+    m_Key: ui.end.game_completed.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430601
+    m_Key: ui.end.game_completed.subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430602
+    m_Key: ui.end.game_completed.action
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430603
+    m_Key: ui.topbar.level_caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430604
+    m_Key: ui.topbar.time_caption
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430605
+    m_Key: ui.settings.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430606
+    m_Key: ui.settings.music
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430607
+    m_Key: ui.settings.sfx
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430608
+    m_Key: ui.settings.language
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 6466019383112892440
+  references:
+    version: 2
+    RefIds:
+    - rid: 6466019383112892440
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1779061199899

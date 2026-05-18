@@ -14,7 +14,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         public GameObject RootObject { get; }
         public Transform RootTransform { get; }
-        public BlockShapeType BlockType { get; set; }
+        public BlockShapeType BlockType { get; set; } = BlockShapeType.Shape1x1;
         public List<GameObject> Cells { get; } = new();
         public Vector2 LocalCenter { get; set; }
     }

@@ -26,11 +26,11 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background-color: rgba(10, 18, 46, 0.28);
+    background-color: rgba(9, 23, 59, 0.44);
 }
 
 .settings-drawer {
-    width: 360px;
+    width: 440px;
     max-width: 100%;
     padding-left: 22px;
     padding-right: 22px;
@@ -40,12 +40,12 @@
     border-right-width: 6px;
     border-top-width: 6px;
     border-bottom-width: 6px;
-    border-left-color: rgb(67, 93, 178);
-    border-right-color: rgb(67, 93, 178);
-    border-top-color: rgb(67, 93, 178);
-    border-bottom-color: rgb(67, 93, 178);
+    border-left-color: rgb(69, 87, 165);
+    border-right-color: rgb(69, 87, 165);
+    border-top-color: rgb(69, 87, 165);
+    border-bottom-color: rgb(69, 87, 165);
     border-radius: 30px;
-    background-color: rgb(80, 210, 247);
+    background-color: rgb(52, 176, 238);
 }
 
 .settings-header {
@@ -89,12 +89,12 @@
     border-right-width: 3px;
     border-top-width: 3px;
     border-bottom-width: 3px;
-    border-left-color: rgb(160, 211, 246);
-    border-right-color: rgb(160, 211, 246);
-    border-top-color: rgb(160, 211, 246);
-    border-bottom-color: rgb(160, 211, 246);
+    border-left-color: rgb(120, 170, 229);
+    border-right-color: rgb(120, 170, 229);
+    border-top-color: rgb(120, 170, 229);
+    border-bottom-color: rgb(120, 170, 229);
     border-radius: 20px;
-    background-color: rgb(245, 251, 255);
+    background-color: rgb(168, 219, 249);
 }
 
 .settings-audio-row {
@@ -103,11 +103,41 @@
     justify-content: space-between;
 }
 
+.settings-language-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .settings-section-title {
-    color: rgb(32, 82, 140);
-    font-size: 26px;
+    color: rgb(18, 58, 109);
+    font-size: 34px;
     -unity-font-style: bold;
     white-space: nowrap;
+}
+
+.settings-language-options {
+    flex-direction: row;
+    margin-left: 12px;
+}
+
+.settings-language-button {
+    min-width: 62px;
+    min-height: 42px;
+    margin-left: 8px;
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+    border-radius: 14px;
+    border-left-color: rgb(106, 146, 211);
+    border-right-color: rgb(106, 146, 211);
+    border-top-color: rgb(106, 146, 211);
+    border-bottom-color: rgb(106, 146, 211);
+    background-color: rgb(190, 227, 249);
+    color: rgb(19, 67, 124);
+    font-size: 22px;
+    -unity-font-style: bold;
 }
 
 .settings-switch {
@@ -131,13 +161,13 @@
     padding-left: 0;
     padding-right: 0;
     padding-top: 0;
-    padding-bottom: 4px;
+    padding-bottom: 0;
     border-left-width: 3px;
     border-right-width: 3px;
     border-top-width: 3px;
     border-bottom-width: 3px;
     border-radius: 999px;
-    font-size: 20px;
+    font-size: 0;
     -unity-font-style: bold;
     -unity-text-align: middle-center;
     white-space: nowrap;
@@ -162,25 +192,25 @@
 }
 
 .settings-switch.settings-switch-off {
-    border-left-color: rgb(153, 167, 183);
-    border-right-color: rgb(153, 167, 183);
-    border-top-color: rgb(153, 167, 183);
-    border-bottom-color: rgb(153, 167, 183);
-    background-color: rgb(202, 213, 224);
+    border-left-color: rgb(149, 34, 43);
+    border-right-color: rgb(149, 34, 43);
+    border-top-color: rgb(149, 34, 43);
+    border-bottom-color: rgb(149, 34, 43);
+    background-color: rgb(202, 56, 67);
 }
 
 .settings-switch.settings-switch-off .settings-switch-knob {
-    left: 1px;
-    border-left-color: rgb(146, 160, 176);
-    border-right-color: rgb(146, 160, 176);
-    border-top-color: rgb(146, 160, 176);
-    border-bottom-color: rgb(146, 160, 176);
-    background-color: rgb(237, 243, 248);
-    color: rgb(112, 124, 138);
+    left: -2px;
+    border-left-color: rgb(135, 24, 33);
+    border-right-color: rgb(135, 24, 33);
+    border-top-color: rgb(135, 24, 33);
+    border-bottom-color: rgb(135, 24, 33);
+    background-color: rgb(242, 92, 103);
+    color: rgb(255, 255, 255);
 }
 
 .compact .settings-drawer {
-    width: 250px;
+    width: 300px;
     max-width: 100%;
     padding-left: 14px;
     padding-right: 14px;
@@ -218,7 +248,15 @@
 }
 
 .compact .settings-section-title {
-    font-size: 18px;
+    font-size: 24px;
+}
+
+.compact .settings-language-button {
+    min-width: 50px;
+    min-height: 34px;
+    margin-left: 6px;
+    border-radius: 10px;
+    font-size: 16px;
 }
 
 .compact .settings-switch {
@@ -240,8 +278,8 @@
     border-right-width: 2px;
     border-top-width: 2px;
     border-bottom-width: 2px;
-    font-size: 16px;
-    padding-bottom: 2px;
+    font-size: 0;
+    padding-bottom: 0;
 }
 
 .compact .settings-switch.settings-switch-on .settings-switch-knob {
@@ -249,5 +287,5 @@
 }
 
 .compact .settings-switch.settings-switch-off .settings-switch-knob {
-    left: 1px;
+    left: -1px;
 }

@@ -15,11 +15,38 @@ namespace Runtime.Data
         public BlockMovementConstraint movementConstraint;
         public BlockColor colorType;
 
+        public string ResolveShapeKey(int fallbackCellCount = 1)
+        {
+            var resolvedType = ResolveBlockType(fallbackCellCount);
+            var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
+            if (!string.IsNullOrWhiteSpace(resolvedShapeKey))
+            {
+                return resolvedShapeKey;
+            }
+
+            if (!string.IsNullOrWhiteSpace(shapeKey))
+            {
+                return shapeKey.Trim();
+            }
+
+            return BlockShapeTypeUtility.ToShapeKey(fallbackCellCount <= 1
+                ? BlockShapeType.Shape1x1
+                : BlockShapeType.Custom);
+        }
+
         public BlockShapeType ResolveBlockType(int fallbackCellCount = 1)
         {
-            return blockType != BlockShapeType.Unknown
-                ? blockType
-                : BlockShapeTypeUtility.FromShapeKey(shapeKey, fallbackCellCount);
+            if (blockType != BlockShapeType.Unknown)
+            {
+                return blockType;
+            }
+
+            if (!string.IsNullOrWhiteSpace(shapeKey))
+            {
+                return BlockShapeTypeUtility.FromShapeKey(shapeKey, fallbackCellCount);
+            }
+
+            return fallbackCellCount <= 1 ? BlockShapeType.Shape1x1 : BlockShapeType.Custom;
         }
 
         public void NormalizeBlockType()
@@ -27,14 +54,8 @@ namespace Runtime.Data
             var resolvedType = ResolveBlockType();
             blockType = resolvedType;
 
-            if (string.IsNullOrWhiteSpace(shapeKey))
-            {
-                var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
-                if (!string.IsNullOrWhiteSpace(resolvedShapeKey))
-                {
-                    shapeKey = resolvedShapeKey;
-                }
-            }
+            var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
+            shapeKey = string.IsNullOrWhiteSpace(resolvedShapeKey) ? string.Empty : resolvedShapeKey;
         }
 
         public Vector2Int[] GetLocalCells(BlockShapeRegistry shapeRegistry)
@@ -62,12 +83,18 @@ namespace Runtime.Data
 
         private BlockShapeJsonData ResolveShape(BlockShapeRegistry shapeRegistry)
         {
-            if (shapeRegistry == null || string.IsNullOrWhiteSpace(shapeKey))
+            if (shapeRegistry == null)
             {
                 return null;
             }
 
-            return shapeRegistry.TryResolveShape(shapeKey.Trim(), out var shape) ? shape : null;
+            var resolvedShapeKey = ResolveShapeKey();
+            if (string.IsNullOrWhiteSpace(resolvedShapeKey))
+            {
+                return null;
+            }
+
+            return shapeRegistry.TryResolveShape(resolvedShapeKey, out var shape) ? shape : null;
         }
     }
 }

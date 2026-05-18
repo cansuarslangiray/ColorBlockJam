@@ -1,0 +1,95 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: Game_en
+  m_EditorClassIdentifier: 
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: f1c32955ccc194fe1a78d048682da54b, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 372236288
+    m_Localized: Ready to Solve?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430592
+    m_Localized: Slide each block to its matching door before the timer runs out.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430593
+    m_Localized: Start Level
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430594
+    m_Localized: Level Complete!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430595
+    m_Localized: Nice move. Keep the streak going.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430596
+    m_Localized: Continue
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430597
+    m_Localized: Time's Up
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430598
+    m_Localized: You were close. Try that route once more.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430599
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430600
+    m_Localized: You Cleared All Levels!
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430601
+    m_Localized: Great run. Ready for another full clear?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430602
+    m_Localized: Restart
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430603
+    m_Localized: Level
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430604
+    m_Localized: Time
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430605
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430606
+    m_Localized: Music
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430607
+    m_Localized: SFX
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430608
+    m_Localized: Language
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

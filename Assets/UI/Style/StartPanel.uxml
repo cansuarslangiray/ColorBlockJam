@@ -2,9 +2,9 @@
     <VisualElement name="start-root" class="start-root">
         <Style src="StartPanel.uss" />
         <VisualElement name="start-content" class="start-content">
-            <Label name="start-title" class="start-title" text="Ready to Solve?" />
-            <Label name="start-subtitle" class="start-subtitle" text="Slide each block to its matching door before the timer runs out." />
-            <Button name="start-button" class="start-button" text="Start Level" />
+            <Label name="start-title" class="start-title" view-data-key="ui.start.title" />
+            <Label name="start-subtitle" class="start-subtitle" view-data-key="ui.start.subtitle" />
+            <Button name="start-button" class="start-button" view-data-key="ui.start.action" />
         </VisualElement>
     </VisualElement>
 </UXML>

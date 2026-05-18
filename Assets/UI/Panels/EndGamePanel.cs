@@ -1,15 +1,13 @@
 using System;
-using Runtime.Data;
 using Runtime.Domain.Enums;
+using Runtime.Localization;
 using Runtime.Managers;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
 {
     public class EndGamePanel : GamePanel
     {
-        [SerializeField] private GameUiTextProfile uiTextProfile;
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
@@ -49,17 +47,59 @@ namespace UI.Panels
 
         private void ConfigureForState(GameState state)
         {
-            var stateText = uiTextProfile.GetEndGamePanelText(state);
-            ConfigureAction(stateText.actionLabel, stateText.title, stateText.subtitle);
+            ResolveStateKeys(state, out var actionKey, out var titleKey, out var subtitleKey);
+            ConfigureAction(actionKey, titleKey, subtitleKey);
         }
 
-
-        private void ConfigureAction(string actionLabel, string title, string subtitle)
+        private void ConfigureAction(string actionKey, string titleKey, string subtitleKey)
         {
-            _titleLabel.text = title;
-            _subtitleLabel.text = subtitle;
-            _actionButton.text = actionLabel;
+            _titleLabel.text = LocalizeKey(titleKey);
+            _subtitleLabel.text = LocalizeKey(subtitleKey);
+            _actionButton.text = LocalizeKey(actionKey);
             Show();
+        }
+
+        public override void RefreshLocalization()
+        {
+            base.RefreshLocalization();
+            var currentState = StateManager.Instance != null
+                ? StateManager.Instance.CurrentState
+                : GameState.StartScreen;
+
+            if (IsEndGameState(currentState))
+            {
+                ConfigureForState(currentState);
+            }
+        }
+
+        private static bool IsEndGameState(GameState state) =>
+            state is GameState.LevelCompleted or GameState.LevelFailed or GameState.GameCompleted;
+
+        private static void ResolveStateKeys(GameState state, out string actionKey, out string titleKey, out string subtitleKey)
+        {
+            switch (state)
+            {
+                case GameState.LevelCompleted:
+                    actionKey = LocalizationKeys.Gameplay.EndLevelCompletedAction;
+                    titleKey = LocalizationKeys.Gameplay.EndLevelCompletedTitle;
+                    subtitleKey = LocalizationKeys.Gameplay.EndLevelCompletedSubtitle;
+                    return;
+                case GameState.LevelFailed:
+                    actionKey = LocalizationKeys.Gameplay.EndLevelFailedAction;
+                    titleKey = LocalizationKeys.Gameplay.EndLevelFailedTitle;
+                    subtitleKey = LocalizationKeys.Gameplay.EndLevelFailedSubtitle;
+                    return;
+                case GameState.GameCompleted:
+                    actionKey = LocalizationKeys.Gameplay.EndGameCompletedAction;
+                    titleKey = LocalizationKeys.Gameplay.EndGameCompletedTitle;
+                    subtitleKey = LocalizationKeys.Gameplay.EndGameCompletedSubtitle;
+                    return;
+                default:
+                    actionKey = string.Empty;
+                    titleKey = string.Empty;
+                    subtitleKey = string.Empty;
+                    return;
+            }
         }
 
         private void HandleActionClicked()
@@ -68,9 +108,14 @@ namespace UI.Panels
             ActionRequested?.Invoke();
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
-            _actionButton.clicked -= HandleActionClicked;
+            if (_actionButton != null)
+            {
+                _actionButton.clicked -= HandleActionClicked;
+            }
+
+            base.OnDestroy();
         }
     }
 }

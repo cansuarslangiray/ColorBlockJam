@@ -74,9 +74,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var lowerDuration = DoorMatchLowerDuration;
             var raiseDuration = DoorMatchRaiseDuration;
-            var holdDuration = DoorMatchHoldDuration;
-            var invLowerDuration = 1f / lowerDuration;
-            var invRaiseDuration = 1f / raiseDuration;
+            var holdDuration = Mathf.Max(0f, DoorMatchHoldDuration);
+            var invLowerDuration = 1f / Mathf.Max(0.0001f, lowerDuration);
+            var invRaiseDuration = 1f / Mathf.Max(0.0001f, raiseDuration);
 
             var loweredPosition =
                 baseWorldPosition + (Vector3.down * DoorMatchDropDistanceInCells * cellSize);

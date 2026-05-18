@@ -1,21 +1,28 @@
 using System;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
 {
     public class SettingsPanel : GamePanel
     {
+        private const string EnglishLocaleCode = "en";
+        private const string TurkishLocaleCode = "tr";
+
         public event Action<bool> OpenStateChanged;
 
         private VisualElement _musicToggle;
         private VisualElement _sfxToggle;
         private Label _musicToggleLabel;
         private Label _sfxToggleLabel;
+        private Button _languageToggleButton;
         private Button _closeButton;
         private VisualElement _scrim;
         private bool _isOpen;
+        private bool _settingsEventsRegistered;
 
         public void SubscribeToState() => UIManager.Instance.GameStateChanged += HandleGameStateChanged;
 
@@ -27,18 +34,28 @@ namespace UI.Panels
             _sfxToggle = Root.Q<VisualElement>("settings-sfx-toggle");
             _musicToggleLabel = Root.Q<Label>("settings-music-toggle-label");
             _sfxToggleLabel = Root.Q<Label>("settings-sfx-toggle-label");
+            _languageToggleButton = Root.Q<Button>("settings-language-toggle");
             _closeButton = Root.Q<Button>("settings-close");
             _scrim = Root.Q<VisualElement>("settings-scrim");
 
             _closeButton.clicked += HandleCloseClicked;
+            _languageToggleButton.clicked += HandleLanguageToggleClicked;
             _musicToggle.RegisterCallback<ClickEvent>(HandleMusicToggleClicked);
             _sfxToggle.RegisterCallback<ClickEvent>(HandleSfxToggleClicked);
             _scrim.RegisterCallback<ClickEvent>(HandleScrimClicked);
 
             RegisterSettingsEvents();
-            ApplyToggleState(_musicToggle, _musicToggleLabel, true);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, true);
+            var settings = SettingsManager.Instance;
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settings?.IsMusicEnabled ?? true);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settings?.IsSfxEnabled ?? true);
+            ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
             Hide();
+        }
+
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            RegisterSettingsEvents();
         }
 
         public void Toggle()
@@ -74,31 +91,55 @@ namespace UI.Panels
             }
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
-            _closeButton.clicked -= HandleCloseClicked;
-            _musicToggle.UnregisterCallback<ClickEvent>(HandleMusicToggleClicked);
-            _sfxToggle.UnregisterCallback<ClickEvent>(HandleSfxToggleClicked);
-            _scrim.UnregisterCallback<ClickEvent>(HandleScrimClicked);
+            if (_closeButton != null)
+            {
+                _closeButton.clicked -= HandleCloseClicked;
+            }
+
+            if (_languageToggleButton != null)
+            {
+                _languageToggleButton.clicked -= HandleLanguageToggleClicked;
+            }
+
+            _musicToggle?.UnregisterCallback<ClickEvent>(HandleMusicToggleClicked);
+            _sfxToggle?.UnregisterCallback<ClickEvent>(HandleSfxToggleClicked);
+            _scrim?.UnregisterCallback<ClickEvent>(HandleScrimClicked);
             UnregisterSettingsEvents();
+            base.OnDestroy();
         }
 
         private void RegisterSettingsEvents()
         {
-            if (SettingsManager.Instance == null)
+            if (_settingsEventsRegistered || SettingsManager.Instance == null)
+            {
                 return;
-            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
-            SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged += HandleSfxEnabledChanged;
+            }
+
+            var settingsManager = SettingsManager.Instance;
+            settingsManager.MusicEnabledChanged += HandleMusicEnabledChanged;
+            settingsManager.SfxEnabledChanged += HandleSfxEnabledChanged;
+            _settingsEventsRegistered = true;
+            HandleMusicEnabledChanged(settingsManager.IsMusicEnabled);
+            HandleSfxEnabledChanged(settingsManager.IsSfxEnabled);
         }
 
         private void UnregisterSettingsEvents()
         {
-            if (SettingsManager.Instance == null)
+            if (!_settingsEventsRegistered)
+            {
                 return;
-            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            }
+
+            var settingsManager = SettingsManager.Instance;
+            if (settingsManager != null)
+            {
+                settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
+                settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            }
+
+            _settingsEventsRegistered = false;
         }
 
         private void HandleMusicEnabledChanged(bool isEnabled) =>
@@ -107,11 +148,27 @@ namespace UI.Panels
         private void HandleSfxEnabledChanged(bool isEnabled) =>
             ApplyToggleState(_sfxToggle, _sfxToggleLabel, isEnabled);
 
-        private static void ApplyToggleState(VisualElement toggle, Label toggleLabel, bool isEnabled)
+        private void ApplyToggleState(VisualElement toggle, Label toggleLabel, bool isEnabled)
         {
-            toggleLabel.text = isEnabled ? "On" : "Off";
+            toggleLabel.text = string.Empty;
             toggle.EnableInClassList("settings-switch-on", isEnabled);
             toggle.EnableInClassList("settings-switch-off", !isEnabled);
+        }
+
+        public override void RefreshLocalization()
+        {
+            base.RefreshLocalization();
+            var settings = SettingsManager.Instance;
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settings?.IsMusicEnabled ?? true);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settings?.IsSfxEnabled ?? true);
+            ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
+        }
+
+        private void ApplyLanguageSelection(Locale locale)
+        {
+            var localeCode = locale?.Identifier.Code ?? string.Empty;
+            var shouldSwitchToTurkish = localeCode.StartsWith(EnglishLocaleCode, StringComparison.OrdinalIgnoreCase);
+            _languageToggleButton.text = shouldSwitchToTurkish ? "TR" : "EN";
         }
 
         private void HandleGameStateChanged(GameState _) => Hide();
@@ -134,15 +191,45 @@ namespace UI.Panels
         private void HandleMusicToggleClicked(ClickEvent _)
         {
             AudioManager.Instance.PlayButtonClick();
-            SettingsManager.Instance.SetMusicEnabled(!IsToggleEnabled(_musicToggle));
+            var settings = SettingsManager.Instance;
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.SetMusicEnabled(!settings.IsMusicEnabled);
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
             AudioManager.Instance.PlayButtonClick();
-            SettingsManager.Instance.SetSfxEnabled(!IsToggleEnabled(_sfxToggle));
+            var settings = SettingsManager.Instance;
+            if (settings == null)
+            {
+                return;
+            }
+
+            settings.SetSfxEnabled(!settings.IsSfxEnabled);
         }
 
-        private static bool IsToggleEnabled(VisualElement toggle) => toggle.ClassListContains("settings-switch-on");
+        private void HandleLanguageToggleClicked()
+        {
+            AudioManager.Instance.PlayButtonClick();
+            var currentLocaleCode = LocalizationSettings.SelectedLocale?.Identifier.Code ?? string.Empty;
+            var targetLocaleCode = currentLocaleCode.StartsWith(EnglishLocaleCode, StringComparison.OrdinalIgnoreCase)
+                ? TurkishLocaleCode
+                : EnglishLocaleCode;
+            SetLocaleByCode(targetLocaleCode);
+        }
+
+        private static void SetLocaleByCode(string localeCode)
+        {
+            var locale = LocalizationSettings.AvailableLocales?.GetLocale(localeCode);
+            if (locale != null)
+            {
+                LocalizationSettings.SelectedLocale = locale;
+            }
+        }
+
     }
 }

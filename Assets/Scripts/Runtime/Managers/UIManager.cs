@@ -36,8 +36,6 @@ namespace Runtime.Managers
             settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
         }
 
-        private void Start() => PublishState(GameState.StartScreen);
-
         protected override void OnDestroy()
         {
             topBarPanel.TimerExpired -= HandleTimerExpired;
@@ -57,8 +55,6 @@ namespace Runtime.Managers
         
         public void SetLevel(int levelNumber) => topBarPanel.SetLevel(levelNumber);
 
-        public void ResetTimerDisplay() => topBarPanel.SetTimer(0);
-
         public void StartLevelTimer(float durationSeconds) => topBarPanel.StartTimer(durationSeconds);
 
         public void StopLevelTimer() => topBarPanel.StopTimer();
@@ -69,7 +65,15 @@ namespace Runtime.Managers
 
         private void HandleStartRequested() => StartRequested?.Invoke();
 
-        private void HandleEndGameActionRequested() => EndGameActionRequested?.Invoke(StateManager.Instance.CurrentState);
+        private void HandleEndGameActionRequested()
+        {
+            if (StateManager.Instance == null)
+            {
+                return;
+            }
+
+            EndGameActionRequested?.Invoke(StateManager.Instance.CurrentState);
+        }
 
         private void HandleReloadRequested() => ReloadRequested?.Invoke();
 

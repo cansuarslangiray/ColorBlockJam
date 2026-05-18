@@ -16,6 +16,7 @@ namespace Runtime.Controllers
         [SerializeField] private InputActionReference pointerPositionActionReference;
 
         private bool _inputActionsBound;
+        private bool _stateEventsRegistered;
         private readonly List<RaycastResult> _uiRaycastResults = new();
 
         private void OnEnable()
@@ -69,17 +70,29 @@ namespace Runtime.Controllers
 
         private void RegisterStateEvents()
         {
-            if (StateManager.Instance == null)
+            if (_stateEventsRegistered || StateManager.Instance == null)
+            {
                 return;
+            }
+
             StateManager.Instance.OnStateChanged += HandleGameStateChanged;
+            _stateEventsRegistered = true;
             HandleGameStateChanged(StateManager.Instance.CurrentState);
         }
 
         private void UnregisterStateEvents()
         {
-            if (StateManager.Instance == null)
+            if (!_stateEventsRegistered)
+            {
                 return;
-            StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+            }
+
+            if (StateManager.Instance != null)
+            {
+                StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+            }
+
+            _stateEventsRegistered = false;
         }
 
         private void HandleGameStateChanged(GameState state)

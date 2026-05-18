@@ -32,14 +32,18 @@ namespace Runtime.Data
             }
         }
 
-        public LevelJsonData GetLevelAt(int index)
+        public bool TryGetLevelAt(int index, out LevelJsonData levelData)
         {
             EnsureRuntimeCache();
 
-            if (index < 0 || index >= _runtimeLevels.Count)
-                return null;
+            if ((uint)index >= (uint)_runtimeLevels.Count)
+            {
+                levelData = null;
+                return false;
+            }
 
-            return _runtimeLevels[index];
+            levelData = _runtimeLevels[index];
+            return true;
         }
 
         private void OnEnable()

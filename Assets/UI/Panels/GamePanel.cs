@@ -1,4 +1,8 @@
+using System.Collections.Generic;
+using Runtime.Localization;
 using UnityEngine;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using UnityEngine.UIElements;
 
 namespace UI.Panels
@@ -9,6 +13,8 @@ namespace UI.Panels
         private const float LogScaleBase = 2f;
         private const string HiddenClassName = "is-hidden";
         private static readonly Vector2Int PortraitReferenceResolution = new(1080, 1920);
+        private readonly List<LocalizedTextBinding> _localizedTextBindings = new();
+        private bool _isLocalizationEventsRegistered;
        
         [SerializeField] private UIDocument uiDocument;
 
@@ -33,9 +39,24 @@ namespace UI.Panels
             ApplySafeAreaPadding();
             RefreshResponsiveClasses();
             CacheElements();
+            CacheLocalizedTextBindingsFromUxml();
+            RefreshLocalization();
+            RegisterLocalizationEvents();
         }
 
         protected abstract void CacheElements();
+
+        public virtual void RefreshLocalization() => ApplyLocalizedTextBindings();
+
+        protected virtual void OnEnable()
+        {
+            RegisterLocalizationEvents();
+            RefreshLocalization();
+        }
+
+        protected virtual void OnDisable() => UnregisterLocalizationEvents();
+
+        protected virtual void OnDestroy() => UnregisterLocalizationEvents();
 
         private static void ConfigurePanelSettings(PanelSettings panelSettings)
         {
@@ -153,5 +174,85 @@ namespace UI.Panels
             return Root.ElementAt(0) ?? Root;
         }
 
+        private void CacheLocalizedTextBindingsFromUxml()
+        {
+            _localizedTextBindings.Clear();
+
+            if (Root == null)
+            {
+                return;
+            }
+
+            Root.Query<TextElement>().ForEach(TrackLocalizedTextElement);
+        }
+
+        private void TrackLocalizedTextElement(TextElement element)
+        {
+            if (element == null || string.IsNullOrWhiteSpace(element.viewDataKey))
+            {
+                return;
+            }
+
+            _localizedTextBindings.Add(new LocalizedTextBinding(element, element.viewDataKey));
+        }
+
+        private void ApplyLocalizedTextBindings()
+        {
+            if (_localizedTextBindings.Count <= 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _localizedTextBindings.Count; i++)
+            {
+                var binding = _localizedTextBindings[i];
+                if (binding.Element == null)
+                {
+                    continue;
+                }
+
+                binding.Element.text = LocalizeKey(binding.Key);
+            }
+        }
+
+        private void RegisterLocalizationEvents()
+        {
+            if (_isLocalizationEventsRegistered)
+            {
+                return;
+            }
+
+            LocalizationSettings.SelectedLocaleChanged += HandleLocaleChanged;
+            _isLocalizationEventsRegistered = true;
+        }
+
+        private void UnregisterLocalizationEvents()
+        {
+            if (!_isLocalizationEventsRegistered)
+            {
+                return;
+            }
+
+            LocalizationSettings.SelectedLocaleChanged -= HandleLocaleChanged;
+            _isLocalizationEventsRegistered = false;
+        }
+
+        protected static string LocalizeKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return string.Empty;
+            }
+
+            if (!LocalizationSettings.HasSettings || LocalizationSettings.StringDatabase == null)
+            {
+                return key;
+            }
+
+            var localized = LocalizationSettings.StringDatabase.GetLocalizedString(LocalizationKeys.TableName, key);
+            return string.IsNullOrEmpty(localized) ? key : localized;
+        }
+
+        private void HandleLocaleChanged(Locale _) => RefreshLocalization();
     }
 }

@@ -5,13 +5,13 @@
             <VisualElement name="topbar-main-bar" class="topbar-main-bar">
                 <VisualElement class="topbar-level-badge-shadow" picking-mode="Ignore" />
                 <VisualElement name="topbar-level-badge" class="topbar-level-badge">
-                    <Label class="topbar-level-caption" text="Level" />
+                    <Label name="topbar-level-caption" class="topbar-level-caption" view-data-key="ui.topbar.level_caption" />
                     <Label name="topbar-level" class="topbar-level" text="1" />
                 </VisualElement>
                 <VisualElement class="topbar-content-row">
                     <VisualElement name="topbar-time-group" class="topbar-time-group">
                         <VisualElement class="topbar-time-heading">
-                            <Label class="topbar-time-title" text="Time" />
+                            <Label name="topbar-time-title" class="topbar-time-title" view-data-key="ui.topbar.time_caption" />
                         </VisualElement>
                         <VisualElement name="topbar-timer-chip" class="topbar-timer-chip">
                             <Label name="topbar-timer" class="topbar-timer" text="00:00" />

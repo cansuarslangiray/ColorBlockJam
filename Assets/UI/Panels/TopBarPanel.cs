@@ -149,14 +149,13 @@ namespace UI.Panels
         private void HandleGameStateChanged(GameState state)
         {
             Show();
+            _reloadButton.SetEnabled(state == GameState.Playing);
+
             switch (state)
             {
                 case GameState.StartScreen:
                     StopTimer();
                     SetTimer(0);
-                    break;
-                case GameState.Playing:
-                    _reloadButton.SetEnabled(true);
                     break;
             }
         }
@@ -201,12 +200,25 @@ namespace UI.Panels
             SettingsRequested?.Invoke();
         }
 
-        private void OnDisable() => StopTimer();
-
-        private void OnDestroy()
+        protected override void OnDisable()
         {
-            _reloadButton.clicked -= HandleReloadClicked;
-            _settingsButton.clicked -= HandleSettingsClicked;
+            StopTimer();
+            base.OnDisable();
+        }
+
+        protected override void OnDestroy()
+        {
+            if (_reloadButton != null)
+            {
+                _reloadButton.clicked -= HandleReloadClicked;
+            }
+
+            if (_settingsButton != null)
+            {
+                _settingsButton.clicked -= HandleSettingsClicked;
+            }
+
+            base.OnDestroy();
         }
     }
 }

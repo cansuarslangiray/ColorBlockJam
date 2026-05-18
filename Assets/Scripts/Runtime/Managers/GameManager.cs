@@ -23,8 +23,13 @@ namespace Runtime.Managers
         private float levelCompletePanelDelay = 0.4f;
 
         private int _currentLevelIndex;
+        private int _cachedLevelIndex = -1;
         private bool _transitionInProgress;
-        private bool _eventsRegistered;
+        private bool _boardEventsRegistered;
+        private bool _stateEventsRegistered;
+        private bool _uiEventsRegistered;
+        private bool _isCurrentLevelCacheResolved;
+        private LevelJsonData _cachedCurrentLevelData;
         private WaitForSeconds _levelCompletedDelayWait;
         private float _cachedLevelCompleteDelay = -1f;
 
@@ -37,6 +42,21 @@ namespace Runtime.Managers
         private void Start()
         {
             TryRegisterEvents();
+
+            if (StateManager.Instance == null || UIManager.Instance == null)
+            {
+                Debug.LogError("GameManager requires active StateManager and UIManager instances.", this);
+                enabled = false;
+                return;
+            }
+
+            if (levelCollection == null || boardController == null || blockSceneBuilder == null)
+            {
+                Debug.LogError("GameManager is missing one or more serialized core references.", this);
+                enabled = false;
+                return;
+            }
+
             InitializeRun();
         }
 
@@ -57,57 +77,64 @@ namespace Runtime.Managers
 
         private void TryRegisterEvents()
         {
-            if (_eventsRegistered)
+            if (!_boardEventsRegistered && boardController != null)
             {
-                return;
+                boardController.LevelCompleted += OnLevelCompleted;
+                _boardEventsRegistered = true;
             }
 
-            boardController.LevelCompleted += OnLevelCompleted;
-
-            if (StateManager.Instance != null)
+            if (!_stateEventsRegistered && StateManager.Instance != null)
+            {
                 StateManager.Instance.OnStateChanged += HandleStateChanged;
+                _stateEventsRegistered = true;
+            }
 
-            if (UIManager.Instance != null)
+            if (!_uiEventsRegistered && UIManager.Instance != null)
             {
                 UIManager.Instance.LevelTimerExpired += HandleTimerExpired;
                 UIManager.Instance.StartRequested += HandleStartRequested;
                 UIManager.Instance.EndGameActionRequested += HandleEndGameActionRequested;
                 UIManager.Instance.ReloadRequested += HandleReloadRequested;
+                _uiEventsRegistered = true;
             }
-
-            _eventsRegistered = true;
         }
 
         private void UnregisterEvents()
         {
-            if (!_eventsRegistered)
+            if (_boardEventsRegistered && boardController != null)
             {
-                return;
+                boardController.LevelCompleted -= OnLevelCompleted;
+                _boardEventsRegistered = false;
             }
 
-            boardController.LevelCompleted -= OnLevelCompleted;
-            StateManager.Instance.OnStateChanged -= HandleStateChanged;
-            UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
-            UIManager.Instance.StartRequested -= HandleStartRequested;
-            UIManager.Instance.EndGameActionRequested -= HandleEndGameActionRequested;
-            UIManager.Instance.ReloadRequested -= HandleReloadRequested;
-            _eventsRegistered = false;
+            if (_stateEventsRegistered && StateManager.Instance != null)
+            {
+                StateManager.Instance.OnStateChanged -= HandleStateChanged;
+            }
+            _stateEventsRegistered = false;
+
+            if (_uiEventsRegistered && UIManager.Instance != null)
+            {
+                UIManager.Instance.LevelTimerExpired -= HandleTimerExpired;
+                UIManager.Instance.StartRequested -= HandleStartRequested;
+                UIManager.Instance.EndGameActionRequested -= HandleEndGameActionRequested;
+                UIManager.Instance.ReloadRequested -= HandleReloadRequested;
+            }
+            _uiEventsRegistered = false;
         }
 
         private void InitializeRun()
         {
-            _currentLevelIndex = 0;
+            SetCurrentLevelIndex(0);
             _transitionInProgress = false;
 
             RefreshStaticUI();
-            UIManager.Instance.ResetTimerDisplay();
             StateManager.Instance.ChangeState(GameState.StartScreen);
         }
 
         private void StartCurrentLevel()
         {
-            var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
-            if (levelData == null)
+            if (!TryGetCurrentLevelData(out var levelData))
             {
                 return;
             }
@@ -117,7 +144,7 @@ namespace Runtime.Managers
             CenterCameraToLevel(levelData);
 
             StateManager.Instance.ChangeState(GameState.Playing);
-            RefreshStaticUI();
+            RefreshStaticUI(levelData);
             UIManager.Instance.StartLevelTimer(levelData.timeLimit);
         }
 
@@ -130,7 +157,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            _currentLevelIndex++;
+            SetCurrentLevelIndex(_currentLevelIndex + 1);
             StartCurrentLevel();
         }
 
@@ -191,9 +218,50 @@ namespace Runtime.Managers
 
         private void RefreshStaticUI()
         {
-            var levelData = levelCollection.GetLevelAt(_currentLevelIndex);
+            if (TryGetCurrentLevelData(out var levelData))
+            {
+                RefreshStaticUI(levelData);
+                return;
+            }
+
+            UIManager.Instance.SetLevel(_currentLevelIndex + 1);
+        }
+
+        private void RefreshStaticUI(LevelJsonData levelData)
+        {
             var levelNumber = levelData?.levelNumber ?? _currentLevelIndex + 1;
             UIManager.Instance.SetLevel(levelNumber);
+        }
+
+        private void SetCurrentLevelIndex(int levelIndex)
+        {
+            _currentLevelIndex = levelIndex;
+            _isCurrentLevelCacheResolved = false;
+            _cachedCurrentLevelData = null;
+            _cachedLevelIndex = -1;
+        }
+
+        private bool TryGetCurrentLevelData(out LevelJsonData levelData)
+        {
+            if (_isCurrentLevelCacheResolved && _cachedLevelIndex == _currentLevelIndex)
+            {
+                levelData = _cachedCurrentLevelData;
+                return levelData != null;
+            }
+
+            _isCurrentLevelCacheResolved = true;
+            _cachedLevelIndex = _currentLevelIndex;
+
+            if (levelCollection != null && levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
+            {
+                _cachedCurrentLevelData = resolvedLevelData;
+                levelData = resolvedLevelData;
+                return true;
+            }
+
+            _cachedCurrentLevelData = null;
+            levelData = null;
+            return false;
         }
 
         private void HandleStartRequested()

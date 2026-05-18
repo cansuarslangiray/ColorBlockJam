@@ -345,32 +345,7 @@ namespace Runtime.Controllers
 
         private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor)
         {
-            var maxX = _gridDimensions.x - 1;
-            var maxY = _gridDimensions.y - 1;
-            if (_gridDimensions.x > 0 && _gridDimensions.y > 0)
-            {
-                if (matchedDoor.MinCell.x <= 0)
-                {
-                    return Vector2Int.left;
-                }
-
-                if (matchedDoor.MaxCell.x >= maxX)
-                {
-                    return Vector2Int.right;
-                }
-
-                if (matchedDoor.MinCell.y <= 0)
-                {
-                    return Vector2Int.down;
-                }
-
-                if (matchedDoor.MaxCell.y >= maxY)
-                {
-                    return Vector2Int.up;
-                }
-            }
-
-            return matchedDoor.EdgeDirection.ToVector();
+            return matchedDoor.ResolveExitDirection(_gridDimensions);
         }
 
         private bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint,

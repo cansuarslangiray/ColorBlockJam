@@ -21,17 +21,18 @@ namespace Runtime.Managers
         [Header("Gameplay SFX")]
         [SerializeField] private AudioClip blockSelect;
         [SerializeField] private AudioClip blockMatchSuccess;
+        private bool _settingsEventsRegistered;
 
         private void OnEnable()
         {
-            RegisterSettingsEvents();
+            TryRegisterSettingsEvents();
         }
 
         private void OnDisable() => UnregisterSettingsEvents();
 
         public void SyncMusicToState(GameState state)
         {
-            RegisterSettingsEvents();
+            TryRegisterSettingsEvents();
             ApplyMusicState(state);
         }
 
@@ -58,22 +59,37 @@ namespace Runtime.Managers
             }
         }
 
-        private void RegisterSettingsEvents()
+        private void TryRegisterSettingsEvents()
         {
-            if (SettingsManager.Instance == null)
+            if (_settingsEventsRegistered || SettingsManager.Instance == null)
+            {
                 return;
-            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
-            SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged += HandleSfxEnabledChanged;
+            }
+
+            var settingsManager = SettingsManager.Instance;
+            settingsManager.MusicEnabledChanged += HandleMusicEnabledChanged;
+            settingsManager.SfxEnabledChanged += HandleSfxEnabledChanged;
+            _settingsEventsRegistered = true;
+
+            HandleMusicEnabledChanged(settingsManager.IsMusicEnabled);
+            HandleSfxEnabledChanged(settingsManager.IsSfxEnabled);
         }
 
         private void UnregisterSettingsEvents()
         {
-            if (SettingsManager.Instance == null)
+            if (!_settingsEventsRegistered)
+            {
                 return;
-            SettingsManager.Instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
-            SettingsManager.Instance.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            }
+
+            var settingsManager = SettingsManager.Instance;
+            if (settingsManager != null)
+            {
+                settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
+                settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            }
+
+            _settingsEventsRegistered = false;
         }
 
         private void HandleMusicEnabledChanged(bool isEnabled)
@@ -89,7 +105,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            ApplyMusicState(StateManager.Instance.CurrentState);
+            ApplyMusicState(StateManager.Instance != null ? StateManager.Instance.CurrentState : GameState.StartScreen);
         }
 
         private void HandleSfxEnabledChanged(bool isEnabled)
@@ -148,8 +164,6 @@ namespace Runtime.Managers
 
         private void PlaySfx(AudioClip clip)
         {
-            RegisterSettingsEvents();
-
             if (clip == null || sfxSource == null || sfxSource.mute)
             {
                 return;

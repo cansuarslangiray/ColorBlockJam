@@ -111,13 +111,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            _blockMoveRoutineById[blockId] = StartCoroutine(MoveBlockRoutine(blockId, blockView, toPosition, distanceInCells));
+            _blockMoveRoutineById[blockId] =
+                StartCoroutine(MoveBlockRoutine(blockId, blockView, toPosition, distanceInCells));
         }
 
-        private void HandleBlockCleared(
-            int blockId,
-            Vector2Int clearedPosition,
-            Vector2Int exitDirection,
+        private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection,
             DoorOpeningData matchedDoor)
         {
             if (!_activeBlockRootById.TryGetValue(blockId, out var blockView))
@@ -131,7 +129,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
         }
 
-        private IEnumerator MoveBlockRoutine(int blockId, BlockRootView blockView, Vector2Int targetGridPosition, int distanceInCells)
+        private IEnumerator MoveBlockRoutine(int blockId, BlockRootView blockView, Vector2Int targetGridPosition,
+            int distanceInCells)
         {
             var targetWorldPosition = ToWorldPosition(targetGridPosition, GetCurrentLayout());
             var duration = MoveDuration * Mathf.Max(1, distanceInCells);
@@ -139,12 +138,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _blockMoveRoutineById.Remove(blockId);
         }
 
-        private IEnumerator ClearAndExitRoutine(
-            int blockId,
-            BlockRootView blockView,
-            Vector2Int clearedPosition,
-            Vector2Int exitDirection,
-            DoorOpeningData matchedDoor)
+        private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
+            Vector2Int exitDirection, DoorOpeningData matchedDoor)
         {
             var layout = GetCurrentLayout();
             var blockTransform = blockView.RootTransform;
@@ -160,7 +155,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             AudioManager.Instance.PlayBlockMatchSuccess();
             PlayDoorMatchFx(matchedDoor);
 
-            var resolvedExitDirection = ResolveExitDirectionForDoor(matchedDoor, exitDirection);
+            var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
             if (resolvedExitDirection == Vector2Int.zero)
             {
                 FinalizeClearedBlock(blockId, blockView);
@@ -236,39 +231,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 layout.BoardOrigin.y + (centerY * layout.CellSize));
         }
 
-        private Vector2Int ResolveExitDirectionForDoor(DoorOpeningData matchedDoor, Vector2Int fallbackDirection)
-        {
-            var gridSize = boardController.GridDimensions;
-            if (gridSize is { x: > 0, y: > 0 })
-            {
-                var maxX = gridSize.x - 1;
-                var maxY = gridSize.y - 1;
-
-                if (matchedDoor.MinCell.x <= 0)
-                {
-                    return Vector2Int.left;
-                }
-
-                if (matchedDoor.MaxCell.x >= maxX)
-                {
-                    return Vector2Int.right;
-                }
-
-                if (matchedDoor.MinCell.y <= 0)
-                {
-                    return Vector2Int.down;
-                }
-
-                if (matchedDoor.MaxCell.y >= maxY)
-                {
-                    return Vector2Int.up;
-                }
-            }
-
-            return fallbackDirection != Vector2Int.zero ? fallbackDirection : matchedDoor.EdgeDirection.ToVector();
-        }
-
-        private IEnumerator TweenBlockMove(Transform blockTransform, Vector3 targetPosition, float duration, AnimationCurve easingCurve)
+        private IEnumerator TweenBlockMove(Transform blockTransform, Vector3 targetPosition, float duration,
+            AnimationCurve easingCurve)
         {
             var startPosition = blockTransform.position;
             if ((startPosition - targetPosition).sqrMagnitude <= 0.0001f)

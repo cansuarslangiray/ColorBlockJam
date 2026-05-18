@@ -5,24 +5,33 @@
             <VisualElement name="settings-scrim" class="settings-scrim" />
             <VisualElement name="settings-drawer" class="settings-drawer">
                 <VisualElement class="settings-header">
-                    <Label class="settings-title" text="Settings" />
+                    <Label name="settings-title" class="settings-title" view-data-key="ui.settings.title" />
                     <Button name="settings-close" class="settings-close" text="X" />
                 </VisualElement>
 
                 <VisualElement class="settings-section">
                     <VisualElement class="settings-audio-row">
-                        <Label class="settings-section-title" text="Music" />
+                        <Label name="settings-music-title" class="settings-section-title" view-data-key="ui.settings.music" />
                         <VisualElement name="settings-music-toggle" class="settings-switch settings-switch-on">
-                            <Label name="settings-music-toggle-label" class="settings-switch-knob" text="On" />
+                            <Label name="settings-music-toggle-label" class="settings-switch-knob" />
                         </VisualElement>
                     </VisualElement>
                 </VisualElement>
 
                 <VisualElement class="settings-section">
                     <VisualElement class="settings-audio-row">
-                        <Label class="settings-section-title" text="SFX" />
+                        <Label name="settings-sfx-title" class="settings-section-title" view-data-key="ui.settings.sfx" />
                         <VisualElement name="settings-sfx-toggle" class="settings-switch settings-switch-on">
-                            <Label name="settings-sfx-toggle-label" class="settings-switch-knob" text="On" />
+                            <Label name="settings-sfx-toggle-label" class="settings-switch-knob" />
+                        </VisualElement>
+                    </VisualElement>
+                </VisualElement>
+
+                <VisualElement class="settings-section">
+                    <VisualElement class="settings-language-row">
+                        <Label name="settings-language-title" class="settings-section-title" view-data-key="ui.settings.language" />
+                        <VisualElement class="settings-language-options">
+                            <Button name="settings-language-toggle" class="settings-language-button" text="TR" />
                         </VisualElement>
                     </VisualElement>
                 </VisualElement>

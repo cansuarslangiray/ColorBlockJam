@@ -231,6 +231,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 poolEntry.blockObjects ??= new List<GameObject>(16);
+                if (_blockObjectsByType.ContainsKey(poolEntry.blockType))
+                {
+                    continue;
+                }
+
                 _blockObjectsByType[poolEntry.blockType] = poolEntry.blockObjects;
             }
         }

@@ -33,12 +33,11 @@ namespace Runtime.Controllers
             for (var i = 0; i < levelData.blocks.Count; i++)
             {
                 var blockData = levelData.blocks[i];
-                var resolvedBlockType = blockData.ResolveBlockType();
-                var resolvedShapeKey = string.IsNullOrWhiteSpace(blockData.shapeKey)
-                    ? BlockShapeTypeUtility.ToShapeKey(resolvedBlockType)
-                    : blockData.shapeKey;
-                blockData.shapeKey = resolvedShapeKey;
+                var fallbackCellCount = 1;
+                var resolvedBlockType = blockData.ResolveBlockType(fallbackCellCount);
+                var resolvedShapeKey = BlockShapeTypeUtility.ToShapeKey(resolvedBlockType);
                 blockData.blockType = resolvedBlockType;
+                blockData.shapeKey = resolvedShapeKey;
 
                 if (!string.IsNullOrWhiteSpace(resolvedShapeKey) &&
                     (shapeRegistry == null || !shapeRegistry.TryResolveShape(resolvedShapeKey, out _)))

@@ -10,7 +10,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Core References")] [SerializeField]
         private BoardController boardController;
 
-        [SerializeField] private BlockVisualProfile visualProfile;
         [SerializeField] private BlockScenePoolManager poolManager;
 
         [Header("Material References")] [SerializeField]
