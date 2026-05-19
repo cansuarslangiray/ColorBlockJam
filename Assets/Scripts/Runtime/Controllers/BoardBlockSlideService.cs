@@ -53,7 +53,7 @@ namespace Runtime.Controllers
 
                 if (nextOverlapsDoor && !currentlyOverlappingDoor)
                 {
-                    if (!canExitThroughDoor)
+                    if (!canExitThroughDoor || !_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
                     {
                         break;
                     }
@@ -95,6 +95,7 @@ namespace Runtime.Controllers
             {
                 var frontCellPosition = currentPosition + directionVector;
                 if (TryResolveDoorExit(block, frontCellPosition, direction, out var frontDoor) &&
+                    _occupancyMap.CanPlace(block.Id, frontCellPosition, block.LocalCells) &&
                     !_occupancyMap.IsDoorOverlapping(block, currentPosition))
                 {
                     matchedDoor = frontDoor;
@@ -186,6 +187,13 @@ namespace Runtime.Controllers
             {
                 return false;
             }
+
+            var frontCellPosition = blockPosition + resolvedDoor.EdgeDirection.ToVector();
+            if (!_occupancyMap.CanPlace(block.Id, frontCellPosition, block.LocalCells))
+            {
+                return false;
+            }
+
             doorExit = resolvedDoor;
             return true;
         }
