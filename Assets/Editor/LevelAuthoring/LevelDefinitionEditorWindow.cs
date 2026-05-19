@@ -298,7 +298,7 @@ namespace Editor.LevelAuthoring
             {
                 case EditMode.BlockedCells:
                     EditorGUILayout.HelpBox(
-                        "Grid hücresine tıklayarak blocked cell ekle/çıkar. Frame hücreleri runtime'da otomatik duvar olur.",
+                        "Grid hücresine tıklayarak blocked cell ekle/çıkar. En dış halka daima border'dır.",
                         MessageType.None);
                     break;
                 case EditMode.Doors:
@@ -320,7 +320,7 @@ namespace Editor.LevelAuthoring
                     _selectedBlockFeature = DrawFeatureSelector(_selectedBlockFeature);
 
                     EditorGUILayout.HelpBox(
-                        "Grid'e tıklayınca seçili shape anchor pozisyonuna yerleşir. Anchor'da blok varsa tıklayınca silinir.",
+                        "Grid'e tıklayınca seçili shape anchor pozisyonuna yerleşir. Border hücrelerine block yerleşmez.",
                         MessageType.None);
                     break;
             }
@@ -417,8 +417,6 @@ namespace Editor.LevelAuthoring
                     block.shapeKey = shape ? shape.ShapeKey : block.shapeKey;
                     block.colorType = color;
                     block.blockFeatures = features.Sanitize();
-                    block.movementConstraint = block.blockFeatures.ResolveMovementConstraint(BlockMovementConstraint.Default);
-                    block.blockType = block.ResolveBlockType(shape ? shape.GetLocalCells().Length : 1);
                     level.blocks[i] = block;
                     SaveLevelChange(level);
                 }
@@ -458,6 +456,7 @@ namespace Editor.LevelAuthoring
         {
             if (IsFrameCell(level, cell))
             {
+                ShowNotification(new GUIContent("En dış halka border olarak sabittir."));
                 return;
             }
 
@@ -552,8 +551,6 @@ namespace Editor.LevelAuthoring
                 shapeKey = shape.ShapeKey,
                 shapeDefinition = shape,
                 blockFeatures = _selectedBlockFeature.Sanitize(),
-                movementConstraint = _selectedBlockFeature.ResolveMovementConstraint(BlockMovementConstraint.Default),
-                blockType = shape.BlockType,
                 colorType = _selectedBlockColor
             };
             block.Normalize();
@@ -673,7 +670,7 @@ namespace Editor.LevelAuthoring
             if (IsFrameCell(level, cell))
             {
                 color = FrameCellColor;
-                return string.Empty;
+                return "B";
             }
 
             color = EmptyCellColor;
@@ -902,7 +899,7 @@ namespace Editor.LevelAuthoring
 
             if (level.blockedCells != null)
             {
-                level.blockedCells.RemoveAll(cell => !IsInGrid(level, cell));
+                level.blockedCells.RemoveAll(cell => !IsInGrid(level, cell) || IsFrameCell(level, cell));
             }
 
             if (level.doors != null)

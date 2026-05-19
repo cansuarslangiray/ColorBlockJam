@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Runtime.Domain.Models;
 using UnityEngine;
@@ -8,11 +9,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
     {
         private const string DoorPlacementAnchorPrefix = "__DoorPlacementAnchor_";
         private readonly List<DoorOpeningData> _activeDoorOpenings = new();
-        private readonly List<Animator> _doorAnimatorByIndex = new();
         private readonly List<Transform> _doorPlacementRootByIndex = new();
         private readonly List<Renderer[]> _doorRenderersByIndex = new();
+        private readonly List<Vector3> _doorPlacementBaseLocalPositionByIndex = new();
+        private readonly List<Coroutine> _doorMatchFxRoutineByIndex = new();
 
-        private static readonly int DoorInTriggerHash = Animator.StringToHash("DoorIn");
 
         private void CacheActiveDoorOpenings(IReadOnlyList<DoorOpeningData> openings)
         {
@@ -37,10 +38,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            PlayDoorInAnimation(doorIndex);
+            PlayDoorMatchFxAtIndex(doorIndex);
         }
 
-        private void PlayDoorInAnimation(int doorIndex)
+        private void PlayDoorMatchFxAtIndex(int doorIndex)
         {
             if (doorIndex < 0 || doorIndex >= _doorPool.Count)
             {
@@ -53,78 +54,144 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var animator = ResolveDoorAnimator(doorIndex);
-            if (!animator || !animator.runtimeAnimatorController)
+            var placementTransform = ResolveDoorPlacementTransform(doorIndex, doorObject);
+            if (!placementTransform)
             {
                 return;
             }
 
-            if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
+            StopDoorMatchFxAtIndex(doorIndex, restoreBasePosition: true);
+            SetDoorMatchFxRoutineAtIndex(doorIndex, StartCoroutine(AnimateDoorMatchFx(doorIndex)));
+        }
+
+        private IEnumerator AnimateDoorMatchFx(int doorIndex)
+        {
+            if (doorIndex < 0 || doorIndex >= _doorPool.Count)
             {
-                return;
+                yield break;
             }
 
-            animator.ResetTrigger(DoorInTriggerHash);
-            animator.Play(0, 0, 0f);
-            animator.SetTrigger(DoorInTriggerHash);
+            var doorObject = _doorPool[doorIndex];
+            var placementTransform = ResolveDoorPlacementTransform(doorIndex, doorObject);
+            if (!placementTransform)
+            {
+                SetDoorMatchFxRoutineAtIndex(doorIndex, null);
+                yield break;
+            }
+
+            EnsureDoorPlacementBaseLocalPositionSlot(doorIndex);
+            var baseLocalPosition = _doorPlacementBaseLocalPositionByIndex[doorIndex];
+            var dipDistance = Mathf.Max(0f, CellSize * doorMatchDipInCells);
+            var duration = Mathf.Max(0.02f, doorMatchFxDuration);
+
+            if (dipDistance <= Mathf.Epsilon || duration <= Mathf.Epsilon)
+            {
+                placementTransform.localPosition = baseLocalPosition;
+                SetDoorMatchFxRoutineAtIndex(doorIndex, null);
+                yield break;
+            }
+
+            var elapsed = 0f;
+            while (elapsed < duration)
+            {
+                if (!placementTransform)
+                {
+                    break;
+                }
+
+                elapsed += Time.unscaledDeltaTime;
+                var progress = Mathf.Clamp01(elapsed / duration);
+                var dip = Mathf.Sin(progress * Mathf.PI) * dipDistance;
+                placementTransform.localPosition = baseLocalPosition + (Vector3.down * dip);
+                yield return null;
+            }
+
+            if (placementTransform)
+            {
+                placementTransform.localPosition = baseLocalPosition;
+            }
+
+            SetDoorMatchFxRoutineAtIndex(doorIndex, null);
         }
 
         private void StopAllDoorMatchFx()
         {
-            var count = Mathf.Min(_doorPool.Count, _doorAnimatorByIndex.Count);
+            var count = _doorMatchFxRoutineByIndex.Count;
             for (var i = 0; i < count; i++)
             {
-                var animator = ResolveDoorAnimator(i);
-                ResetDoorAnimator(animator);
+                StopDoorMatchFxAtIndex(i, restoreBasePosition: true);
             }
 
             _activeDoorOpenings.Clear();
         }
 
-        private static void ResetDoorAnimator(Animator animator)
+        private void StopDoorMatchFxAtIndex(int doorIndex, bool restoreBasePosition)
         {
-            if (!animator || !animator.runtimeAnimatorController)
+            if (doorIndex < 0 || doorIndex >= _doorMatchFxRoutineByIndex.Count)
             {
                 return;
             }
 
-            if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
+            var routine = _doorMatchFxRoutineByIndex[doorIndex];
+            if (routine != null)
+            {
+                StopCoroutine(routine);
+                _doorMatchFxRoutineByIndex[doorIndex] = null;
+            }
+
+            if (!restoreBasePosition || doorIndex >= _doorPlacementRootByIndex.Count)
             {
                 return;
             }
 
-            animator.ResetTrigger(DoorInTriggerHash);
-            animator.Play(0, 0, 0f);
+            var placementTransform = _doorPlacementRootByIndex[doorIndex];
+            if (!placementTransform || doorIndex >= _doorPlacementBaseLocalPositionByIndex.Count)
+            {
+                return;
+            }
+
+            placementTransform.localPosition = _doorPlacementBaseLocalPositionByIndex[doorIndex];
         }
 
-        private void ResetDoorAnimatorCache()
+        private void ResetDoorRuntimeCache()
         {
-            _doorAnimatorByIndex.Clear();
+            StopAllDoorMatchFx();
             _doorPlacementRootByIndex.Clear();
             _doorRenderersByIndex.Clear();
+            _doorPlacementBaseLocalPositionByIndex.Clear();
+            _doorMatchFxRoutineByIndex.Clear();
         }
 
-        private void SyncDoorAnimatorState(int doorIndex)
+        private void SetDoorMatchFxRoutineAtIndex(int doorIndex, Coroutine routine)
         {
-            var animator = ResolveDoorAnimator(doorIndex);
-            ResetDoorAnimator(animator);
+            EnsureDoorMatchFxRoutineSlot(doorIndex);
+            _doorMatchFxRoutineByIndex[doorIndex] = routine;
         }
 
-        private Animator ResolveDoorAnimator(int doorIndex)
+        private void CacheDoorPlacementBaseLocalPosition(int doorIndex, Transform placementTransform)
         {
-            if (doorIndex < 0 || doorIndex >= _doorAnimatorByIndex.Count)
+            if (!placementTransform)
             {
-                return null;
+                return;
             }
 
-            return _doorAnimatorByIndex[doorIndex];
+            EnsureDoorPlacementBaseLocalPositionSlot(doorIndex);
+            _doorPlacementBaseLocalPositionByIndex[doorIndex] = placementTransform.localPosition;
         }
 
-        private void EnsureDoorAnimatorSlot(int doorIndex)
+        private void EnsureDoorPlacementBaseLocalPositionSlot(int doorIndex)
         {
-            while (_doorAnimatorByIndex.Count <= doorIndex)
+            while (_doorPlacementBaseLocalPositionByIndex.Count <= doorIndex)
             {
-                _doorAnimatorByIndex.Add(null);
+                _doorPlacementBaseLocalPositionByIndex.Add(Vector3.zero);
+            }
+        }
+
+        private void EnsureDoorMatchFxRoutineSlot(int doorIndex)
+        {
+            while (_doorMatchFxRoutineByIndex.Count <= doorIndex)
+            {
+                _doorMatchFxRoutineByIndex.Add(null);
             }
         }
 
@@ -175,20 +242,26 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void CacheDoorRuntimeReferences(int doorIndex, GameObject doorObject)
         {
-            EnsureDoorAnimatorSlot(doorIndex);
             EnsureDoorPlacementSlot(doorIndex);
             EnsureDoorRendererSlot(doorIndex);
+            EnsureDoorPlacementBaseLocalPositionSlot(doorIndex);
+            EnsureDoorMatchFxRoutineSlot(doorIndex);
 
             if (!doorObject)
             {
-                _doorAnimatorByIndex[doorIndex] = null;
+                StopDoorMatchFxAtIndex(doorIndex, restoreBasePosition: false);
                 _doorPlacementRootByIndex[doorIndex] = null;
                 _doorRenderersByIndex[doorIndex] = System.Array.Empty<Renderer>();
+                _doorPlacementBaseLocalPositionByIndex[doorIndex] = Vector3.zero;
                 return;
             }
 
-            doorObject.TryGetComponent(out Animator animator);
-            _doorAnimatorByIndex[doorIndex] = animator;
+            if (doorObject.TryGetComponent<Animator>(out var legacyDoorAnimator) && legacyDoorAnimator.enabled)
+            {
+                legacyDoorAnimator.enabled = false;
+            }
+
+            _doorPlacementBaseLocalPositionByIndex[doorIndex] = Vector3.zero;
             _doorRenderersByIndex[doorIndex] = doorObject.TryGetComponent<Renderer>(out var renderer)
                 ? new[] { renderer }
                 : System.Array.Empty<Renderer>();

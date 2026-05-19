@@ -42,17 +42,13 @@ MonoBehaviour:
       x: 3
       y: 2
     shapeKey: Shape_1x3
-    blockType: 4
     shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 3
   - position:
       x: 1
       y: 2
     shapeKey: Shape_1x3
-    blockType: 4
     shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 2

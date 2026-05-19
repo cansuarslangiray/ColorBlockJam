@@ -14,8 +14,19 @@ namespace Runtime.Managers.GameFlow
             _currentLevelIndex = 0;
         }
 
-        public int CurrentLevelDisplayNumber => _currentLevelIndex + 1;
-        public BlockShapeCatalog RuntimeShapeCatalog => _levelCollection.RuntimeShapeCatalog;
+        public int CurrentLevelDisplayNumber
+        {
+            get
+            {
+                if (TryGetCurrentLevelData(out var levelData) && levelData != null)
+                {
+                    return Mathf.Max(1, levelData.levelNumber);
+                }
+
+                return _currentLevelIndex + 1;
+            }
+        }
+        public BlockShapeCatalog RuntimeShapeCatalog => _levelCollection != null ? _levelCollection.RuntimeShapeCatalog : null;
 
         public void SetCurrentLevelFromSavedNumber(int savedLevelNumber)
         {
@@ -55,20 +66,51 @@ namespace Runtime.Managers.GameFlow
                 return false;
             }
 
-            SetCurrentLevelIndex(_currentLevelIndex + 1);
-            return true;
+            var currentLevelNumber = CurrentLevelDisplayNumber;
+            for (var i = _currentLevelIndex + 1; i < _levelCollection.Count; i++)
+            {
+                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData) || candidateLevelData == null)
+                {
+                    continue;
+                }
+
+                if (Mathf.Max(1, candidateLevelData.levelNumber) <= currentLevelNumber)
+                {
+                    continue;
+                }
+
+                SetCurrentLevelIndex(i);
+                return true;
+            }
+
+            return false;
         }
 
         public bool TryGetNextLevelData(out LevelDefinition levelData)
         {
-            var nextLevelIndex = _currentLevelIndex + 1;
-            if (_levelCollection != null && _levelCollection.TryGetLevelAt(nextLevelIndex, out var resolvedLevelData))
+            levelData = null;
+            if (_levelCollection == null || _currentLevelIndex + 1 >= _levelCollection.Count)
             {
-                levelData = resolvedLevelData;
+                return false;
+            }
+
+            var currentLevelNumber = CurrentLevelDisplayNumber;
+            for (var i = _currentLevelIndex + 1; i < _levelCollection.Count; i++)
+            {
+                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData) || candidateLevelData == null)
+                {
+                    continue;
+                }
+
+                if (Mathf.Max(1, candidateLevelData.levelNumber) <= currentLevelNumber)
+                {
+                    continue;
+                }
+
+                levelData = candidateLevelData;
                 return true;
             }
 
-            levelData = null;
             return false;
         }
 

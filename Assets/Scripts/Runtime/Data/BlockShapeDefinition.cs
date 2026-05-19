@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Runtime.Domain.Enums;
 using UnityEngine;
 
 namespace Runtime.Data
@@ -15,15 +14,6 @@ namespace Runtime.Data
         [NonSerialized] private bool _cacheDirty = true;
 
         public string ShapeKey => string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
-
-        public BlockShapeType BlockType
-        {
-            get
-            {
-                EnsureCache();
-                return BlockShapeTypeUtility.FromShapeKey(ShapeKey, _cachedLocalCells.Length);
-            }
-        }
 
         public Vector2Int[] GetLocalCells()
         {

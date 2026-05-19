@@ -59,26 +59,20 @@ MonoBehaviour:
       x: 4
       y: 2
     shapeKey: Shape_2x2
-    blockType: 6
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 3
   - position:
       x: 1
       y: 4
     shapeKey: Shape_2x2
-    blockType: 6
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 1
   - position:
       x: 3
       y: 3
     shapeKey: Shape_1x2
-    blockType: 2
     shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 4

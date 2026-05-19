@@ -9,10 +9,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var dims = levelData.gridDimensions;
             var openings = levelData.GetDoorOpenings();
+            BoardRuntimeState.CollectBlockedCellsForLayout(dims, levelData.blockedCells, openings,
+                _resolvedBlockedCells);
 
             var boardVisualRequest = new BoardVisualBuilder.BuildRequest
             {
                 GridCellPoolByCell = _gridCellPoolByCell,
+                BlockedCellPool = _blockedCellPool,
+                BlockedCells = _resolvedBlockedCells,
                 BorderObjects = _borderObjects,
                 BackdropObject = _backdropObject,
                 DoorPool = _doorPool,
@@ -20,11 +24,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 GridDimensions = dims,
                 Layout = layout,
                 BoardBackdropZOffset = boardBackdropZOffset,
+                BlockedCellZOffset = blockedCellZOffsetFromGrid,
                 DoorInsetInCells = doorInsetInCells,
                 SetActiveIfChanged = SetActiveIfChanged,
                 ApplyWorldTransform = ApplyWorldTransform,
                 ResolveDoorPlacementTransform = ResolveDoorPlacementTransform,
-                SyncDoorAnimatorState = SyncDoorAnimatorState,
+                StopDoorMatchFxAtIndex = StopDoorMatchFxAtIndex,
+                CacheDoorPlacementBaseLocalPosition = CacheDoorPlacementBaseLocalPosition,
                 ResolveMaterial = GetMaterial,
                 ApplyDoorMaterialAtIndex = ApplyDoorMaterialAtIndex,
                 CacheActiveDoorOpenings = CacheActiveDoorOpenings
@@ -39,7 +45,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return 0;
             }
 
-            return Mathf.Clamp(logicalIndex, 0, axisSize - 1);
+            if (axisSize <= 2)
+            {
+                return Mathf.Clamp(logicalIndex, 0, Mathf.Max(0, axisSize - 1));
+            }
+
+            return Mathf.Clamp(logicalIndex, 1, axisSize - 2);
         }
     }
 }

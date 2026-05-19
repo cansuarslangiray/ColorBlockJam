@@ -9,6 +9,12 @@ namespace Editor.LevelAuthoring
 {
     public sealed class ShapeDefinitionEditorWindow : EditorWindow
     {
+        private enum WorkspaceTab
+        {
+            EditExisting,
+            CreateNew
+        }
+
         private const float GridCellSize = 24f;
         private const int MaxGridDimension = 12;
         private const int MinGridDimension = 1;
@@ -34,6 +40,8 @@ namespace Editor.LevelAuthoring
         private int _editGridHeight = 4;
         private string _editShapeKey = string.Empty;
         private Vector2 _scrollPosition;
+        private WorkspaceTab _workspaceTab;
+        private bool _showCoordinateLabels = true;
         private bool _isDirty;
 
         [MenuItem("Tools/Color Block Jam/Shape Editor")]
@@ -61,11 +69,20 @@ namespace Editor.LevelAuthoring
             DrawToolbar();
 
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-            DrawShapeSelection();
+            DrawWorkspaceTabs();
             EditorGUILayout.Space(8f);
-            DrawActiveShapeEditor();
-            EditorGUILayout.Space(8f);
-            DrawShapeCreationPanel();
+
+            if (_workspaceTab == WorkspaceTab.EditExisting)
+            {
+                DrawShapeSelection();
+                EditorGUILayout.Space(8f);
+                DrawActiveShapeEditor();
+            }
+            else
+            {
+                DrawShapeCreationPanel();
+            }
+
             EditorGUILayout.EndScrollView();
         }
 
@@ -88,10 +105,18 @@ namespace Editor.LevelAuthoring
             EditorGUILayout.EndHorizontal();
         }
 
+        private void DrawWorkspaceTabs()
+        {
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.LabelField("Workspace", EditorStyles.boldLabel);
+            _workspaceTab = (WorkspaceTab)GUILayout.Toolbar((int)_workspaceTab, new[] { "Edit Existing", "Create New" });
+            EditorGUILayout.EndVertical();
+        }
+
         private void DrawShapeSelection()
         {
             EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField("1. Select Shape", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Shape Selection", EditorStyles.boldLabel);
 
             var previousIndex = _selectedShapeIndex;
             var activeOption = _selectedShapeIndex + 1;
@@ -125,7 +150,7 @@ namespace Editor.LevelAuthoring
             if (_shapeAssets.Count == 0)
             {
                 EditorGUILayout.HelpBox(
-                    "No shape assets found. You can create a new shape from the panel below.",
+                    "No shape assets found. Switch to 'Create New' and create your first shape.",
                     MessageType.Info);
             }
 
@@ -151,7 +176,7 @@ namespace Editor.LevelAuthoring
             }
 
             EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField("2. Edit Selected Shape", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Shape Editor", EditorStyles.boldLabel);
 
             var nextShapeKey = EditorGUILayout.TextField("Shape ID", _editShapeKey);
             if (!string.Equals(nextShapeKey, _editShapeKey, StringComparison.Ordinal))
@@ -160,26 +185,14 @@ namespace Editor.LevelAuthoring
                 MarkDirty();
             }
 
-            DrawRectangleApplyTools();
             DrawEditGridControls();
-            DrawEditableGrid(_editGridWidth, _editGridHeight, _editCells, MarkDirty, showCoordinates: true);
+            DrawEditableGrid(_editGridWidth, _editGridHeight, _editCells, MarkDirty, _showCoordinateLabels);
 
             EditorGUILayout.Space(6f);
-            DrawShapeStats(shape.BlockType.ToString(), _editCells);
+            DrawShapeStats(_editShapeKey, _editCells);
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Fit Grid To Shape", GUILayout.Height(22f)))
-            {
-                FitEditGridToCells();
-            }
-
-            if (GUILayout.Button("Normalize Cells", GUILayout.Height(22f)))
-            {
-                NormalizeCellBuffer(_editCells);
-                _isDirty = true;
-            }
-
-            if (GUILayout.Button("Revert Changes", GUILayout.Height(22f)))
+            if (GUILayout.Button("Revert", GUILayout.Height(22f)))
             {
                 LoadSelectedShapeToEditor();
             }
@@ -189,45 +202,56 @@ namespace Editor.LevelAuthoring
                 SaveCurrentShapeIfDirty(force: true);
             }
 
+            if (GUILayout.Button("Save & Sync", GUILayout.Height(22f)))
+            {
+                SaveCurrentShapeIfDirty(force: true);
+                LevelContentPipelineTool.SyncCollectionFromAssets();
+            }
+
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndVertical();
-        }
-
-        private void DrawRectangleApplyTools()
-        {
-            EditorGUILayout.Space(6f);
-            EditorGUILayout.LabelField("Quick Rectangle", EditorStyles.boldLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                _editRectangleWidth = Mathf.Clamp(EditorGUILayout.IntField("Width", _editRectangleWidth), 1, MaxGridDimension);
-                _editRectangleHeight = Mathf.Clamp(EditorGUILayout.IntField("Height", _editRectangleHeight), 1, MaxGridDimension);
-            }
-
-            if (GUILayout.Button("Apply Rectangle", GUILayout.Height(22f)))
-            {
-                _editCells.Clear();
-                for (var y = 0; y < _editRectangleHeight; y++)
-                {
-                    for (var x = 0; x < _editRectangleWidth; x++)
-                    {
-                        _editCells.Add(new Vector2Int(x, y));
-                    }
-                }
-
-                NormalizeCellBuffer(_editCells);
-                FitEditGridToCells();
-                _isDirty = true;
-            }
         }
 
         private void DrawEditGridControls()
         {
             EditorGUILayout.Space(6f);
-            EditorGUILayout.LabelField("Cells", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Grid Controls", EditorStyles.boldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
                 _editGridWidth = Mathf.Clamp(EditorGUILayout.IntField("Grid Width", _editGridWidth), MinGridDimension, MaxGridDimension);
                 _editGridHeight = Mathf.Clamp(EditorGUILayout.IntField("Grid Height", _editGridHeight), MinGridDimension, MaxGridDimension);
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _editRectangleWidth = Mathf.Clamp(EditorGUILayout.IntField("Rect W", _editRectangleWidth), 1, MaxGridDimension);
+                _editRectangleHeight = Mathf.Clamp(EditorGUILayout.IntField("Rect H", _editRectangleHeight), 1, MaxGridDimension);
+                if (GUILayout.Button("Fill Rect", GUILayout.Width(88f), GUILayout.Height(20f)))
+                {
+                    FillEditCellsWithRectangle(_editRectangleWidth, _editRectangleHeight);
+                }
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _showCoordinateLabels = EditorGUILayout.ToggleLeft("Show Coordinates", _showCoordinateLabels, GUILayout.Width(140f));
+                if (GUILayout.Button("Fit Grid", GUILayout.Width(80f), GUILayout.Height(20f)))
+                {
+                    FitEditGridToCells();
+                }
+
+                if (GUILayout.Button("Normalize", GUILayout.Width(80f), GUILayout.Height(20f)))
+                {
+                    NormalizeCellBuffer(_editCells);
+                    _isDirty = true;
+                }
+
+                if (GUILayout.Button("Clear", GUILayout.Width(80f), GUILayout.Height(20f)))
+                {
+                    _editCells.Clear();
+                    _editCells.Add(Vector2Int.zero);
+                    _isDirty = true;
+                }
             }
 
             ClampCellsToGrid(_editCells, _editGridWidth, _editGridHeight);
@@ -236,7 +260,7 @@ namespace Editor.LevelAuthoring
         private void DrawShapeCreationPanel()
         {
             EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField("3. Create New Shape", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Create New Shape", EditorStyles.boldLabel);
 
             _newShapeKey = EditorGUILayout.TextField("Shape ID", _newShapeKey);
             _newShapeUseRectangle = GUILayout.Toolbar(_newShapeUseRectangle ? 0 : 1, new[] { "Rectangle", "Custom Cells" }) == 0;
@@ -270,6 +294,11 @@ namespace Editor.LevelAuthoring
                 if (GUILayout.Button("Create Shape", GUILayout.Height(24f)))
                 {
                     CreateShapeAsset();
+                }
+
+                if (GUILayout.Button("Reset Draft", GUILayout.Height(24f)))
+                {
+                    ResetCreateShapeDraft();
                 }
             }
 
@@ -355,12 +384,12 @@ namespace Editor.LevelAuthoring
             GUI.backgroundColor = previousBackground;
         }
 
-        private static void DrawShapeStats(string blockType, List<Vector2Int> cells)
+        private static void DrawShapeStats(string shapeKey, List<Vector2Int> cells)
         {
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField("Cell Count", (cells?.Count ?? 0).ToString());
-                EditorGUILayout.LabelField("Runtime Type", blockType);
+                EditorGUILayout.LabelField("Shape Key", string.IsNullOrWhiteSpace(shapeKey) ? "none" : shapeKey);
             }
 
             EditorGUILayout.LabelField("Cells", FormatCellList(cells), EditorStyles.miniLabel);
@@ -436,6 +465,22 @@ namespace Editor.LevelAuthoring
 
             _editGridWidth = Mathf.Clamp(maxX + 2, MinGridDimension, MaxGridDimension);
             _editGridHeight = Mathf.Clamp(maxY + 2, MinGridDimension, MaxGridDimension);
+        }
+
+        private void FillEditCellsWithRectangle(int width, int height)
+        {
+            _editCells.Clear();
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    _editCells.Add(new Vector2Int(x, y));
+                }
+            }
+
+            NormalizeCellBuffer(_editCells);
+            _isDirty = true;
+            FitEditGridToCells();
         }
 
         private void SaveCurrentShapeIfDirty(bool force = false)
@@ -519,6 +564,18 @@ namespace Editor.LevelAuthoring
 
             NormalizeCellBuffer(cells);
             return cells;
+        }
+
+        private void ResetCreateShapeDraft()
+        {
+            _newShapeKey = "Shape_Custom_1";
+            _newShapeUseRectangle = true;
+            _newRectangleWidth = 2;
+            _newRectangleHeight = 2;
+            _newCustomGridWidth = 4;
+            _newCustomGridHeight = 4;
+            _newCustomCells.Clear();
+            _newCustomCells.Add(Vector2Int.zero);
         }
 
         private void RefreshShapeAssetCache()

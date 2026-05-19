@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: Shape_L_SE_2x2
   m_EditorClassIdentifier: 
   shapeKey: Shape_L_SE_2x2
-  blockType: 100
   localCells:
   - x: 1
     y: 0

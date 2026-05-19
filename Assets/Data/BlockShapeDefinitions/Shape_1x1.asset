@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: Shape_1x1
   m_EditorClassIdentifier: 
   shapeKey: Shape_1x1
-  blockType: 1
   localCells:
   - x: 0
     y: 0

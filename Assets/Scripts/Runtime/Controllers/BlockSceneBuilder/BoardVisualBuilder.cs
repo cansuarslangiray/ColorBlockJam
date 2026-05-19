@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Runtime.Core;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
@@ -13,6 +12,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public struct BuildRequest
         {
             public IReadOnlyDictionary<Vector2Int, GameObject> GridCellPoolByCell;
+            public IReadOnlyList<GameObject> BlockedCellPool;
+            public IReadOnlyList<Vector2Int> BlockedCells;
             public IReadOnlyList<GameObject> BorderObjects;
             public GameObject BackdropObject;
             public IReadOnlyList<GameObject> DoorPool;
@@ -20,11 +21,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
             public Vector2Int GridDimensions;
             public LayoutMetrics Layout;
             public float BoardBackdropZOffset;
+            public float BlockedCellZOffset;
             public float DoorInsetInCells;
             public Action<GameObject, bool> SetActiveIfChanged;
             public Action<Transform, Vector3, Vector3> ApplyWorldTransform;
             public Func<int, GameObject, Transform> ResolveDoorPlacementTransform;
-            public Action<int> SyncDoorAnimatorState;
+            public Action<int, bool> StopDoorMatchFxAtIndex;
+            public Action<int, Transform> CacheDoorPlacementBaseLocalPosition;
             public Func<BlockColor, Material> ResolveMaterial;
             public Action<int, Material> ApplyDoorMaterialAtIndex;
             public Action<IReadOnlyList<DoorOpeningData>> CacheActiveDoorOpenings;
@@ -40,9 +43,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 {
                     var cell = pair.Key;
                     var cellObject = pair.Value;
-                    var isInsideLevel = IsPlayableGridCell(cell, gridDimensions);
-                    request.SetActiveIfChanged?.Invoke(cellObject, isInsideLevel);
-                    if (!isInsideLevel)
+                    var isVisibleGridCell = IsVisibleGridCell(cell, gridDimensions);
+                    request.SetActiveIfChanged?.Invoke(cellObject, isVisibleGridCell);
+                    if (!isVisibleGridCell)
                     {
                         continue;
                     }
@@ -55,6 +58,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
+            ApplyBlockedCells(request);
             ApplyBackdrop(request);
             ApplyBorders(request);
             ApplyDoors(request);
@@ -67,12 +71,57 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return false;
             }
 
-            if (gridDimensions.x < 3 || gridDimensions.y < 3)
+            return true;
+        }
+
+        private static bool IsVisibleGridCell(Vector2Int cell, Vector2Int gridDimensions)
+        {
+            if (gridDimensions.x <= 0 || gridDimensions.y <= 0)
             {
-                return true;
+                return false;
             }
 
-            return !BoardFrameMap.IsFrameCell(cell, gridDimensions);
+            var minX = gridDimensions.x > 2 ? 1 : 0;
+            var minY = gridDimensions.y > 2 ? 1 : 0;
+            var maxX = gridDimensions.x > 2 ? gridDimensions.x - 2 : 0;
+            var maxY = gridDimensions.y > 2 ? gridDimensions.y - 2 : 0;
+            return cell.x >= minX && cell.y >= minY && cell.x <= maxX && cell.y <= maxY;
+        }
+
+        private static void ApplyBlockedCells(in BuildRequest request)
+        {
+            var blockedPool = request.BlockedCellPool;
+            var blockedCells = request.BlockedCells;
+            var poolCount = blockedPool?.Count ?? 0;
+            if (poolCount <= 0)
+            {
+                return;
+            }
+
+            var blockedCount = blockedCells?.Count ?? 0;
+            var activeCount = Mathf.Min(poolCount, blockedCount);
+            var worldZ = request.Layout.GridZ + Mathf.Max(0f, request.BlockedCellZOffset);
+
+            for (var i = 0; i < poolCount; i++)
+            {
+                var blockedCellObject = blockedPool[i];
+                var isActive = i < activeCount;
+                request.SetActiveIfChanged?.Invoke(blockedCellObject, isActive);
+                if (!isActive || !blockedCellObject)
+                {
+                    continue;
+                }
+
+                var blockedCell = blockedCells[i];
+                if (!IsVisibleGridCell(blockedCell, request.GridDimensions))
+                {
+                    request.SetActiveIfChanged?.Invoke(blockedCellObject, false);
+                    continue;
+                }
+
+                var position = ResolveCellCenterWorld(request.Layout, blockedCell.x, blockedCell.y, worldZ);
+                blockedCellObject.transform.position = position;
+            }
         }
 
         private static void ApplyBackdrop(in BuildRequest request)
@@ -184,19 +233,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (gridDimensions.x >= 3 && gridDimensions.y >= 3)
-            {
-                minCellX = 1;
-                minCellY = 1;
-                maxCellX = gridDimensions.x - 2;
-                maxCellY = gridDimensions.y - 2;
-                return;
-            }
-
-            minCellX = 0;
-            minCellY = 0;
-            maxCellX = gridDimensions.x - 1;
-            maxCellY = gridDimensions.y - 1;
+            minCellX = gridDimensions.x > 2 ? 1 : 0;
+            minCellY = gridDimensions.y > 2 ? 1 : 0;
+            maxCellX = gridDimensions.x > 2 ? gridDimensions.x - 2 : 0;
+            maxCellY = gridDimensions.y > 2 ? gridDimensions.y - 2 : 0;
         }
 
         private static void ApplyBorderAtIndex(IReadOnlyList<GameObject> borderObjects, int borderIndex,
@@ -241,6 +281,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 request.SetActiveIfChanged?.Invoke(doorVisual, isActive);
                 if (!isActive || !doorVisual)
                 {
+                    request.StopDoorMatchFxAtIndex?.Invoke(i, true);
                     continue;
                 }
 
@@ -271,9 +312,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 if (placementTransform)
                 {
                     request.ApplyWorldTransform?.Invoke(placementTransform, position, scale);
+                    request.CacheDoorPlacementBaseLocalPosition?.Invoke(i, placementTransform);
                 }
-
-                request.SyncDoorAnimatorState?.Invoke(i);
 
                 var doorMaterial = request.ResolveMaterial?.Invoke(opening.ColorType);
                 request.ApplyDoorMaterialAtIndex?.Invoke(i, doorMaterial);
@@ -287,12 +327,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return 0;
             }
 
-            if (axisSize >= 3)
+            if (axisSize <= 2)
             {
-                return Mathf.Clamp(logicalIndex, 1, axisSize - 2);
+                return Mathf.Clamp(logicalIndex, 0, Mathf.Max(0, axisSize - 1));
             }
 
-            return Mathf.Clamp(logicalIndex, 0, axisSize - 1);
+            return Mathf.Clamp(logicalIndex, 1, axisSize - 2);
         }
 
         private static Vector3 ResolveCellCenterWorld(in LayoutMetrics layout, int cellX, int cellY, float worldZ)

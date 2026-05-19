@@ -34,43 +34,31 @@ MonoBehaviour:
   blocks:
   - position: {x: 1, y: 3}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 0
   - position: {x: 1, y: 4}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 1
   - position: {x: 1, y: 6}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 3
   - position: {x: 1, y: 5}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 4
   - position: {x: 1, y: 2}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 7
   - position: {x: 1, y: 7}
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 8

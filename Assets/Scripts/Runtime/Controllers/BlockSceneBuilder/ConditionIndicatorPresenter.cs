@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
@@ -7,9 +6,11 @@ using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
 {
-    public sealed class ConditionIndicatorPresenter
-    {
-        private const string ConditionIndicatorObjectName = "ConditionIndicator";
+        public sealed class ConditionIndicatorPresenter
+        {
+            private const string ConditionIndicatorObjectName = "ConditionIndicator";
+            private const string HorizontalIndicatorText = "<-->";
+            private const string VerticalIndicatorText = "^\n|\nv";
 
         public struct RefreshRequest
         {
@@ -31,7 +32,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             public BlockViewRuntimePool BlockViewPool;
         }
 
-        private readonly StringBuilder _indicatorTextBuilder = new(96);
         private int _visibleConditionIndicatorCount;
         private bool _needsConditionBillboardRefresh;
         private Quaternion _lastIndicatorCameraRotation;
@@ -248,23 +248,18 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private string BuildConditionIndicatorText(RuntimeBlockState runtimeBlock)
         {
-            _indicatorTextBuilder.Clear();
-
             var features = runtimeBlock.BlockFeatures;
             if (features.HasFeature(BlockFeature.Horizontal))
             {
-                _indicatorTextBuilder.Append("<-->");
-            }
-            else if (features.HasFeature(BlockFeature.Vertical))
-            {
-                _indicatorTextBuilder.Append("^");
-                _indicatorTextBuilder.Append('\n');
-                _indicatorTextBuilder.Append("|");
-                _indicatorTextBuilder.Append('\n');
-                _indicatorTextBuilder.Append("v");
+                return HorizontalIndicatorText;
             }
 
-            return _indicatorTextBuilder.ToString();
+            if (features.HasFeature(BlockFeature.Vertical))
+            {
+                return VerticalIndicatorText;
+            }
+
+            return string.Empty;
         }
 
     }

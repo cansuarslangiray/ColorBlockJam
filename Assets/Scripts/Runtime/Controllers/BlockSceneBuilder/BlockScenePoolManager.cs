@@ -17,6 +17,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Grid Cell Pool")] [SerializeField]
         private List<GameObject> gridCellObjects = new(625);
 
+        [Header("Blocked Cell Pool")] [SerializeField]
+        private List<GameObject> blockedCellObjects = new(64);
+
         [Header("Board Frame")] [SerializeField]
         private List<GameObject> borderObjects = new(4);
 
@@ -32,6 +35,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             new(System.StringComparer.Ordinal);
 
         public IReadOnlyList<GameObject> GridCellObjects => gridCellObjects;
+        public IReadOnlyList<GameObject> BlockedCellObjects => blockedCellObjects;
         public IReadOnlyList<GameObject> BorderObjects => borderObjects;
         public IReadOnlyList<GameObject> DoorObjects => doorObjects;
         public IReadOnlyDictionary<string, List<GameObject>> BlockObjectsByKey => _blockObjectsByKey;
@@ -41,6 +45,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public void RefreshPools(bool validateAuthoringTargets = true)
         {
             SanitizePoolList(gridCellObjects);
+            SanitizePoolList(blockedCellObjects);
             SanitizePoolList(borderObjects);
             SanitizePoolList(doorObjects);
             SanitizeBlockTypePools();
@@ -57,6 +62,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
             gridCellObjects ??= new List<GameObject>();
             SanitizePoolList(gridCellObjects);
             WarnIfScenePoolIsShort("grid cell", gridCellObjects.Count, requiredCount);
+        }
+
+        public void EnsureBlockedCellPoolSize(int requiredCount)
+        {
+            requiredCount = Mathf.Max(0, requiredCount);
+            blockedCellObjects ??= new List<GameObject>(requiredCount);
+            SanitizePoolList(blockedCellObjects);
+            WarnIfScenePoolIsShort("blocked cell", blockedCellObjects.Count, requiredCount);
         }
 
         public void EnsureDoorPoolSize(int requiredCount)

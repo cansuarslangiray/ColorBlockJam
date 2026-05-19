@@ -43,6 +43,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
         {
+            StopBlockMove(blockId, snapToTarget: false);
             if (_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 ResetBlockTransientFx(blockView);
@@ -90,8 +91,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            SyncBlockToGridPosition(blockView, toPosition);
-            RefreshAllConditionIndicators();
+            QueueBlockMove(blockId, blockView, toPosition);
         }
 
         private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection,
@@ -134,17 +134,133 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void SyncBlockToGridPosition(BlockRootView blockView, Vector2Int targetGridPosition)
         {
-            if (blockView?.RootTransform == null)
+            if (!TryResolvePlacementTransform(blockView, out var placementTransform))
             {
                 return;
             }
 
-            var placementTransform = blockView.PlacementTransform ? blockView.PlacementTransform : blockView.RootTransform;
             placementTransform.position = ToWorldPosition(targetGridPosition, GetCurrentLayout());
+        }
+
+        private void QueueBlockMove(int blockId, BlockRootView blockView, Vector2Int targetGridPosition)
+        {
+            if (!TryResolvePlacementTransform(blockView, out _))
+            {
+                return;
+            }
+
+            _blockMoveTargetWorldById[blockId] = ToWorldPosition(targetGridPosition, GetCurrentLayout());
+            if (_blockMoveRoutineById.ContainsKey(blockId))
+            {
+                return;
+            }
+
+            _blockMoveRoutineById[blockId] = StartCoroutine(AnimateBlockMoveRoutine(blockId, blockView));
+        }
+
+        private IEnumerator AnimateBlockMoveRoutine(int blockId, BlockRootView blockView)
+        {
+            if (!TryResolvePlacementTransform(blockView, out var placementTransform))
+            {
+                _blockMoveRoutineById.Remove(blockId);
+                _blockMoveTargetWorldById.Remove(blockId);
+                yield break;
+            }
+
+            var moveSpeed = ResolveBlockMoveSpeedWorldUnitsPerSecond();
+            var snapDistanceWorldSqr = ResolveBlockMoveSnapDistanceWorldSqr();
+            while (placementTransform && _blockMoveTargetWorldById.TryGetValue(blockId, out var targetWorldPosition))
+            {
+                var currentPosition = placementTransform.position;
+                var remainingDelta = targetWorldPosition - currentPosition;
+                if (remainingDelta.sqrMagnitude <= snapDistanceWorldSqr)
+                {
+                    placementTransform.position = targetWorldPosition;
+                    break;
+                }
+
+                placementTransform.position =
+                    Vector3.MoveTowards(currentPosition, targetWorldPosition, moveSpeed * Time.deltaTime);
+                yield return null;
+            }
+
+            _blockMoveRoutineById.Remove(blockId);
+            _blockMoveTargetWorldById.Remove(blockId);
+        }
+
+        private float ResolveBlockMoveSpeedWorldUnitsPerSecond()
+        {
+            return Mathf.Max(0.01f, blockMoveSpeedInCellsPerSecond * CellSize);
+        }
+
+        private float ResolveBlockMoveSnapDistanceWorldSqr()
+        {
+            var snapDistanceWorld = Mathf.Max(0.001f, blockMoveSnapDistanceInCells * CellSize);
+            return snapDistanceWorld * snapDistanceWorld;
+        }
+
+        private static bool TryResolvePlacementTransform(BlockRootView blockView, out Transform placementTransform)
+        {
+            placementTransform = null;
+            if (blockView?.RootTransform == null)
+            {
+                return false;
+            }
+
+            placementTransform = blockView.PlacementTransform ? blockView.PlacementTransform : blockView.RootTransform;
+            return placementTransform != null;
+        }
+
+        private void StopBlockMove(int blockId, bool snapToTarget)
+        {
+            if (snapToTarget &&
+                _blockMoveTargetWorldById.TryGetValue(blockId, out var targetWorldPosition) &&
+                _blockViewPool.TryGetActive(blockId, out var blockView) &&
+                TryResolvePlacementTransform(blockView, out var placementTransform))
+            {
+                placementTransform.position = targetWorldPosition;
+            }
+
+            if (_blockMoveRoutineById.TryGetValue(blockId, out var routine))
+            {
+                StopCoroutine(routine);
+                _blockMoveRoutineById.Remove(blockId);
+            }
+
+            _blockMoveTargetWorldById.Remove(blockId);
+        }
+
+        private void StopAllBlockMoveRoutines(bool snapToTargets = false)
+        {
+            if (snapToTargets && _blockMoveTargetWorldById.Count > 0)
+            {
+                foreach (var pair in _blockMoveTargetWorldById)
+                {
+                    if (!_blockViewPool.TryGetActive(pair.Key, out var blockView) ||
+                        !TryResolvePlacementTransform(blockView, out var placementTransform))
+                    {
+                        continue;
+                    }
+
+                    placementTransform.position = pair.Value;
+                }
+            }
+
+            if (_blockMoveRoutineById.Count > 0)
+            {
+                foreach (var pair in _blockMoveRoutineById)
+                {
+                    StopCoroutine(pair.Value);
+                }
+            }
+
+            _blockMoveRoutineById.Clear();
+            _blockMoveTargetWorldById.Clear();
         }
 
         private void StopBlockExit(int blockId)
         {
+            StopBlockMove(blockId, snapToTarget: false);
             if (_blockExitRoutineById.TryGetValue(blockId, out var routine))
             {
                 StopCoroutine(routine);
@@ -159,6 +275,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void StopAllBlockRoutines()
         {
+            StopAllBlockMoveRoutines(snapToTargets: true);
             if (_blockExitRoutineById.Count > 0)
             {
                 foreach (var pair in _blockExitRoutineById)
@@ -174,6 +291,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void FinalizeClearedBlock(int blockId)
         {
+            StopBlockMove(blockId, snapToTarget: false);
             if (_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 ResetBlockTransientFx(blockView);
@@ -189,8 +307,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 blockView?.DoorPassThroughCellTransformsBuffer,
                 blockView?.DoorPassThroughInitialScalesBuffer,
                 1f);
-            ApplyDoorPassThroughPositions(blockView?.DoorPassThroughCellTransformsBuffer, blockView?.DoorPassThroughInitialPositionsBuffer);
-            ApplyDoorPassThroughRotations(blockView?.DoorPassThroughCellTransformsBuffer, blockView?.DoorPassThroughInitialRotationsBuffer, blockView?.DoorPassThroughScatterRotationBuffer, blockView?.DoorPassThroughScatterDelayBuffer,
+            ApplyDoorPassThroughPositions(blockView?.DoorPassThroughCellTransformsBuffer,
+                blockView?.DoorPassThroughInitialPositionsBuffer);
+            ApplyDoorPassThroughRotations(blockView?.DoorPassThroughCellTransformsBuffer,
+                blockView?.DoorPassThroughInitialRotationsBuffer, blockView?.DoorPassThroughScatterRotationBuffer,
+                blockView?.DoorPassThroughScatterDelayBuffer,
                 0f);
             SetDragHighlightActive(blockView, false);
             StopDoorExitBurstParticle(blockView);
@@ -221,7 +342,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
         {
-            _blockViewPool.EnsureBlockCells(poolManager, blockView, requiredCellCount, SetActiveIfChanged);
+            _blockViewPool.EnsureBlockCells(blockView, requiredCellCount);
         }
     }
 }

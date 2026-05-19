@@ -73,44 +73,34 @@ MonoBehaviour:
       x: 3
       y: 4
     shapeKey: Shape_1x3
-    blockType: 4
     shapeDefinition: {fileID: 11400000, guid: 9d2949cf1868a8d0236d8f75b2cf03ac, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 1
   - position:
       x: 1
       y: 3
     shapeKey: Shape_2x2
-    blockType: 6
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 2
   - position:
       x: 4
       y: 3
     shapeKey: Shape_2x2
-    blockType: 6
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 4
   - position:
       x: 2
       y: 2
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 3
   - position:
       x: 2
       y: 1
     shapeKey: Shape_3x1
-    blockType: 5
     shapeDefinition: {fileID: 11400000, guid: dda6f1b5ae1d72bf344b56a001f4e21c, type: 2}
     blockFeatures: 0
-    movementConstraint: 0
     colorType: 0

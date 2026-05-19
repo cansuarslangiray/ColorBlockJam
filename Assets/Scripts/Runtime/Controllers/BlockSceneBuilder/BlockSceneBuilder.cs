@@ -16,9 +16,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
-
         
-        private readonly BlockSceneVisualCache _visualCache = new();
+        private readonly HashSet<BlockColor> _missingMaterialWarnings = new();
         private readonly BlockViewRuntimePool _blockViewPool = new();
 
         [Header("Board Layout")] [SerializeField]
@@ -29,12 +28,18 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
         [SerializeField, Min(0f)] private float doorInsetInCells = 0.02f;
         [SerializeField, Min(0f)] private float doorDepthBiasFromFrame = 0.02f;
+        [SerializeField, Min(0f)] private float blockedCellZOffsetFromGrid = 0.03f;
 
         [Header("Block Layout")] [SerializeField, Range(0.75f, 1f)]
-        private float blockCellVisualScale = 0.92f;
+        private float blockCellVisualScale = 1f;
 
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
         [SerializeField] private Vector3 blockRootScale = new(1f, 1f, 0.45f);
+
+        [Header("Block Movement")] [SerializeField, Min(2f)]
+        private float blockMoveSpeedInCellsPerSecond = 16f;
+
+        [SerializeField, Min(0.001f)] private float blockMoveSnapDistanceInCells = 0.02f;
 
         [Header("Block Indicators")] [SerializeField]
         private bool showBlockConditionIndicators = true;
@@ -62,8 +67,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [SerializeField, Min(0f)] private float doorExitForwardTravelInCells = 0.9f;
         [SerializeField, Min(0.05f)] private float doorPassThroughDuration = 0.22f;
+        [SerializeField, Min(0f)] private float doorMatchDipInCells = 0.08f;
+        [SerializeField, Min(0.02f)] private float doorMatchFxDuration = 0.14f;
 
         private readonly Dictionary<Vector2Int, GameObject> _gridCellPoolByCell = new();
+        private readonly List<Vector2Int> _resolvedBlockedCells = new(256);
+        private readonly List<GameObject> _blockedCellPool = new();
         private readonly List<GameObject> _doorPool = new();
         private readonly Dictionary<string, int> _requiredBlockRootCountByKey = new(System.StringComparer.Ordinal);
         private readonly Dictionary<string, int> _requiredBlockCellCountByKey = new(System.StringComparer.Ordinal);
@@ -74,6 +83,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly BlockVisualPresenter _blockVisualPresenter = new();
 
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
+        private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
+        private readonly Dictionary<int, Vector3> _blockMoveTargetWorldById = new();
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;
         private LayoutMetrics _currentLayout;
@@ -91,7 +102,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var cellSize = CellSize;
             var gridZ = Mathf.Abs(boardCellsZOffset);
-            var frameThickness = Mathf.Max(0.01f, edgeFrameThicknessInCells * cellSize);
+            // Keep frame outside playable cells without visually reading as +2 grid cells.
+            var frameThicknessInCells = Mathf.Clamp(edgeFrameThicknessInCells, 0.01f, 0.2f);
+            var frameThickness = frameThicknessInCells * cellSize;
             var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize * 2f);
             var borderZ = gridZ - 0.01f;
             var doorDepth = frameDepth * 1.08f;
@@ -110,10 +123,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void OnValidate()
         {
-            _visualCache.InvalidateMaterialCache();
+            _missingMaterialWarnings.Clear();
             blockRootScale.x = Mathf.Max(0.01f, blockRootScale.x);
             blockRootScale.y = Mathf.Max(0.01f, blockRootScale.y);
             blockRootScale.z = Mathf.Max(0.01f, blockRootScale.z);
+            blockMoveSpeedInCellsPerSecond = Mathf.Max(2f, blockMoveSpeedInCellsPerSecond);
+            blockMoveSnapDistanceInCells = Mathf.Max(0.001f, blockMoveSnapDistanceInCells);
             indicatorCharacterSizeInCells = Mathf.Max(0.01f, indicatorCharacterSizeInCells);
             doorExitBurstPoolWarmupCount = Mathf.Max(0, doorExitBurstPoolWarmupCount);
             dragOutlineGapInCells = Mathf.Max(0f, dragOutlineGapInCells);
@@ -121,6 +136,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             dragOutlineVerticalOffsetInCells = Mathf.Clamp(dragOutlineVerticalOffsetInCells, -0.25f, 0.25f);
             dragOutlineThicknessInCells = Mathf.Max(0.005f, dragOutlineThicknessInCells);
             doorPassThroughDuration = Mathf.Max(0.05f, doorPassThroughDuration);
+            doorMatchDipInCells = Mathf.Max(0f, doorMatchDipInCells);
+            doorMatchFxDuration = Mathf.Max(0.02f, doorMatchFxDuration);
+            blockedCellZOffsetFromGrid = Mathf.Max(0f, blockedCellZOffsetFromGrid);
             _hasCurrentLayout = false;
         }
 
@@ -129,13 +147,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
             ReleaseRuntimeFxResources();
-            _visualCache.ClearRuntimeCaches();
+            _missingMaterialWarnings.Clear();
             _conditionIndicatorPresenter.ResetRuntimeState();
             _dragHighlightPresenter.ResetRuntimeResources();
             _hasCurrentLayout = false;
         }
 
-        public void BuildForLevel(LevelDefinition levelData)
+        public virtual void BuildForLevel(LevelDefinition levelData)
         {
             if (levelData == null)
             {
@@ -171,6 +189,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             poolManager.RefreshPools(validateAuthoringTargets: true);
             EnsurePoolCoverage(levelData);
             BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
+            BindBlockedCellPool(poolManager.BlockedCellObjects);
             BindBoardVisualReferences(poolManager.BorderObjects, poolManager.BackdropObject);
             BindDoorPool(poolManager.DoorObjects);
             BindBlockRootPools();
@@ -181,8 +200,10 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var gridSize = levelData.gridDimensions;
             var requiredGridCellCount = Mathf.Max(0, gridSize.x * gridSize.y);
             poolManager.EnsureGridCellPoolSize(requiredGridCellCount);
-
             var openings = levelData.GetDoorOpenings();
+            Runtime.Controllers.BoardRuntimeState.CollectBlockedCellsForLayout(gridSize, levelData.blockedCells, openings,
+                _resolvedBlockedCells);
+            poolManager.EnsureBlockedCellPoolSize(_resolvedBlockedCells.Count);
             poolManager.EnsureDoorPoolSize(openings?.Count ?? 0);
 
             poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByKey, _requiredBlockCellCountByKey);
@@ -247,9 +268,27 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
+        private void BindBlockedCellPool(IReadOnlyList<GameObject> blockedCellObjects)
+        {
+            _blockedCellPool.Clear();
+
+            var blockedCount = blockedCellObjects?.Count ?? 0;
+            for (var i = 0; i < blockedCount; i++)
+            {
+                var blockedCellObject = blockedCellObjects[i];
+                if (!blockedCellObject)
+                {
+                    continue;
+                }
+
+                SetActiveIfChanged(blockedCellObject, false);
+                _blockedCellPool.Add(blockedCellObject);
+            }
+        }
+
         private void BindDoorPool(IReadOnlyList<GameObject> doorObjects)
         {
-            ResetDoorAnimatorCache();
+            ResetDoorRuntimeCache();
             _doorPool.Clear();
             var doorCount = doorObjects?.Count ?? 0;
             for (var i = 0; i < doorCount; i++)
@@ -288,17 +327,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                var poolKey = sourceBlocks[i].ResolveShapeKey();
-                if (string.IsNullOrWhiteSpace(poolKey))
-                {
-                    var resolvedType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
-                    poolKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
-                }
-
-                if (string.IsNullOrWhiteSpace(poolKey))
-                {
-                    poolKey = "Shape_1x1";
-                }
+                var poolKey = sourceBlocks[i].ResolvePoolKey();
 
                 _requiredBlockRootCountByKey.TryGetValue(poolKey, out var existingCount);
                 _requiredBlockRootCountByKey[poolKey] = existingCount + 1;

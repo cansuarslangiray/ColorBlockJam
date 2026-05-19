@@ -192,7 +192,14 @@ namespace Runtime.Managers
                 return;
 
             PersistUnlockedLevelProgress();
-            StartCoroutine(ShowLevelCompletedRoutine());
+            if (_levelProgression != null && _levelProgression.TryGetNextLevelData(out _))
+            {
+                StartCoroutine(ShowLevelCompletedRoutine());
+            }
+            else
+            {
+                StartCoroutine(ShowRunCompletedRoutine());
+            }
         }
 
         private IEnumerator ShowLevelCompletedRoutine()
@@ -206,6 +213,19 @@ namespace Runtime.Managers
             }
 
             stateManager.ChangeState(GameState.LevelCompleted);
+            _transitionInProgress = false;
+        }
+
+        private IEnumerator ShowRunCompletedRoutine()
+        {
+            _transitionInProgress = true;
+            uiManager.StopLevelTimer();
+            if (levelCompletePanelDelay > 0f)
+            {
+                yield return new WaitForSeconds(levelCompletePanelDelay);
+            }
+
+            stateManager.ChangeState(GameState.GameCompleted);
             _transitionInProgress = false;
         }
 
@@ -304,7 +324,7 @@ namespace Runtime.Managers
         }
 
         private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
-        
+
         private int ResolveSavedCurrentLevelNumber()
         {
             if (_localDataManager == null)

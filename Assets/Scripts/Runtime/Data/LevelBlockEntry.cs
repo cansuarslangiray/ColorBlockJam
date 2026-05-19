@@ -8,14 +8,13 @@ namespace Runtime.Data
     [Serializable]
     public struct LevelBlockEntry
     {
+        private const string DefaultShapeKey = "Shape_1x1";
         private static readonly Vector2Int[] FallbackLocalCells = { Vector2Int.zero };
 
         public Vector2Int position;
         public string shapeKey;
-        public BlockShapeType blockType;
         public BlockShapeDefinition shapeDefinition;
         public BlockFeature blockFeatures;
-        public BlockMovementConstraint movementConstraint;
         public BlockColor colorType;
 
         public string ResolveShapeKey()
@@ -30,74 +29,30 @@ namespace Runtime.Data
                 return shapeKey.Trim();
             }
 
-            if (blockType != BlockShapeType.Unknown)
-            {
-                var resolved = BlockShapeTypeUtility.ToShapeKey(blockType);
-                if (!string.IsNullOrWhiteSpace(resolved))
-                {
-                    return resolved;
-                }
-            }
-
             return string.Empty;
         }
 
-        public BlockShapeType ResolveBlockType(int fallbackCellCount = 1)
+        public string ResolvePoolKey()
         {
-            if (shapeDefinition != null && shapeDefinition.BlockType != BlockShapeType.Unknown)
-            {
-                return shapeDefinition.BlockType;
-            }
-
-            if (!string.IsNullOrWhiteSpace(shapeKey))
-            {
-                return BlockShapeTypeUtility.FromShapeKey(shapeKey.Trim(), fallbackCellCount);
-            }
-
-            if (blockType != BlockShapeType.Unknown)
-            {
-                return blockType;
-            }
-
-            return fallbackCellCount <= 1 ? BlockShapeType.Shape1x1 : BlockShapeType.Custom;
+            var resolvedShapeKey = ResolveShapeKey();
+            return string.IsNullOrWhiteSpace(resolvedShapeKey) ? DefaultShapeKey : resolvedShapeKey;
         }
 
         public void Normalize()
         {
             shapeKey = string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
             blockFeatures = blockFeatures.Sanitize();
-            movementConstraint = blockFeatures.ResolveMovementConstraint(
-                Enum.IsDefined(typeof(BlockMovementConstraint), movementConstraint)
-                    ? movementConstraint
-                    : BlockMovementConstraint.Default);
 
             if (shapeDefinition != null)
             {
                 shapeDefinition.Sanitize();
-                if (string.IsNullOrWhiteSpace(shapeKey))
-                {
-                    shapeKey = shapeDefinition.ShapeKey;
-                }
-
-                blockType = shapeDefinition.BlockType;
+                shapeKey = shapeDefinition.ShapeKey;
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(shapeKey))
+            if (string.IsNullOrWhiteSpace(shapeKey))
             {
-                blockType = BlockShapeTypeUtility.FromShapeKey(shapeKey, 1);
-                return;
-            }
-
-            if (blockType == BlockShapeType.Unknown)
-            {
-                blockType = BlockShapeType.Shape1x1;
-            }
-
-            var key = BlockShapeTypeUtility.ToShapeKey(blockType);
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                shapeKey = key;
+                shapeKey = DefaultShapeKey;
             }
         }
 
@@ -125,7 +80,7 @@ namespace Runtime.Data
                 return null;
             }
 
-            return shapeCatalog.ResolveShape(ResolveShapeKey(), blockType);
+            return shapeCatalog.ResolveShape(ResolvePoolKey());
         }
     }
 }

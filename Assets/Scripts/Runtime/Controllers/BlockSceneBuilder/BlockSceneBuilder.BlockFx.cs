@@ -25,10 +25,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
             new ParticleSystem.Burst(0f, (short)30, (short)42, 1, 0f),
             new ParticleSystem.Burst(0.048f, (short)14, (short)22, 1, 0f)
         };
+
         private static readonly AnimationCurve DoorExitBurstSizeCurve = new(
             new Keyframe(0f, 1f, 0f, -1.25f),
             new Keyframe(0.52f, 0.46f, -0.65f, -0.35f),
             new Keyframe(1f, 0.04f, -0.12f, 0f));
+
         private static readonly Gradient DoorExitBurstAlphaGradient = CreateDoorExitBurstAlphaGradient();
         private static Mesh _doorExitBurstCubeMesh;
 
@@ -512,7 +514,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             if (burstObject != null)
             {
                 var burstTransform = burstObject.transform;
-                if (allowReparent && burstTransform.parent != transform)
+                // Unity deactivation/activation sırasında hierarchy değişimine izin vermiyor.
+                // OnDisable cleanup akışında SetParent çağrısını atlayarak "Cannot set the parent..." hatasını önleriz.
+                if (allowReparent && isActiveAndEnabled && burstTransform.parent != transform)
                 {
                     burstTransform.SetParent(transform, false);
                 }
@@ -794,13 +798,30 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 initialScales.Add(cellTransform.localScale);
                 initialPositions.Add(cellTransform.localPosition);
                 initialRotations.Add(cellTransform.localRotation);
-                cellRenderers.Add(cellObject.TryGetComponent<Renderer>(out var renderer) ? renderer : null);
+                var childRenderers = cellObject.GetComponentsInChildren<Renderer>(true);
+                if (childRenderers != null && childRenderers.Length > 0)
+                {
+                    for (var rendererIndex = 0; rendererIndex < childRenderers.Length; rendererIndex++)
+                    {
+                        var childRenderer = childRenderers[rendererIndex];
+                        if (childRenderer)
+                        {
+                            cellRenderers.Add(childRenderer);
+                        }
+                    }
+                }
+                else if (cellObject.TryGetComponent<Renderer>(out var renderer))
+                {
+                    cellRenderers.Add(renderer);
+                }
 
+                var directionSeed = ResolveDoorPassThroughScatterDirectionSeed(i, cellTransform.localPosition);
                 var scatterAxis = ResolveDoorPassThroughScatterDirection(blockView, cellTransform.localPosition,
-                    scatterDirection, i);
+                    scatterDirection, i, directionSeed);
                 scatterDirections.Add(scatterAxis);
-                scatterDelays.Add(ResolveDoorPassThroughScatterDelay(i, cellTransform.localPosition));
-                scatterRotationTargets.Add(ResolveDoorPassThroughScatterRotation(i, cellTransform.localPosition));
+                scatterDelays.Add(ResolveDoorPassThroughScatterDelay(directionSeed));
+                scatterRotationTargets.Add(
+                    ResolveDoorPassThroughScatterRotation(directionSeed, cellTransform.localPosition));
             }
         }
 
@@ -808,7 +829,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             BlockRootView blockView,
             Vector3 localCellPosition,
             Vector3 exitDirection,
-            int cellIndex)
+            int cellIndex,
+            float directionSeed)
         {
             var baseDirection = exitDirection;
             if (baseDirection.sqrMagnitude <= Mathf.Epsilon)
@@ -836,8 +858,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 tangentDirection = Vector3.right;
             }
 
-            var seededOffset = ResolveDoorPassThroughScatterDirectionSeed(cellIndex, localCellPosition);
-            var seededTangentOffset = Mathf.Lerp(-0.45f, 0.45f, seededOffset);
+            var seededTangentOffset = Mathf.Lerp(-0.45f, 0.45f, directionSeed);
             var direction = (baseDirection * 1.2f) + (tangentDirection * seededTangentOffset) + (radialOffset * 0.26f);
             if (direction.sqrMagnitude <= Mathf.Epsilon)
             {
@@ -854,16 +875,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return Mathf.Abs(Mathf.Sin(seed) * 0.5f + 0.5f);
         }
 
-        private static float ResolveDoorPassThroughScatterDelay(int cellIndex, Vector3 localCellPosition)
+        private static float ResolveDoorPassThroughScatterDelay(float directionSeed)
         {
-            var seed = ResolveDoorPassThroughScatterDirectionSeed(cellIndex, localCellPosition);
-            return seed * 0.1f;
+            return directionSeed * 0.1f;
         }
 
-        private static float ResolveDoorPassThroughScatterRotation(int cellIndex, Vector3 localCellPosition)
+        private static float ResolveDoorPassThroughScatterRotation(float directionSeed, Vector3 localCellPosition)
         {
-            var seed = ResolveDoorPassThroughScatterDirectionSeed(cellIndex, localCellPosition);
-            var normalizedRotationSeed = Mathf.Repeat(seed + Mathf.Repeat(localCellPosition.x * 0.17f, 1f), 1f);
+            var normalizedRotationSeed =
+                Mathf.Repeat(directionSeed + Mathf.Repeat(localCellPosition.x * 0.17f, 1f), 1f);
             return Mathf.Lerp(-DoorPassThroughRotationRangeInDegrees, DoorPassThroughRotationRangeInDegrees,
                 normalizedRotationSeed);
         }
@@ -1106,7 +1126,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ApplyDoorPassThroughFade(BlockRootView blockView, IReadOnlyList<Renderer> cellRenderers,
             float fadeProgress)
         {
-            if (blockView == null)
+            if (blockView == null || cellRenderers == null)
             {
                 return;
             }
@@ -1126,8 +1146,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var fadedColor = new Color(blockColor.r, blockColor.g, blockColor.b, alpha);
             _fxRendererPropertyBlock ??= new MaterialPropertyBlock();
 
-            foreach (var renderer in cellRenderers)
+            for (var i = 0; i < cellRenderers.Count; i++)
             {
+                var renderer = cellRenderers[i];
                 if (!renderer)
                 {
                     continue;

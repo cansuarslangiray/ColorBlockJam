@@ -10,13 +10,23 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
+        private readonly Dictionary<string, BlockRootView> _templateBlockViewByKey =
+            new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> _runtimeOverflowCountByKey =
+            new(StringComparer.Ordinal);
+        private readonly List<GameObject> _runtimeOverflowRoots = new();
+        private Action<GameObject, bool> _setActiveIfChanged;
 
         public void Rebind(
             IReadOnlyDictionary<string, List<GameObject>> blockObjectsByKey,
             Action<GameObject, bool> setActiveIfChanged)
         {
+            CleanupRuntimeOverflowRoots();
             _activeBlockRootById.Clear();
             _inactiveBlockRootsByKey.Clear();
+            _templateBlockViewByKey.Clear();
+            _runtimeOverflowCountByKey.Clear();
+            _setActiveIfChanged = setActiveIfChanged;
 
             if (blockObjectsByKey == null)
             {
@@ -86,7 +96,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             if (!_inactiveBlockRootsByKey.TryGetValue(poolKey, out var typePool) || typePool.Count == 0)
             {
-                return null;
+                return CreateRuntimeOverflowView(poolKey);
             }
 
             var lastIndex = typePool.Count - 1;
@@ -116,13 +126,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _activeBlockRootById.Remove(blockId);
         }
 
-        public void EnsureBlockCells(
-            BlockScenePoolManager poolManager,
-            BlockRootView blockView,
-            int requiredCellCount,
-            Action<GameObject, bool> setActiveIfChanged)
+        public void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
         {
-            if (poolManager == null || blockView == null || requiredCellCount <= blockView.Cells.Count)
+            if (blockView == null || requiredCellCount <= blockView.Cells.Count)
             {
                 return;
             }
@@ -173,9 +179,98 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 blockView.PlacementTransform = ResolvePlacementTransform(rootObject);
 
                 CacheBlockCellPool(blockView, setActiveIfChanged);
+                if (!_templateBlockViewByKey.ContainsKey(poolKey))
+                {
+                    _templateBlockViewByKey[poolKey] = blockView;
+                }
+
                 GetOrCreateInactivePool(poolKey).Add(blockView);
                 setActiveIfChanged?.Invoke(rootObject, false);
             }
+        }
+
+        private BlockRootView CreateRuntimeOverflowView(string poolKey)
+        {
+            if (!_templateBlockViewByKey.TryGetValue(poolKey, out var templateView) ||
+                templateView?.RootObject == null)
+            {
+                return null;
+            }
+
+            var templateRoot = templateView.RootObject;
+            if (!_runtimeOverflowCountByKey.TryGetValue(poolKey, out var overflowCount))
+            {
+                overflowCount = 0;
+            }
+
+            overflowCount++;
+            _runtimeOverflowCountByKey[poolKey] = overflowCount;
+
+            var overflowSuffix = $"{overflowCount:000}";
+            GameObject clonedRoot;
+            if (templateView.PlacementTransform &&
+                templateView.PlacementTransform != templateView.RootTransform &&
+                templateView.PlacementTransform.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal))
+            {
+                var templateAnchor = templateView.PlacementTransform;
+                var anchorClone = UnityEngine.Object.Instantiate(
+                    templateAnchor.gameObject,
+                    templateAnchor.parent);
+                if (!anchorClone || anchorClone.transform.childCount <= 0)
+                {
+                    if (anchorClone)
+                    {
+                        UnityEngine.Object.Destroy(anchorClone);
+                    }
+
+                    return null;
+                }
+
+                anchorClone.name = $"{templateAnchor.name}_Overflow_{overflowSuffix}";
+                anchorClone.SetActive(templateAnchor.gameObject.activeSelf);
+                clonedRoot = anchorClone.transform.GetChild(0).gameObject;
+                _runtimeOverflowRoots.Add(anchorClone);
+            }
+            else
+            {
+                var templateTransform = templateRoot.transform;
+                var parent = templateTransform.parent;
+                clonedRoot = UnityEngine.Object.Instantiate(templateRoot, parent);
+                if (!clonedRoot)
+                {
+                    return null;
+                }
+
+                _runtimeOverflowRoots.Add(clonedRoot);
+            }
+
+            clonedRoot.name = $"{templateRoot.name}_Overflow_{overflowSuffix}";
+
+            var blockView = new BlockRootView(clonedRoot)
+            {
+                PoolKey = poolKey
+            };
+
+            clonedRoot.TryGetComponent(out Animator animator);
+            blockView.Animator = animator;
+            blockView.PlacementTransform = ResolvePlacementTransform(clonedRoot);
+            _setActiveIfChanged?.Invoke(clonedRoot, false);
+            CacheBlockCellPool(blockView, _setActiveIfChanged);
+            return blockView;
+        }
+
+        private void CleanupRuntimeOverflowRoots()
+        {
+            for (var i = 0; i < _runtimeOverflowRoots.Count; i++)
+            {
+                var overflowRoot = _runtimeOverflowRoots[i];
+                if (overflowRoot)
+                {
+                    UnityEngine.Object.Destroy(overflowRoot);
+                }
+            }
+
+            _runtimeOverflowRoots.Clear();
         }
 
         private List<BlockRootView> GetOrCreateInactivePool(string poolKey)

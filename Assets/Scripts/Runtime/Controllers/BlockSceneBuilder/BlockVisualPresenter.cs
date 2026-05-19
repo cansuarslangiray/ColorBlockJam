@@ -52,17 +52,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                var poolKey = sourceBlocks[i].ResolveShapeKey();
-                if (string.IsNullOrWhiteSpace(poolKey))
-                {
-                    var resolvedType = sourceBlocks[i].ResolveBlockType(runtimeBlock.LocalCells?.Length ?? 1);
-                    poolKey = BlockShapeTypeUtility.ToShapeKey(resolvedType);
-                }
-
-                if (string.IsNullOrWhiteSpace(poolKey))
-                {
-                    poolKey = "Shape_1x1";
-                }
+                var poolKey = sourceBlocks[i].ResolvePoolKey();
 
                 var blockView = blockViewPool.Acquire(poolKey);
                 if (blockView == null)
@@ -108,20 +98,19 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 ResolveConditionIndicatorLocalAnchor(localCells, cellSize, request.IndicatorHeightOffsetInCells,
                     request.IndicatorLocalZOffset);
 
+            var cells = blockView.Cells;
+            var cellRenderers = blockView.CellRenderers;
+            var pooledCellCount = cells.Count;
+            var activeCellCount = Mathf.Min(localCells.Length, pooledCellCount);
             var hasLocalBounds = false;
             var localBoundsMin = Vector3.zero;
             var localBoundsMax = Vector3.zero;
             var localHalfExtents = targetScale * 0.5f;
 
-            for (var i = 0; i < blockView.Cells.Count; i++)
+            for (var i = 0; i < activeCellCount; i++)
             {
-                var cellObject = blockView.Cells[i];
-                var isActive = i < localCells.Length;
-                request.SetActiveIfChanged?.Invoke(cellObject, isActive);
-                if (!isActive)
-                {
-                    continue;
-                }
+                var cellObject = cells[i];
+                request.SetActiveIfChanged?.Invoke(cellObject, true);
 
                 var localCell = localCells[i];
                 var localPosition = new Vector3((localCell.x + 0.5f) * cellSize, (localCell.y + 0.5f) * cellSize, 0f);
@@ -146,14 +135,19 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     localBoundsMax = Vector3.Max(localBoundsMax, cellMax);
                 }
 
-                if (i < blockView.CellRenderers.Count)
+                if (i < cellRenderers.Count)
                 {
-                    var cellRenderer = blockView.CellRenderers[i];
+                    var cellRenderer = cellRenderers[i];
                     if (cellRenderer && resolvedMaterial && cellRenderer.sharedMaterial != resolvedMaterial)
                     {
                         cellRenderer.sharedMaterial = resolvedMaterial;
                     }
                 }
+            }
+
+            for (var i = activeCellCount; i < pooledCellCount; i++)
+            {
+                request.SetActiveIfChanged?.Invoke(cells[i], false);
             }
 
             blockView.HasCachedLocalBounds = hasLocalBounds;
