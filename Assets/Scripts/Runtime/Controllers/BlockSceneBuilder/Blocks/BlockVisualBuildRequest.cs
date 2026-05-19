@@ -15,14 +15,10 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
         public LayoutMetrics Layout;
         public float BlockCellVisualScale;
         public Vector3 BlockRootScale;
-        public float IndicatorHeightOffsetInCells;
-        public float IndicatorLocalZOffset;
         public Func<BlockColor, Material> ResolveMaterial;
         public Action<BlockRootView, int> EnsureBlockCells;
         public Action<GameObject, bool> SetActiveIfChanged;
         public Action<Transform, Vector3, Vector3> ApplyWorldTransform;
         public Action<BlockRootView, bool> SetDragHighlightActive;
-        public Action<BlockRootView, Vector2Int[]> CacheBlockOutlineGridLoop;
-        public Action<BlockRootView> RefreshDragHighlightBounds;
     }
 }

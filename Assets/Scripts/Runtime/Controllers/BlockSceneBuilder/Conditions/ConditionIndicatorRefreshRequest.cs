@@ -8,12 +8,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
     {
         public BoardController BoardController;
         public BlockViewRuntimePool BlockViewPool;
-        public float CellSize;
         public bool ShowBlockConditionIndicators;
-        public float IndicatorCharacterSizeInCells;
-        public int IndicatorFontSize;
-        public Color IndicatorTextColor;
-        public Camera IndicatorCamera;
         public Action<GameObject, bool> SetActiveIfChanged;
     }
 }

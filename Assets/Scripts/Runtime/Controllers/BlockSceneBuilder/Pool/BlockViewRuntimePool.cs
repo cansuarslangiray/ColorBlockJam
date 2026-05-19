@@ -201,9 +201,14 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             blockView.Cells.Clear();
             blockView.CellRenderers.Clear();
             blockView.CellNestedRenderers.Clear();
+            blockView.ConditionIndicatorObject = null;
+            blockView.ConditionIndicatorText = null;
             blockView.PooledConditionIndicatorObject = null;
             blockView.PooledConditionIndicatorText = null;
+            blockView.DragOutlineRenderer = null;
             blockView.PooledDragOutlineRenderer = null;
+            blockView.PooledDoorExitBurstParticle = null;
+            blockView.PooledDoorExitBurstRenderer = null;
             if (blockView.RootTransform == null || rootBinding == null)
             {
                 return;
@@ -243,15 +248,25 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             blockView.PooledConditionIndicatorObject = rootBinding.ConditionIndicatorText
                 ? rootBinding.ConditionIndicatorText.gameObject
                 : null;
+            blockView.ConditionIndicatorText = blockView.PooledConditionIndicatorText;
+            blockView.ConditionIndicatorObject = blockView.PooledConditionIndicatorObject;
             if (blockView.PooledConditionIndicatorObject)
             {
                 setActiveIfChanged?.Invoke(blockView.PooledConditionIndicatorObject, false);
             }
 
             blockView.PooledDragOutlineRenderer = rootBinding.DragOutlineRenderer;
+            blockView.DragOutlineRenderer = blockView.PooledDragOutlineRenderer;
             if (blockView.PooledDragOutlineRenderer && blockView.PooledDragOutlineRenderer.gameObject)
             {
                 setActiveIfChanged?.Invoke(blockView.PooledDragOutlineRenderer.gameObject, false);
+            }
+
+            blockView.PooledDoorExitBurstParticle = rootBinding.DoorExitParticle;
+            blockView.PooledDoorExitBurstRenderer = rootBinding.DoorExitParticleRenderer;
+            if (blockView.PooledDoorExitBurstParticle && blockView.PooledDoorExitBurstParticle.gameObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.PooledDoorExitBurstParticle.gameObject, false);
             }
         }
 
@@ -295,6 +310,11 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             if (blockView.DragOutlineRenderer && blockView.DragOutlineRenderer.gameObject)
             {
                 setActiveIfChanged?.Invoke(blockView.DragOutlineRenderer.gameObject, false);
+            }
+
+            if (blockView.PooledDoorExitBurstParticle && blockView.PooledDoorExitBurstParticle.gameObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.PooledDoorExitBurstParticle.gameObject, false);
             }
 
             setActiveIfChanged?.Invoke(blockView.RootObject, false);

@@ -506,6 +506,7 @@ namespace Editor.LevelAuthoring
             shape.ApplyImportedData(effectiveShapeKey, _editCells);
             EditorUtility.SetDirty(shape);
             AssetDatabase.SaveAssets();
+            BlockShapePrefabPipeline.SyncForShapeChange();
             _isDirty = false;
             RefreshShapeAssetCache();
             SelectShape(shape);
@@ -536,6 +537,7 @@ namespace Editor.LevelAuthoring
             AssetDatabase.CreateAsset(shape, assetPath);
             EditorUtility.SetDirty(shape);
             AssetDatabase.SaveAssets();
+            BlockShapePrefabPipeline.SyncForShapeChange();
 
             RefreshShapeAssetCache();
             SelectShape(shape);

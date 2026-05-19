@@ -72,18 +72,12 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 
             request.EnsureBlockCells?.Invoke(blockView, localCells.Length);
             blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
-            blockView.ConditionIndicatorLocalAnchor =
-                ResolveConditionIndicatorLocalAnchor(localCells, cellSize, request.IndicatorHeightOffsetInCells,
-                    request.IndicatorLocalZOffset);
 
             var cells = blockView.Cells;
             var cellRenderers = blockView.CellRenderers;
+            var cellNestedRenderers = blockView.CellNestedRenderers;
             var pooledCellCount = cells.Count;
             var activeCellCount = Mathf.Min(localCells.Length, pooledCellCount);
-            var hasLocalBounds = false;
-            var localBoundsMin = Vector3.zero;
-            var localBoundsMax = Vector3.zero;
-            var localHalfExtents = targetScale * 0.5f;
 
             for (var i = 0; i < activeCellCount; i++)
             {
@@ -95,22 +89,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 if (cellObject)
                 {
                     cellObject.transform.localPosition = localPosition;
-                    cellObject.transform.localRotation = Quaternion.identity;
                     cellObject.transform.localScale = targetScale;
-                }
-
-                var cellMin = localPosition - localHalfExtents;
-                var cellMax = localPosition + localHalfExtents;
-                if (!hasLocalBounds)
-                {
-                    localBoundsMin = cellMin;
-                    localBoundsMax = cellMax;
-                    hasLocalBounds = true;
-                }
-                else
-                {
-                    localBoundsMin = Vector3.Min(localBoundsMin, cellMin);
-                    localBoundsMax = Vector3.Max(localBoundsMax, cellMax);
                 }
 
                 if (i < cellRenderers.Count)
@@ -121,18 +100,30 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                         cellRenderer.sharedMaterial = resolvedMaterial;
                     }
                 }
+
+                if (resolvedMaterial && i < cellNestedRenderers.Count)
+                {
+                    var nestedRenderers = cellNestedRenderers[i];
+                    if (nestedRenderers == null)
+                    {
+                        continue;
+                    }
+
+                    for (var nestedIndex = 0; nestedIndex < nestedRenderers.Length; nestedIndex++)
+                    {
+                        var nestedRenderer = nestedRenderers[nestedIndex];
+                        if (nestedRenderer && nestedRenderer.sharedMaterial != resolvedMaterial)
+                        {
+                            nestedRenderer.sharedMaterial = resolvedMaterial;
+                        }
+                    }
+                }
             }
 
             for (var i = activeCellCount; i < pooledCellCount; i++)
             {
                 request.SetActiveIfChanged?.Invoke(cells[i], false);
             }
-
-            blockView.HasCachedLocalBounds = hasLocalBounds;
-            blockView.CachedLocalBoundsMin = localBoundsMin;
-            blockView.CachedLocalBoundsMax = localBoundsMax;
-            request.CacheBlockOutlineGridLoop?.Invoke(blockView, localCells);
-            request.RefreshDragHighlightBounds?.Invoke(blockView);
         }
 
         private static bool TryResolvePrimaryMaterialColor(Material sourceMaterial, out Color color)
@@ -184,31 +175,5 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 ((minY + maxY + 1) * 0.5f) * cellSize);
         }
 
-        private static Vector3 ResolveConditionIndicatorLocalAnchor(Vector2Int[] localCells, float cellSize, float indicatorHeightOffsetInCells, float indicatorLocalZOffset)
-        {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return new Vector3(
-                    cellSize * 0.5f,
-                    cellSize * (1f + indicatorHeightOffsetInCells),
-                    indicatorLocalZOffset);
-            }
-
-            var minX = int.MaxValue;
-            var maxX = int.MinValue;
-            var maxY = int.MinValue;
-
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var cell = localCells[i];
-                if (cell.x < minX) minX = cell.x;
-                if (cell.x > maxX) maxX = cell.x;
-                if (cell.y > maxY) maxY = cell.y;
-            }
-
-            var anchorX = ((minX + maxX + 1) * 0.5f) * cellSize;
-            var anchorY = (maxY + 1f + indicatorHeightOffsetInCells) * cellSize;
-            return new Vector3(anchorX, anchorY, indicatorLocalZOffset);
-        }
     }
 }

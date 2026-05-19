@@ -171,7 +171,6 @@ namespace Runtime.Managers
             boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
             blockSceneBuilder.BuildForLevel(levelData);
             _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
-            blockSceneBuilder.RefreshConditionIndicatorBillboards();
             PersistCurrentLevelProgress(levelData);
 
             stateManager.ChangeState(GameState.Playing);

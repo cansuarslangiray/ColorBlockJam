@@ -1,5 +1,7 @@
 using System;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder.Pool
@@ -7,8 +9,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
     [DisallowMultipleComponent]
     public sealed class DoorPoolBindings : MonoBehaviour
     {
-        private const string PlacementAnchorPrefix = "__DoorPlacementAnchor_";
-
         [SerializeField] private Transform placementTransform;
         [SerializeField] private Renderer[] renderers = Array.Empty<Renderer>();
 
@@ -36,21 +36,16 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             renderers = rendererComponents ?? Array.Empty<Renderer>();
             EditorUtility.SetDirty(this);
         }
+
+        public void EditorRebuildBindingsFromHierarchy()
+        {
+            RebuildBindings();
+        }
 #endif
 
         private Transform ResolvePlacementTransform()
         {
-            var doorTransform = transform;
-            var existingParent = doorTransform.parent;
-            if (existingParent &&
-                existingParent.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal) &&
-                existingParent.childCount == 1 &&
-                existingParent.GetChild(0) == doorTransform)
-            {
-                return existingParent;
-            }
-
-            return doorTransform;
+            return transform;
         }
     }
 }

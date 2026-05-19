@@ -9,7 +9,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private const string DoorPlacementAnchorPrefix = "__DoorPlacementAnchor_";
         private static readonly Renderer[] EmptyDoorRenderers = System.Array.Empty<Renderer>();
         private readonly List<DoorRuntimeBinding> _doorRuntimeByIndex = new();
 
@@ -206,17 +205,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return null;
             }
 
-            var doorTransform = doorObject.transform;
-            var existingParent = doorTransform.parent;
-            if (existingParent &&
-                existingParent.name.StartsWith(DoorPlacementAnchorPrefix, System.StringComparison.Ordinal) &&
-                existingParent.childCount == 1 &&
-                existingParent.GetChild(0) == doorTransform)
-            {
-                return existingParent;
-            }
-
-            return doorTransform;
+            return doorObject.transform;
         }
 
         private bool TryGetDoorRuntimeBinding(int doorIndex, out DoorRuntimeBinding doorRuntime)

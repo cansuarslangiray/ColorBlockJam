@@ -23,15 +23,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 Layout = layout,
                 BlockCellVisualScale = blockCellVisualScale,
                 BlockRootScale = blockRootScale,
-                IndicatorHeightOffsetInCells = indicatorHeightOffsetInCells,
-                IndicatorLocalZOffset = indicatorLocalZOffset,
                 ResolveMaterial = GetMaterial,
                 EnsureBlockCells = EnsureBlockCells,
                 SetActiveIfChanged = SetActiveIfChanged,
                 ApplyWorldTransform = ApplyWorldTransform,
-                SetDragHighlightActive = SetDragHighlightActive,
-                CacheBlockOutlineGridLoop = CacheBlockOutlineGridLoop,
-                RefreshDragHighlightBounds = RefreshDragHighlightBounds
+                SetDragHighlightActive = SetDragHighlightActive
             };
             _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
 
@@ -129,7 +125,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 PlayBlockMatchSuccessSfx = () => audioManager?.PlayBlockMatchSuccess(),
                 PlayDoorMatchFx = PlayDoorMatchFx,
                 AnimateBlockDoorExitSequence = AnimateBlockDoorExitSequence,
-                PlayBlockExitDisintegrateFx = (view, direction) => PlayBlockExitDisintegrateFx(view, direction, false)
+                PlayBlockExitDisintegrateFx = PlayBlockExitDisintegrateFx
             };
             yield return _blockExitFxController.PlayClearAndExitSequence(exitFxRequest);
             yield return CleanupDoorExitBurstAfterDelay(blockView, DoorExitBurstCleanupDelay);

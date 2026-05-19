@@ -13,52 +13,34 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private const float DoorExitBurstCleanupDelay = 0.28f;
-        private const float DoorExitBurstCleanupMaxWait = 0.56f;
         private const float DoorPassThroughScatterDistanceInCells = 0.78f;
         private const float DoorPassThroughMinScale = 0.06f;
         private const float DoorPassThroughRotationRangeInDegrees = 280f;
         private const float DoorPassThroughBurstAtProgress = 0.66f;
 
-        private static readonly ParticleSystem.Burst[] DoorExitBurstPattern =
-        {
-            new ParticleSystem.Burst(0f, (short)30, (short)42, 1, 0f),
-            new ParticleSystem.Burst(0.048f, (short)14, (short)22, 1, 0f)
-        };
-
-        private static readonly AnimationCurve DoorExitBurstSizeCurve = new(
-            new Keyframe(0f, 1f, 0f, -1.25f),
-            new Keyframe(0.52f, 0.46f, -0.65f, -0.35f),
-            new Keyframe(1f, 0.04f, -0.12f, 0f));
-
-        private static readonly Gradient DoorExitBurstAlphaGradient = CreateDoorExitBurstAlphaGradient();
-        private static Mesh _doorExitBurstCubeMesh;
-
-        private void ReleaseRuntimeFxResources()
-        {
-            RecycleAllDoorExitBurstParticles();
-            _doorExitBurstRendererByParticleId.Clear();
-            _dragHighlightPresenter.ResetRuntimeResources();
-        }
-
         private void StopDoorExitBurstParticle(BlockRootView blockView)
         {
-            StopDoorExitBurstCleanup(blockView);
-
             if (blockView == null)
             {
                 return;
             }
 
-            var burstParticle = blockView.DoorExitBurstParticle;
+            var burstParticle = blockView.PooledDoorExitBurstParticle;
             if (burstParticle != null)
             {
-                ResetDoorExitBurstParticleState(burstParticle, disableObject: true, disableRenderer: true);
+                burstParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var burstRenderer = blockView.PooledDoorExitBurstRenderer;
+                if (burstRenderer)
+                {
+                    burstRenderer.enabled = false;
+                }
 
-                ReturnDoorExitBurstParticleToPool(burstParticle);
+                var burstObject = burstParticle.gameObject;
+                if (burstObject != null)
+                {
+                    SetActiveIfChanged(burstObject, false);
+                }
             }
-
-            blockView.DoorExitBurstParticle = null;
-            blockView.DoorExitBurstRenderer = null;
         }
 
         private void HandleBlockDragHighlightChanged(int blockId, bool isActive)
@@ -73,39 +55,22 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void SetDragHighlightActive(BlockRootView blockView, bool isActive)
         {
-            _dragHighlightPresenter.SetDragHighlightActive(blockView, isActive, BuildDragHighlightSettings(),
-                SetActiveIfChanged, TryResolveBlockCellMaterialColor);
+            _dragHighlightPresenter.SetDragHighlightActive(blockView, isActive, SetActiveIfChanged);
         }
 
-        private void RefreshDragHighlightBounds(BlockRootView blockView)
-        {
-            _dragHighlightPresenter.RefreshDragHighlightBounds(blockView, BuildDragHighlightSettings(),
-                TryResolveBlockCellMaterialColor);
-        }
-
-        private DragHighlightSettings BuildDragHighlightSettings()
-        {
-            return new DragHighlightSettings(CellSize, dragOutlineBaseOffsetInCells,
-                dragOutlineGapInCells, dragOutlineVerticalOffsetInCells, dragOutlineThicknessInCells, dragOutlineColor,
-                dragOutlineSourceMaterial);
-        }
-
-        private void PlayBlockExitDisintegrateFx(BlockRootView blockView, Vector2Int exitDirection = default,
-            bool scheduleAutoCleanup = true)
+        private void PlayBlockExitDisintegrateFx(BlockRootView blockView, Vector2Int _ = default)
         {
             if (blockView == null)
             {
                 return;
             }
 
-            PlayDoorExitBurstParticleFx(blockView, exitDirection, scheduleAutoCleanup);
+            PlayDoorExitBurstParticleFx(blockView);
         }
 
-        private void PlayDoorExitBurstParticleFx(BlockRootView blockView, Vector2Int exitDirection,
-            bool scheduleAutoCleanup)
+        private void PlayDoorExitBurstParticleFx(BlockRootView blockView)
         {
-            EnsureDoorExitBurstParticle(blockView);
-            var burstParticle = blockView?.DoorExitBurstParticle;
+            var burstParticle = blockView?.PooledDoorExitBurstParticle;
             if (burstParticle == null)
             {
                 return;
@@ -117,46 +82,21 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var burstFlowDirection = ResolveDoorExitBurstFlowDirection(exitDirection);
-            var burstOriginOffset = ResolveDoorExitBurstOriginOffset(blockView);
-            var burstPosition = ResolveBlockCenterWorld(blockView) + (burstFlowDirection * burstOriginOffset);
-            var burstRotation = Quaternion.LookRotation(burstFlowDirection, Vector3.forward);
-            var burstTransform = burstParticle.transform;
-            burstTransform.SetPositionAndRotation(burstPosition, burstRotation);
-            burstTransform.localScale = ResolveBurstScale(blockView);
-
             SetActiveIfChanged(burstObject, true);
-            ResetDoorExitBurstParticleState(burstParticle);
-            ConfigureDoorExitBurstParticle(burstParticle, burstFlowDirection, blockView.DoorExitBurstRenderer);
+            var burstRenderer = blockView.PooledDoorExitBurstRenderer;
             var burstColor = ResolveBlockBurstColor(blockView);
-            var burstMain = burstParticle.main;
-            burstMain.startColor = burstColor;
-            ApplyDoorExitBurstRendererTint(blockView, burstColor);
-            if (blockView.DoorExitBurstRenderer)
+            ApplyDoorExitBurstRendererTint(burstRenderer, burstColor);
+            if (burstRenderer)
             {
-                blockView.DoorExitBurstRenderer.enabled = true;
+                burstRenderer.enabled = true;
             }
 
+            burstParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             burstParticle.Play(true);
-
-            if (!scheduleAutoCleanup)
-            {
-                return;
-            }
-
-            StopDoorExitBurstCleanup(blockView);
-            blockView.DoorExitBurstCleanupRoutine =
-                StartCoroutine(CleanupDoorExitBurstAfterDelay(blockView, DoorExitBurstCleanupDelay));
         }
 
-        private void ApplyDoorExitBurstRendererTint(BlockRootView blockView, Color burstColor)
+        private void ApplyDoorExitBurstRendererTint(ParticleSystemRenderer particleRenderer, Color burstColor)
         {
-            if (blockView == null)
-            {
-                return;
-            }
-
-            var particleRenderer = blockView.DoorExitBurstRenderer;
             if (!particleRenderer)
             {
                 return;
@@ -205,297 +145,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return true;
         }
 
-        private static void ConfigureDoorExitBurstParticle(ParticleSystem burstParticle, Vector3 burstFlowDirection,
-            ParticleSystemRenderer particleRenderer)
-        {
-            if (burstParticle == null)
-            {
-                return;
-            }
-
-            var main = burstParticle.main;
-            main.loop = false;
-            main.useUnscaledTime = true;
-            main.simulationSpeed = 0.95f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.24f, 0.48f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1.15f, 2.2f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.145f);
-            main.startRotation = new ParticleSystem.MinMaxCurve(0f, 360f * Mathf.Deg2Rad);
-            main.gravityModifier = new ParticleSystem.MinMaxCurve(0f, 0.035f);
-            main.stopAction = ParticleSystemStopAction.None;
-
-            var emission = burstParticle.emission;
-            emission.rateOverTime = 0f;
-            emission.rateOverDistance = 0f;
-            emission.SetBursts(DoorExitBurstPattern, DoorExitBurstPattern.Length);
-
-            var shape = burstParticle.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 11f;
-            shape.radius = 0.14f;
-            shape.radiusThickness = 0.62f;
-            shape.length = 0.24f;
-            shape.alignToDirection = true;
-            shape.randomDirectionAmount = 0.12f;
-            shape.randomPositionAmount = 0.08f;
-            shape.sphericalDirectionAmount = 0f;
-
-            var normalizedFlowDirection = burstFlowDirection.sqrMagnitude > Mathf.Epsilon
-                ? burstFlowDirection.normalized
-                : Vector3.right;
-            var velocityOverLifetime = burstParticle.velocityOverLifetime;
-            velocityOverLifetime.enabled = true;
-            velocityOverLifetime.space = ParticleSystemSimulationSpace.World;
-            velocityOverLifetime.x = new ParticleSystem.MinMaxCurve(normalizedFlowDirection.x * 1.15f);
-            velocityOverLifetime.y = new ParticleSystem.MinMaxCurve(normalizedFlowDirection.y * 1.15f);
-            velocityOverLifetime.z = new ParticleSystem.MinMaxCurve(normalizedFlowDirection.z * 1.15f);
-
-            var sizeOverLifetime = burstParticle.sizeOverLifetime;
-            sizeOverLifetime.enabled = true;
-            sizeOverLifetime.separateAxes = false;
-            sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, DoorExitBurstSizeCurve);
-
-            var colorOverLifetime = burstParticle.colorOverLifetime;
-            colorOverLifetime.enabled = true;
-            colorOverLifetime.color = new ParticleSystem.MinMaxGradient(DoorExitBurstAlphaGradient);
-
-            var noise = burstParticle.noise;
-            noise.enabled = false;
-
-            var collision = burstParticle.collision;
-            collision.enabled = false;
-
-            var trails = burstParticle.trails;
-            trails.enabled = false;
-
-            ConfigureDoorExitBurstRenderer(particleRenderer);
-        }
-
-        private void EnsureDoorExitBurstParticle(BlockRootView blockView)
-        {
-            if (blockView == null)
-            {
-                return;
-            }
-
-            if (blockView.DoorExitBurstParticle != null)
-            {
-                blockView.DoorExitBurstRenderer =
-                    ResolveDoorExitBurstRendererFromCache(blockView.DoorExitBurstParticle);
-
-                return;
-            }
-
-            var burstParticle = AcquireDoorExitBurstParticle();
-            if (burstParticle == null)
-            {
-                return;
-            }
-
-            blockView.DoorExitBurstParticle = burstParticle;
-            blockView.DoorExitBurstRenderer = ResolveDoorExitBurstRendererFromCache(burstParticle);
-        }
-
-        private void EnsureDoorExitBurstPoolCapacity(int requiredCount)
-        {
-            RebindDoorExitBurstPoolFromScene();
-
-            if (requiredCount <= 0)
-            {
-                return;
-            }
-
-            if (_doorExitBurstParticlePool.Count < requiredCount &&
-                !_hasLoggedDoorExitBurstPoolShortWarning)
-            {
-                Debug.LogWarning(
-                    $"Door exit burst pool has {_doorExitBurstParticlePool.Count} particle object(s), but level needs {requiredCount}. " +
-                    "Runtime particle instantiation is disabled for performance. Add more authored pooled particles.",
-                    this);
-                _hasLoggedDoorExitBurstPoolShortWarning = true;
-            }
-        }
-
-        private ParticleSystem AcquireDoorExitBurstParticle()
-        {
-            while (_availableDoorExitBurstParticles.Count > 0)
-            {
-                var pooledParticle = _availableDoorExitBurstParticles.Pop();
-                if (pooledParticle == null)
-                {
-                    continue;
-                }
-
-                _availableDoorExitBurstParticleIds.Remove(pooledParticle.GetInstanceID());
-                return pooledParticle;
-            }
-
-            return null;
-        }
-
-        private void ReturnDoorExitBurstParticleToPool(ParticleSystem burstParticle, bool allowReparent = true)
-        {
-            if (burstParticle == null)
-            {
-                return;
-            }
-
-            if (!_doorExitBurstParticlePool.Contains(burstParticle))
-            {
-                _doorExitBurstParticlePool.Add(burstParticle);
-            }
-
-            ResetDoorExitBurstParticleState(burstParticle);
-            var burstObject = burstParticle.gameObject;
-            if (burstObject != null)
-            {
-                var burstTransform = burstObject.transform;
-                // Unity deactivation/activation sırasında hierarchy değişimine izin vermiyor.
-                // OnDisable cleanup akışında SetParent çağrısını atlayarak "Cannot set the parent..." hatasını önleriz.
-                if (allowReparent && isActiveAndEnabled && burstTransform.parent != transform)
-                {
-                    burstTransform.SetParent(transform, false);
-                }
-
-                SetActiveIfChanged(burstObject, false);
-            }
-
-            var burstInstanceId = burstParticle.GetInstanceID();
-            if (_availableDoorExitBurstParticleIds.Add(burstInstanceId))
-            {
-                _availableDoorExitBurstParticles.Push(burstParticle);
-            }
-        }
-
-        private void ResetDoorExitBurstParticleState(ParticleSystem burstParticle, bool disableObject = false,
-            bool disableRenderer = false)
-        {
-            if (burstParticle == null)
-            {
-                return;
-            }
-
-            burstParticle.Simulate(0f, false, true);
-            burstParticle.Clear(true);
-            burstParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-            var burstRenderer = ResolveDoorExitBurstRendererFromCache(burstParticle);
-            if (disableRenderer && burstRenderer)
-            {
-                burstRenderer.enabled = false;
-            }
-
-            if (!disableObject)
-            {
-                return;
-            }
-
-            var burstObject = burstParticle.gameObject;
-            if (burstObject != null)
-            {
-                SetActiveIfChanged(burstObject, false);
-            }
-        }
-
-        private void RecycleAllDoorExitBurstParticles()
-        {
-            RebindDoorExitBurstPoolFromScene();
-            _availableDoorExitBurstParticles.Clear();
-            _availableDoorExitBurstParticleIds.Clear();
-
-            for (var i = _doorExitBurstParticlePool.Count - 1; i >= 0; i--)
-            {
-                var pooledParticle = _doorExitBurstParticlePool[i];
-                if (pooledParticle == null)
-                {
-                    _doorExitBurstParticlePool.RemoveAt(i);
-                    continue;
-                }
-
-                ReturnDoorExitBurstParticleToPool(pooledParticle, allowReparent: false);
-            }
-        }
-
-        private void RebindDoorExitBurstPoolFromScene()
-        {
-            _doorExitBurstParticlePool.Clear();
-            _doorExitBurstRendererByParticleId.Clear();
-            _availableDoorExitBurstParticles.Clear();
-            _availableDoorExitBurstParticleIds.Clear();
-
-            if (doorExitBurstParticles != null)
-            {
-                for (var i = 0; i < doorExitBurstParticles.Count; i++)
-                {
-                    var pooledParticle = doorExitBurstParticles[i];
-                    var particleRenderer = i < (doorExitBurstParticleRenderers?.Count ?? 0)
-                        ? doorExitBurstParticleRenderers[i]
-                        : null;
-                    AddDoorExitBurstParticleToRuntimePool(pooledParticle, particleRenderer);
-                }
-            }
-        }
-
-        private void AddDoorExitBurstParticleToRuntimePool(ParticleSystem pooledParticle,
-            ParticleSystemRenderer particleRenderer)
-        {
-            if (!pooledParticle)
-            {
-                return;
-            }
-
-            if (_doorExitBurstParticlePool.Contains(pooledParticle))
-            {
-                return;
-            }
-
-            _doorExitBurstParticlePool.Add(pooledParticle);
-            _doorExitBurstRendererByParticleId[pooledParticle.GetInstanceID()] = particleRenderer;
-            ResetDoorExitBurstParticleState(pooledParticle, disableObject: true, disableRenderer: true);
-            _availableDoorExitBurstParticleIds.Add(pooledParticle.GetInstanceID());
-            _availableDoorExitBurstParticles.Push(pooledParticle);
-        }
-
-        private ParticleSystemRenderer ResolveDoorExitBurstRendererFromCache(ParticleSystem burstParticle)
-        {
-            if (!burstParticle)
-            {
-                return null;
-            }
-
-            _doorExitBurstRendererByParticleId.TryGetValue(burstParticle.GetInstanceID(), out var particleRenderer);
-            return particleRenderer;
-        }
-
-        private static Vector3 ResolveBlockCenterWorld(BlockRootView blockView)
-        {
-            if (blockView == null || blockView.RootTransform == null)
-            {
-                return Vector3.zero;
-            }
-
-            if (!TryResolveActiveCellBoundsWorld(blockView, out var minWorld, out var maxWorld))
-            {
-                return blockView.RootTransform.position;
-            }
-
-            return (minWorld + maxWorld) * 0.5f;
-        }
-
-        private static Vector3 ResolveBurstScale(BlockRootView blockView)
-        {
-            if (!TryResolveActiveCellBoundsWorld(blockView, out var minWorld, out var maxWorld))
-            {
-                return Vector3.one * 0.5f;
-            }
-
-            var size = maxWorld - minWorld;
-            var maxSize = Mathf.Max(size.x, size.y, size.z);
-            var uniformScale = Mathf.Clamp(maxSize * 0.32f, 0.32f, 0.95f);
-            return Vector3.one * uniformScale;
-        }
-
         private IEnumerator AnimateBlockDoorExitSequence(BlockRootView blockView, DoorOpeningData matchedDoor,
             Vector2Int resolvedExitDirection)
         {
@@ -523,14 +172,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 resolvedExitDirection);
             if (cellTransforms.Count <= 0)
             {
-                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection, false);
+                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection);
                 ClearDoorPassThroughVisualOverrides(cellRenderers);
                 yield break;
             }
 
             if (!TryResolveDoorPassThroughMotion(blockView, matchedDoor, resolvedExitDirection, out var motion))
             {
-                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection, false);
+                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection);
                 ClearDoorPassThroughVisualOverrides(cellRenderers);
                 yield break;
             }
@@ -567,7 +216,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 if (!burstTriggered && elapsed >= motion.BurstAt)
                 {
-                    PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection, false);
+                    PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection);
                     burstTriggered = true;
                 }
 
@@ -584,7 +233,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             if (!burstTriggered)
             {
-                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection, false);
+                PlayBlockExitDisintegrateFx(blockView, resolvedExitDirection);
             }
         }
 
@@ -1033,68 +682,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return worldDirection;
         }
 
-        private float ResolveDoorExitBurstOriginOffset(BlockRootView blockView)
-        {
-            if (!TryResolveActiveCellBoundsWorld(blockView, out var minWorld, out var maxWorld))
-            {
-                return CellSize * 0.16f;
-            }
-
-            var size = maxWorld - minWorld;
-            var maxPlanarSize = Mathf.Max(size.x, size.y);
-            var desiredOffset = maxPlanarSize * 0.32f;
-            return Mathf.Clamp(desiredOffset, CellSize * 0.16f, CellSize * 0.58f);
-        }
-
-        private static void ConfigureDoorExitBurstRenderer(ParticleSystemRenderer particleRenderer)
-        {
-            if (!particleRenderer)
-            {
-                return;
-            }
-
-            var cubeMesh = ResolveDoorExitBurstCubeMesh();
-            if (cubeMesh)
-            {
-                particleRenderer.renderMode = ParticleSystemRenderMode.Mesh;
-                particleRenderer.mesh = cubeMesh;
-                particleRenderer.alignment = ParticleSystemRenderSpace.World;
-            }
-            else
-            {
-                particleRenderer.renderMode = ParticleSystemRenderMode.Billboard;
-            }
-        }
-
-        private static Mesh ResolveDoorExitBurstCubeMesh()
-        {
-            if (_doorExitBurstCubeMesh)
-            {
-                return _doorExitBurstCubeMesh;
-            }
-
-            _doorExitBurstCubeMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-            return _doorExitBurstCubeMesh;
-        }
-
-        private static Gradient CreateDoorExitBurstAlphaGradient()
-        {
-            var gradient = new Gradient();
-            gradient.SetKeys(
-                new[]
-                {
-                    new GradientColorKey(Color.white, 0f),
-                    new GradientColorKey(Color.white, 1f)
-                },
-                new[]
-                {
-                    new GradientAlphaKey(1f, 0f),
-                    new GradientAlphaKey(0.9f, 0.58f),
-                    new GradientAlphaKey(0f, 1f)
-                });
-            return gradient;
-        }
-
         private IEnumerator CleanupDoorExitBurstAfterDelay(BlockRootView blockView, float delay)
         {
             yield return new WaitForSecondsRealtime(Mathf.Max(0.05f, delay));
@@ -1104,48 +691,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 yield break;
             }
 
-            var burstParticle = blockView.DoorExitBurstParticle;
-            var cleanupTimeoutAt = Time.unscaledTime + DoorExitBurstCleanupMaxWait;
-            while (burstParticle && burstParticle.IsAlive(true) && Time.unscaledTime < cleanupTimeoutAt)
-            {
-                yield return null;
-            }
-
-            blockView.DoorExitBurstCleanupRoutine = null;
             StopDoorExitBurstParticle(blockView);
         }
 
-        private void StopDoorExitBurstCleanup(BlockRootView blockView)
-        {
-            if (blockView?.DoorExitBurstCleanupRoutine == null)
-            {
-                return;
-            }
-
-            StopCoroutine(blockView.DoorExitBurstCleanupRoutine);
-            blockView.DoorExitBurstCleanupRoutine = null;
-        }
-
-        private void CacheBlockOutlineGridLoop(BlockRootView blockView, Vector2Int[] localCells)
-        {
-            _dragHighlightPresenter.CacheBlockOutlineGridLoop(blockView, localCells);
-        }
-
-        private static bool TryResolveActiveCellBoundsWorld(BlockRootView blockView, out Vector3 minWorld,
-            out Vector3 maxWorld)
-        {
-            minWorld = default;
-            maxWorld = default;
-            if (blockView == null || !blockView.HasCachedLocalBounds || blockView.RootTransform == null)
-            {
-                return false;
-            }
-
-            var worldA = blockView.RootTransform.TransformPoint(blockView.CachedLocalBoundsMin);
-            var worldB = blockView.RootTransform.TransformPoint(blockView.CachedLocalBoundsMax);
-            minWorld = Vector3.Min(worldA, worldB);
-            maxWorld = Vector3.Max(worldA, worldB);
-            return true;
-        }
     }
 }

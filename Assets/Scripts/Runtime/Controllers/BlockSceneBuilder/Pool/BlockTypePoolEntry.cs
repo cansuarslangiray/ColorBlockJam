@@ -9,7 +9,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
     {
         public string shapeKey = "Shape_1x1";
         public List<BlockPoolBindings> blockBindings = new();
-        [HideInInspector] public List<GameObject> blockObjects = new();
 
         public string ResolvePoolKey()
         {

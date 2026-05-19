@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder.Pool
@@ -8,20 +10,24 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
     [DisallowMultipleComponent]
     public sealed class BlockPoolBindings : MonoBehaviour
     {
-        private const string PlacementAnchorPrefix = "__BlockPlacementAnchor_";
         private const string ConditionIndicatorObjectName = "ConditionIndicator";
         private const string DragOutlineObjectName = "BlockDragOutline";
+        private const string DoorExitParticleObjectName = "DoorExitParticle";
 
         [SerializeField] private Transform placementTransform;
         [SerializeField] private List<BlockPoolCellBinding> cellBindings = new();
         [SerializeField] private TextMesh conditionIndicatorText;
         [SerializeField] private LineRenderer dragOutlineRenderer;
+        [SerializeField] private ParticleSystem doorExitParticle;
+        [SerializeField] private ParticleSystemRenderer doorExitParticleRenderer;
 
         public GameObject RootObject => gameObject;
         public Transform PlacementTransform => placementTransform ? placementTransform : transform;
         public IReadOnlyList<BlockPoolCellBinding> CellBindings => cellBindings;
         public TextMesh ConditionIndicatorText => conditionIndicatorText;
         public LineRenderer DragOutlineRenderer => dragOutlineRenderer;
+        public ParticleSystem DoorExitParticle => doorExitParticle;
+        public ParticleSystemRenderer DoorExitParticleRenderer => doorExitParticleRenderer;
 
 #if UNITY_EDITOR
         private void OnValidate()
@@ -95,23 +101,38 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 break;
             }
 
+            doorExitParticle = null;
+            var particles = rootTransform.GetComponentsInChildren<ParticleSystem>(true);
+            for (var i = 0; i < particles.Length; i++)
+            {
+                var particle = particles[i];
+                if (!particle ||
+                    !particle.gameObject ||
+                    !string.Equals(particle.gameObject.name, DoorExitParticleObjectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                doorExitParticle = particle;
+                break;
+            }
+
+            doorExitParticleRenderer = doorExitParticle
+                ? doorExitParticle.GetComponent<ParticleSystemRenderer>()
+                : null;
+
             EditorUtility.SetDirty(this);
+        }
+
+        public void EditorRebuildBindingsFromHierarchy()
+        {
+            RebuildBindings();
         }
 #endif
 
         private Transform ResolvePlacementTransform()
         {
-            var rootTransform = transform;
-            var existingParent = rootTransform.parent;
-            if (existingParent &&
-                existingParent.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal) &&
-                existingParent.childCount == 1 &&
-                existingParent.GetChild(0) == rootTransform)
-            {
-                return existingParent;
-            }
-
-            return rootTransform;
+            return transform;
         }
     }
 }

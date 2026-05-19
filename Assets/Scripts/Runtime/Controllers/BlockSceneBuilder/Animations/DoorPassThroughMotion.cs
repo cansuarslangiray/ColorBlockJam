@@ -4,13 +4,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Animations
 {
     internal readonly struct DoorPassThroughMotion
     {
-        public DoorPassThroughMotion(
-            Transform placementTransform,
-            Vector3 startPosition,
-            Vector3 endPosition,
-            float travelDuration,
-            float collapseStartAt,
-            float burstAt)
+        public DoorPassThroughMotion(Transform placementTransform, Vector3 startPosition, Vector3 endPosition,
+            float travelDuration, float collapseStartAt, float burstAt)
         {
             PlacementTransform = placementTransform;
             StartPosition = startPosition;

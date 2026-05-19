@@ -90,12 +90,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 var blockedCell = blockedCells[i];
-                if (!IsVisibleGridCell(blockedCell, request.GridDimensions))
-                {
-                    request.SetActiveIfChanged?.Invoke(blockedCellObject, false);
-                    continue;
-                }
-
                 var position = ResolveCellCenterWorld(request.Layout, blockedCell.x, blockedCell.y, worldZ);
                 blockedCellObject.transform.position = position;
             }

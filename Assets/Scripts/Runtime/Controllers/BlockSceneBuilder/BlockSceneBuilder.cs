@@ -49,25 +49,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Block Indicators")] [SerializeField]
         private bool showBlockConditionIndicators = true;
 
-        [SerializeField, Min(0.01f)] private float indicatorCharacterSizeInCells = 0.16f;
-        [SerializeField, Min(0f)] private float indicatorHeightOffsetInCells = 0.28f;
-        [SerializeField] private float indicatorLocalZOffset = -0.05f;
-        [SerializeField, Min(8)] private int indicatorFontSize = 36;
-        [SerializeField] private Color indicatorTextColor = Color.white;
-        [SerializeField] private Camera indicatorCamera;
-
-        [Header("Particle FX")] [SerializeField]
-        private List<ParticleSystem> doorExitBurstParticles = new();
-        [SerializeField] private List<ParticleSystemRenderer> doorExitBurstParticleRenderers = new();
-
-        [SerializeField, Min(0)] private int doorExitBurstPoolWarmupCount = 8;
-        [SerializeField] private Material dragOutlineSourceMaterial;
-        [SerializeField, Min(0f)] private float dragOutlineBaseOffsetInCells = 0.01f;
-        [SerializeField, Min(0f)] private float dragOutlineGapInCells = 0.035f;
-        [SerializeField] private float dragOutlineVerticalOffsetInCells = 0.03f;
-        [SerializeField, Min(0.005f)] private float dragOutlineThicknessInCells = 0.095f;
-        [SerializeField] private Color dragOutlineColor = new(1f, 1f, 1f, 0.9f);
-
         [Header("Door Exit UX")] [SerializeField, Min(0f)]
         private float doorEntryAdvanceInCells = 0.2f;
 
@@ -81,7 +62,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly List<GameObject> _blockedCellPool = new();
         private readonly List<GameObject> _doorPool = new();
         private readonly Dictionary<string, int> _requiredBlockRootCountByKey = new(System.StringComparer.Ordinal);
-        private readonly Dictionary<string, int> _requiredBlockCellCountByKey = new(System.StringComparer.Ordinal);
         private readonly ConditionIndicatorPresenter _conditionIndicatorPresenter = new();
         private readonly DragHighlightPresenter _dragHighlightPresenter = new();
         private readonly BlockExitFxController _blockExitFxController = new();
@@ -96,11 +76,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private LayoutMetrics _currentLayout;
         private bool _hasCurrentLayout;
         private MaterialPropertyBlock _fxRendererPropertyBlock;
-        private readonly List<ParticleSystem> _doorExitBurstParticlePool = new();
-        private readonly Stack<ParticleSystem> _availableDoorExitBurstParticles = new();
-        private readonly HashSet<int> _availableDoorExitBurstParticleIds = new();
-        private readonly Dictionary<int, ParticleSystemRenderer> _doorExitBurstRendererByParticleId = new();
-        private bool _hasLoggedDoorExitBurstPoolShortWarning;
 
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
@@ -136,12 +111,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             blockRootScale.z = Mathf.Max(0.01f, blockRootScale.z);
             blockMoveSpeedInCellsPerSecond = Mathf.Max(2f, blockMoveSpeedInCellsPerSecond);
             blockMoveSnapDistanceInCells = Mathf.Max(0.001f, blockMoveSnapDistanceInCells);
-            indicatorCharacterSizeInCells = Mathf.Max(0.01f, indicatorCharacterSizeInCells);
-            doorExitBurstPoolWarmupCount = Mathf.Max(0, doorExitBurstPoolWarmupCount);
-            dragOutlineGapInCells = Mathf.Max(0f, dragOutlineGapInCells);
-            dragOutlineBaseOffsetInCells = Mathf.Max(0f, dragOutlineBaseOffsetInCells);
-            dragOutlineVerticalOffsetInCells = Mathf.Clamp(dragOutlineVerticalOffsetInCells, -0.25f, 0.25f);
-            dragOutlineThicknessInCells = Mathf.Max(0.005f, dragOutlineThicknessInCells);
             doorPassThroughDuration = Mathf.Max(0.05f, doorPassThroughDuration);
             doorMatchDipInCells = Mathf.Max(0f, doorMatchDipInCells);
             doorMatchFxDuration = Mathf.Max(0.02f, doorMatchFxDuration);
@@ -153,12 +122,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
-            ReleaseRuntimeFxResources();
             _missingMaterialWarnings.Clear();
-            _conditionIndicatorPresenter.ResetRuntimeState();
-            _dragHighlightPresenter.ResetRuntimeResources();
             _hasCurrentLayout = false;
-            _hasLoggedDoorExitBurstPoolShortWarning = false;
         }
 
         public virtual void BuildForLevel(LevelDefinition levelData)
@@ -179,9 +144,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             UnsubscribeBoardEvents();
 
             ConfigurePoolsFromManager(levelData);
-            _hasLoggedDoorExitBurstPoolShortWarning = false;
-            EnsureDoorExitBurstPoolCapacity(Mathf.Max(doorExitBurstPoolWarmupCount,
-                levelData.GetDoorOpenings()?.Count ?? 0));
 
             var layout = ResolveLayoutMetrics();
             CacheCurrentLayout(layout);
@@ -215,7 +177,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             poolManager.EnsureBlockedCellPoolSize(_resolvedBlockedCells.Count);
             poolManager.EnsureDoorPoolSize(openings?.Count ?? 0);
 
-            poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByKey, _requiredBlockCellCountByKey);
+            poolManager.EnsureBlockPoolSizes(_requiredBlockRootCountByKey);
         }
 
         private void BindGridCellPool(IReadOnlyList<GameObject> gridCellObjects, Vector2Int levelGridSize)
@@ -323,7 +285,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void CacheRequiredBlockRootCounts(LevelDefinition levelData)
         {
             _requiredBlockRootCountByKey.Clear();
-            _requiredBlockCellCountByKey.Clear();
             var sourceBlocks = levelData != null ? levelData.blocks : null;
             if (sourceBlocks == null)
             {
@@ -341,13 +302,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 _requiredBlockRootCountByKey.TryGetValue(poolKey, out var existingCount);
                 _requiredBlockRootCountByKey[poolKey] = existingCount + 1;
-
-                var cellCount = Mathf.Max(1, runtimeBlock.LocalCells?.Length ?? 1);
-                if (!_requiredBlockCellCountByKey.TryGetValue(poolKey, out var existingCellCount) ||
-                    cellCount > existingCellCount)
-                {
-                    _requiredBlockCellCountByKey[poolKey] = cellCount;
-                }
             }
         }
 

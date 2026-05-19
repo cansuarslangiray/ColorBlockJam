@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder.Pool
@@ -11,6 +13,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public const int TargetBoardPoolHeight = 25;
         public const int TargetDoorPoolCount = 16;
         public const int TargetBlockPoolCountPerShape = 5;
+        private const string BlockPlacementAnchorPrefix = "__BlockPlacementAnchor_";
+        private const string DoorPlacementAnchorPrefix = "__DoorPlacementAnchor_";
 
         [Header("Shared Root")] [SerializeField]
         private Transform poolRoot;
@@ -28,7 +32,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
         [Header("Door Pool")] [SerializeField]
         private List<DoorPoolBindings> doorBindings = new(16);
-        [HideInInspector] [SerializeField] private List<GameObject> doorObjects = new(16);
 
         [Header("Block Pools")] [SerializeField]
         private List<BlockTypePoolEntry> blockTypePools = new(20);
@@ -62,10 +65,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             SanitizePoolList(blockedCellObjects);
             SanitizePoolList(borderObjects);
             SanitizePoolList(doorBindings);
-#if UNITY_EDITOR
-            MigrateLegacyDoorObjects();
-#endif
-            SanitizePoolList(doorBindings);
             SanitizeBlockTypePools();
             RebuildBlockTypeLookup();
 
@@ -97,8 +96,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             WarnIfScenePoolIsShort("door", doorBindings.Count, requiredCount);
         }
 
-        public void EnsureBlockPoolSizes(IReadOnlyDictionary<string, int> requiredCountByKey,
-            IReadOnlyDictionary<string, int> requiredCellCountByKey = null)
+        public void EnsureBlockPoolSizes(IReadOnlyDictionary<string, int> requiredCountByKey)
         {
             SanitizeBlockTypePools();
             if (requiredCountByKey != null)
@@ -147,9 +145,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 }
 
                 poolEntry.blockBindings ??= new List<BlockPoolBindings>(TargetBlockPoolCountPerShape);
-#if UNITY_EDITOR
-                MigrateLegacyBlockObjects(poolEntry);
-#endif
                 SanitizePoolList(poolEntry.blockBindings);
             }
         }
@@ -245,60 +240,250 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         }
 
 #if UNITY_EDITOR
-        private void MigrateLegacyDoorObjects()
+        public void EditorRebuildAuthoringPools(
+            IReadOnlyDictionary<string, GameObject> shapePrefabsByKey,
+            GameObject gridCellPrefab,
+            GameObject blockedCellPrefab,
+            GameObject borderPrefab,
+            GameObject backdropPrefab,
+            GameObject doorPrefab,
+            IReadOnlyDictionary<string, int> requiredBlockPoolCountByKey = null,
+            int blockedPoolCount = 64)
         {
-            if (doorObjects == null || doorObjects.Count == 0)
+            if (!gridCellPrefab || !blockedCellPrefab || !borderPrefab || !backdropPrefab || !doorPrefab)
             {
+                Debug.LogError(
+                    "BlockScenePoolManager.EditorRebuildAuthoringPools requires all base prefabs (grid, blocked, border, backdrop, door).",
+                    this);
                 return;
             }
 
-            doorBindings ??= new List<DoorPoolBindings>(doorObjects.Count);
-            for (var i = 0; i < doorObjects.Count; i++)
+            if (shapePrefabsByKey == null || shapePrefabsByKey.Count == 0)
             {
-                var doorObject = doorObjects[i];
-                if (!doorObject)
-                {
-                    continue;
-                }
+                Debug.LogError(
+                    "BlockScenePoolManager.EditorRebuildAuthoringPools requires at least one shape prefab.",
+                    this);
+                return;
+            }
 
+            Undo.RegisterCompleteObjectUndo(gameObject, "Rebuild Block Scene Pools");
+            Undo.RegisterCompleteObjectUndo(this, "Rebuild Block Scene Pools");
+            RemoveLegacyPlacementAnchorsByPrefix(transform, BlockPlacementAnchorPrefix);
+            RemoveLegacyPlacementAnchorsByPrefix(transform, DoorPlacementAnchorPrefix);
+
+            poolRoot = ResolveOrCreatePoolRoot();
+
+            for (var i = poolRoot.childCount - 1; i >= 0; i--)
+            {
+                var child = poolRoot.GetChild(i);
+                if (child)
+                {
+                    Undo.DestroyObjectImmediate(child.gameObject);
+                }
+            }
+
+            var gridRoot = CreatePoolSectionRoot("GridCellPool", poolRoot);
+            var blockedRoot = CreatePoolSectionRoot("BlockedCellPool", poolRoot);
+            var borderRoot = CreatePoolSectionRoot("BorderPool", poolRoot);
+            var doorRoot = CreatePoolSectionRoot("DoorPool", poolRoot);
+            var blockRoot = CreatePoolSectionRoot("BlockPools", poolRoot);
+            var backdropRoot = CreatePoolSectionRoot("Backdrop", poolRoot);
+
+            gridCellObjects = new List<GameObject>(RequiredBoardGridCellCount);
+            for (var i = 0; i < RequiredBoardGridCellCount; i++)
+            {
+                var pooledGrid = InstantiatePoolPrefab(gridCellPrefab, gridRoot, $"GridCell_{i:000}");
+                gridCellObjects.Add(pooledGrid);
+            }
+
+            blockedPoolCount = Mathf.Max(0, blockedPoolCount);
+            blockedCellObjects = new List<GameObject>(blockedPoolCount);
+            for (var i = 0; i < blockedPoolCount; i++)
+            {
+                var blockedCell = InstantiatePoolPrefab(blockedCellPrefab, blockedRoot, $"BlockedCell_{i:000}");
+                blockedCellObjects.Add(blockedCell);
+            }
+
+            borderObjects = new List<GameObject>(4);
+            for (var i = 0; i < 4; i++)
+            {
+                var border = InstantiatePoolPrefab(borderPrefab, borderRoot, $"Border_{i:000}");
+                borderObjects.Add(border);
+            }
+
+            backdropObject = InstantiatePoolPrefab(backdropPrefab, backdropRoot, "BoardBackdrop");
+
+            doorBindings = new List<DoorPoolBindings>(TargetDoorPoolCount);
+            for (var i = 0; i < TargetDoorPoolCount; i++)
+            {
+                var doorObject = InstantiatePoolPrefab(doorPrefab, doorRoot, $"Door_{i:000}");
                 if (!doorObject.TryGetComponent<DoorPoolBindings>(out var doorBinding))
                 {
                     doorBinding = Undo.AddComponent<DoorPoolBindings>(doorObject);
                 }
 
-                if (doorBinding && !doorBindings.Contains(doorBinding))
-                {
-                    doorBindings.Add(doorBinding);
-                }
-            }
-        }
-
-        private static void MigrateLegacyBlockObjects(BlockTypePoolEntry poolEntry)
-        {
-            if (poolEntry == null || poolEntry.blockObjects == null || poolEntry.blockObjects.Count == 0)
-            {
-                return;
+                doorBinding.EditorRebuildBindingsFromHierarchy();
+                doorBindings.Add(doorBinding);
             }
 
-            poolEntry.blockBindings ??= new List<BlockPoolBindings>(poolEntry.blockObjects.Count);
-            for (var i = 0; i < poolEntry.blockObjects.Count; i++)
+            var sortedShapeKeys = new List<string>(shapePrefabsByKey.Keys);
+            sortedShapeKeys.Sort(string.CompareOrdinal);
+            blockTypePools = new List<BlockTypePoolEntry>(sortedShapeKeys.Count);
+
+            for (var shapeIndex = 0; shapeIndex < sortedShapeKeys.Count; shapeIndex++)
             {
-                var blockObject = poolEntry.blockObjects[i];
-                if (!blockObject)
+                var shapeKey = sortedShapeKeys[shapeIndex];
+                var shapePrefab = shapePrefabsByKey[shapeKey];
+                if (!shapePrefab)
                 {
                     continue;
                 }
 
-                if (!blockObject.TryGetComponent<BlockPoolBindings>(out var blockBinding))
+                var shapePoolRoot = CreatePoolSectionRoot($"BlockPool_{shapeKey}", blockRoot);
+                var targetBlockPoolCount = ResolveTargetBlockPoolCount(shapeKey, requiredBlockPoolCountByKey);
+                var poolEntry = new BlockTypePoolEntry
                 {
-                    blockBinding = Undo.AddComponent<BlockPoolBindings>(blockObject);
-                }
+                    shapeKey = shapeKey,
+                    blockBindings = new List<BlockPoolBindings>(targetBlockPoolCount)
+                };
 
-                if (blockBinding && !poolEntry.blockBindings.Contains(blockBinding))
+                for (var poolIndex = 0; poolIndex < targetBlockPoolCount; poolIndex++)
                 {
+                    var blockObject = InstantiatePoolPrefab(shapePrefab, shapePoolRoot, $"Block_{shapeKey}_{poolIndex:000}");
+                    if (!blockObject.TryGetComponent<BlockPoolBindings>(out var blockBinding))
+                    {
+                        blockBinding = Undo.AddComponent<BlockPoolBindings>(blockObject);
+                    }
+
+                    blockBinding.EditorRebuildBindingsFromHierarchy();
                     poolEntry.blockBindings.Add(blockBinding);
                 }
+
+                blockTypePools.Add(poolEntry);
             }
+
+            RefreshPools(validateAuthoringTargets: false);
+            EditorUtility.SetDirty(this);
+        }
+
+        private static int ResolveTargetBlockPoolCount(string shapeKey,
+            IReadOnlyDictionary<string, int> requiredBlockPoolCountByKey)
+        {
+            var targetCount = TargetBlockPoolCountPerShape;
+            if (requiredBlockPoolCountByKey == null || string.IsNullOrWhiteSpace(shapeKey))
+            {
+                return targetCount;
+            }
+
+            if (!requiredBlockPoolCountByKey.TryGetValue(shapeKey, out var requiredCount))
+            {
+                return targetCount;
+            }
+
+            return Mathf.Max(targetCount, requiredCount);
+        }
+
+        private Transform ResolveOrCreatePoolRoot()
+        {
+            Transform resolvedRoot = null;
+
+            if (poolRoot && poolRoot.parent == transform)
+            {
+                resolvedRoot = poolRoot;
+            }
+
+            for (var i = transform.childCount - 1; i >= 0; i--)
+            {
+                var child = transform.GetChild(i);
+                if (!child || !string.Equals(child.name, "PoolRoot", System.StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!resolvedRoot)
+                {
+                    resolvedRoot = child;
+                    continue;
+                }
+
+                Undo.DestroyObjectImmediate(child.gameObject);
+            }
+
+            if (!resolvedRoot)
+            {
+                var rootObject = new GameObject("PoolRoot");
+                rootObject.transform.SetParent(transform, false);
+                resolvedRoot = rootObject.transform;
+            }
+
+            return resolvedRoot;
+        }
+
+        private static void RemoveLegacyPlacementAnchorsByPrefix(Transform root, string prefix)
+        {
+            if (!root || string.IsNullOrEmpty(prefix))
+            {
+                return;
+            }
+
+            var staleAnchors = new List<Transform>();
+            CollectTransformsByNamePrefix(root, prefix, staleAnchors);
+            for (var i = 0; i < staleAnchors.Count; i++)
+            {
+                var staleAnchor = staleAnchors[i];
+                if (staleAnchor)
+                {
+                    Undo.DestroyObjectImmediate(staleAnchor.gameObject);
+                }
+            }
+        }
+
+        private static void CollectTransformsByNamePrefix(Transform root, string prefix, List<Transform> collector)
+        {
+            if (!root || collector == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var child = root.GetChild(i);
+                if (!child)
+                {
+                    continue;
+                }
+
+                if (child.name.StartsWith(prefix, System.StringComparison.Ordinal))
+                {
+                    collector.Add(child);
+                    continue;
+                }
+
+                CollectTransformsByNamePrefix(child, prefix, collector);
+            }
+        }
+
+        private static Transform CreatePoolSectionRoot(string sectionName, Transform parent)
+        {
+            var sectionObject = new GameObject(sectionName);
+            sectionObject.transform.SetParent(parent, false);
+            return sectionObject.transform;
+        }
+
+        private static GameObject InstantiatePoolPrefab(GameObject prefab, Transform parent, string name)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            if (!instance)
+            {
+                instance = Object.Instantiate(prefab, parent);
+            }
+
+            instance.name = name;
+            instance.transform.localPosition = Vector3.zero;
+            instance.transform.localRotation = Quaternion.identity;
+            instance.transform.localScale = Vector3.one;
+            instance.SetActive(false);
+            return instance;
         }
 #endif
 
