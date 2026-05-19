@@ -14,7 +14,6 @@ namespace Runtime.Managers
         private PlayerData _playerData;
         private bool _isLoaded;
 
-        public event Action<PlayerData> PlayerDataChanged;
         public static LocalDataManager Instance => SharedInstance;
 
         public string PlayerDataFilePath => GetDefaultPlayerDataFilePath();
@@ -70,8 +69,6 @@ namespace Runtime.Managers
             {
                 SaveInternal(data);
             }
-
-            PlayerDataChanged?.Invoke(data.Clone());
         }
 
         public void ReloadFromDisk(bool saveDefaultsWhenMissing = true)
@@ -79,7 +76,6 @@ namespace Runtime.Managers
             _isLoaded = false;
             _playerData = null;
             EnsureLoaded(saveDefaultsWhenMissing);
-            PlayerDataChanged?.Invoke(GetPlayerData().Clone());
         }
 
         public void Save()

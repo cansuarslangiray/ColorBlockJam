@@ -15,7 +15,6 @@ namespace Runtime.Managers
 
         public event Action<bool> MusicEnabledChanged;
         public event Action<bool> SfxEnabledChanged;
-        public event Action<string> LocaleCodeChanged;
 
         public bool IsMusicEnabled => musicEnabled;
         public bool IsSfxEnabled => sfxEnabled;
@@ -51,7 +50,6 @@ namespace Runtime.Managers
             RegisterLocaleEvents();
             MusicEnabledChanged?.Invoke(musicEnabled);
             SfxEnabledChanged?.Invoke(sfxEnabled);
-            LocaleCodeChanged?.Invoke(CurrentLocaleCode);
         }
 
         private void OnDisable() => UnregisterLocaleEvents();
@@ -113,7 +111,6 @@ namespace Runtime.Managers
             _isApplyingLocaleFromSave = true;
             LocalizationSettings.SelectedLocale = locale;
             _isApplyingLocaleFromSave = false;
-            LocaleCodeChanged?.Invoke(CurrentLocaleCode);
         }
 
         private void RegisterLocaleEvents()
@@ -140,7 +137,6 @@ namespace Runtime.Managers
 
         private void HandleSelectedLocaleChanged(Locale locale)
         {
-            LocaleCodeChanged?.Invoke(locale?.Identifier.Code ?? string.Empty);
             if (_isApplyingLocaleFromSave)
             {
                 return;

@@ -45,16 +45,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             ApplyDoors(request);
         }
 
-        private static bool IsPlayableGridCell(Vector2Int cell, Vector2Int gridDimensions)
-        {
-            if (cell.x < 0 || cell.y < 0 || cell.x >= gridDimensions.x || cell.y >= gridDimensions.y)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
         private static bool IsVisibleGridCell(Vector2Int cell, Vector2Int gridDimensions)
         {
             if (gridDimensions.x <= 0 || gridDimensions.y <= 0)
