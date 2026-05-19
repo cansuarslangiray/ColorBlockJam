@@ -34,7 +34,7 @@ namespace UI.Panels
 
         private void HandleStartClicked()
         {
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             StartRequested?.Invoke();
         }
 

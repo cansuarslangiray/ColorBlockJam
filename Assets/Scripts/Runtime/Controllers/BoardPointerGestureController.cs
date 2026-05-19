@@ -28,8 +28,7 @@ namespace Runtime.Controllers
         public bool TryBeginPointerGesture(Vector2 pointerPosition, Camera inputCamera, out int activeBlockId)
         {
             activeBlockId = -1;
-            if (_runtimeState is not { IsInitialized: true } ||
-                !_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, out var boardWorldPoint) ||
+            if (!_input.TryResolveGestureBoardPoint(pointerPosition, inputCamera, out var boardWorldPoint) ||
                 !_input.TryWorldToCell(boardWorldPoint, _runtimeState.OccupancyMap, out var touchedCell) ||
                 !_runtimeState.TryGetBlockAtCell(touchedCell, out var touchedBlockId))
             {
@@ -47,7 +46,7 @@ namespace Runtime.Controllers
 
         public bool TryUpdatePointerGesture(Vector2 pointerPosition, Camera inputCamera)
         {
-            if (_activeGestureBlockId < 0 || _runtimeState == null)
+            if (_activeGestureBlockId < 0)
             {
                 return false;
             }
@@ -162,7 +161,7 @@ namespace Runtime.Controllers
         {
             movedCellCount = 0;
             blockCleared = false;
-            if (requestedCellCount <= 0 || _activeGestureBlockId < 0 || _moveHost == null)
+            if (requestedCellCount <= 0 || _activeGestureBlockId < 0)
             {
                 return false;
             }

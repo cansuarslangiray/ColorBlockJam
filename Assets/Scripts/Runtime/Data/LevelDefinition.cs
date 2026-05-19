@@ -31,11 +31,6 @@ namespace Runtime.Data
             return _cachedDoorOpenings;
         }
 
-        private void OnValidate()
-        {
-            Sanitize();
-        }
-
         public void Sanitize()
         {
             levelKey = string.IsNullOrWhiteSpace(levelKey) ? string.Empty : levelKey.Trim();

@@ -62,9 +62,7 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
-            var currentState = stateManager != null
-                ? stateManager.CurrentState
-                : GameState.StartScreen;
+            var currentState = stateManager.CurrentState;
 
             if (IsEndGameState(currentState))
             {
@@ -104,7 +102,7 @@ namespace UI.Panels
 
         private void HandleActionClicked()
         {
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             ActionRequested?.Invoke();
         }
 

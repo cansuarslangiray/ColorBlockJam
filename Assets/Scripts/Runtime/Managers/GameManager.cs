@@ -82,11 +82,11 @@ namespace Runtime.Managers
         {
             if (pauseStatus)
             {
-                _localDataManager?.Save();
+                _localDataManager.Save();
             }
         }
 
-        private void OnApplicationQuit() => _localDataManager?.Save();
+        private void OnApplicationQuit() => _localDataManager.Save();
 
         private void InitializeCollaborators()
         {
@@ -98,19 +98,19 @@ namespace Runtime.Managers
 
         private void RegisterEvents()
         {
-            if (!_boardEventsRegistered && boardController != null)
+            if (!_boardEventsRegistered)
             {
                 boardController.LevelCompleted += OnLevelCompleted;
                 _boardEventsRegistered = true;
             }
 
-            if (!_stateEventsRegistered && stateManager != null)
+            if (!_stateEventsRegistered)
             {
                 stateManager.OnStateChanged += HandleStateChanged;
                 _stateEventsRegistered = true;
             }
 
-            if (!_uiEventsRegistered && uiManager != null)
+            if (!_uiEventsRegistered)
             {
                 uiManager.LevelTimerExpired += HandleTimerExpired;
                 uiManager.StartRequested += HandleStartRequested;
@@ -122,21 +122,21 @@ namespace Runtime.Managers
 
         private void UnregisterEvents()
         {
-            if (_boardEventsRegistered && boardController != null)
+            if (_boardEventsRegistered)
             {
                 boardController.LevelCompleted -= OnLevelCompleted;
             }
 
             _boardEventsRegistered = false;
 
-            if (_stateEventsRegistered && stateManager != null)
+            if (_stateEventsRegistered)
             {
                 stateManager.OnStateChanged -= HandleStateChanged;
             }
 
             _stateEventsRegistered = false;
 
-            if (_uiEventsRegistered && uiManager != null)
+            if (_uiEventsRegistered)
             {
                 uiManager.LevelTimerExpired -= HandleTimerExpired;
                 uiManager.StartRequested -= HandleStartRequested;
@@ -209,7 +209,7 @@ namespace Runtime.Managers
             StopLevelCompletionWatchdog();
             PersistUnlockedLevelProgress();
             uiManager.StopLevelTimer();
-            if (_levelProgression != null && _levelProgression.TryGetNextLevelData(out _))
+            if (_levelProgression.TryGetNextLevelData(out _))
             {
                 StartTransitionRoutine(ShowLevelCompletedRoutine());
             }
@@ -281,8 +281,7 @@ namespace Runtime.Managers
 
         private void RefreshStaticUI(LevelDefinition levelData)
         {
-            var levelNumber = levelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
-            uiManager.SetLevel(levelNumber);
+            uiManager.SetLevel(levelData.levelNumber);
         }
 
         private void HandleStartRequested()
@@ -323,7 +322,7 @@ namespace Runtime.Managers
         private void RestartRunFromFirstLevel()
         {
             StopRuntimeRoutines();
-            _localDataManager?.SetCurrentLevel(1);
+            _localDataManager.SetCurrentLevel(1);
             _levelProgression.SetCurrentLevelFromSavedNumber(1);
             _transitionInProgress = false;
             _completionHandledForCurrentLevel = false;
@@ -368,11 +367,6 @@ namespace Runtime.Managers
         private void StartLevelCompletionWatchdog()
         {
             StopLevelCompletionWatchdog();
-            if (boardController == null || stateManager == null)
-            {
-                return;
-            }
-
             _levelCompletionWatchdogRoutine = StartCoroutine(LevelCompletionWatchdogRoutine());
         }
 
@@ -390,8 +384,6 @@ namespace Runtime.Managers
         private IEnumerator LevelCompletionWatchdogRoutine()
         {
             while (enabled &&
-                   boardController != null &&
-                   stateManager != null &&
                    stateManager.CurrentState == GameState.Playing &&
                    !_completionHandledForCurrentLevel)
             {
@@ -422,11 +414,6 @@ namespace Runtime.Managers
 
         private int ResolveSavedCurrentLevelNumber()
         {
-            if (_localDataManager == null)
-            {
-                return 1;
-            }
-
             var playerData = _localDataManager.GetPlayerData();
             var maxLevelNumber = ResolveMaxPersistableLevelNumber();
             return Mathf.Clamp(playerData.currentLevel, 1, maxLevelNumber);
@@ -434,32 +421,22 @@ namespace Runtime.Managers
 
         private void PersistCurrentLevelProgress(LevelDefinition levelData)
         {
-            if (_localDataManager == null)
-            {
-                return;
-            }
-
-            var levelNumber = levelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
+            var levelNumber = levelData.levelNumber;
             _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(levelNumber));
         }
 
         private void PersistUnlockedLevelProgress()
         {
-            if (_localDataManager == null)
-            {
-                return;
-            }
-
             if (_levelProgression.TryGetNextLevelData(out var nextLevelData))
             {
-                var nextLevelNumber = nextLevelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber + 1;
+                var nextLevelNumber = nextLevelData.levelNumber;
                 _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(nextLevelNumber));
                 return;
             }
 
             if (_levelProgression.TryGetCurrentLevelData(out var currentLevelData))
             {
-                var currentLevelNumber = currentLevelData?.levelNumber ?? _levelProgression.CurrentLevelDisplayNumber;
+                var currentLevelNumber = currentLevelData.levelNumber;
                 _localDataManager.SetCurrentLevelAsProgress(ClampLevelNumberToProgressRange(currentLevelNumber));
                 return;
             }

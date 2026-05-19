@@ -26,7 +26,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Material GetMaterial(BlockColor colorType)
         {
-            var materialCount = materialsByColor?.Count ?? 0;
+            var materialCount = materialsByColor.Count;
             for (var i = 0; i < materialCount; i++)
             {
                 var entry = materialsByColor[i];
@@ -34,13 +34,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 {
                     return entry.material;
                 }
-            }
-
-            if (_missingMaterialWarnings.Add(colorType))
-            {
-                Debug.LogWarning(
-                    $"BlockSceneBuilder missing material mapping for {colorType}. Assign this color in materialsByColor to keep visuals configured from Unity.",
-                    this);
             }
 
             return null;

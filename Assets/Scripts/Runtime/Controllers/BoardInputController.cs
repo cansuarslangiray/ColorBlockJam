@@ -25,14 +25,8 @@ namespace Runtime.Controllers
 
         private void Awake()
         {
-            if (boardController == null)
-            {
-                Debug.LogError("BoardInputController requires an assigned BoardController.", this);
-                enabled = false;
-                return;
-            }
-
             EnsurePointerEventData();
+            ResolveInputActions();
         }
 
         private void OnEnable()
@@ -51,12 +45,6 @@ namespace Runtime.Controllers
         {
             if (_inputActionsBound)
             {
-                return;
-            }
-
-            if (!TryResolveInputActions())
-            {
-                Debug.LogError("BoardInputController requires valid pointer input actions.", this);
                 return;
             }
 
@@ -87,7 +75,7 @@ namespace Runtime.Controllers
 
         private void RegisterStateEvents()
         {
-            if (_stateEventsRegistered || stateManager == null)
+            if (_stateEventsRegistered)
             {
                 return;
             }
@@ -104,11 +92,7 @@ namespace Runtime.Controllers
                 return;
             }
 
-            if (stateManager != null)
-            {
-                stateManager.OnStateChanged -= HandleGameStateChanged;
-            }
-
+            stateManager.OnStateChanged -= HandleGameStateChanged;
             _stateEventsRegistered = false;
         }
 
@@ -152,22 +136,16 @@ namespace Runtime.Controllers
         private bool ShouldIgnorePointer(Vector2 pointerPosition)
         {
             EnsurePointerEventData();
-            if (uiEventSystem == null || _pointerEventData == null)
-            {
-                return false;
-            }
-
             _pointerEventData.position = pointerPosition;
             _uiRaycastResults.Clear();
             uiEventSystem.RaycastAll(_pointerEventData, _uiRaycastResults);
             return _uiRaycastResults.Count > 0;
         }
 
-        private bool TryResolveInputActions()
+        private void ResolveInputActions()
         {
-            _pointerPressAction = pointerPressActionReference != null ? pointerPressActionReference.action : null;
-            _pointerPositionAction = pointerPositionActionReference != null ? pointerPositionActionReference.action : null;
-            return _pointerPressAction != null && _pointerPositionAction != null;
+            _pointerPressAction = pointerPressActionReference.action;
+            _pointerPositionAction = pointerPositionActionReference.action;
         }
 
         private void EnsurePointerEventData()

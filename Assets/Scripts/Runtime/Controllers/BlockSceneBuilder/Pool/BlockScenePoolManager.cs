@@ -47,18 +47,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public GameObject BackdropObject => backdropObject;
         public int RequiredBoardGridCellCount => TargetBoardPoolWidth * TargetBoardPoolHeight;
 
-#if UNITY_EDITOR
-        private void OnValidate()
-        {
-            if (EditorApplication.isPlayingOrWillChangePlaymode)
-            {
-                return;
-            }
-
-            RefreshPools(validateAuthoringTargets: false);
-        }
-#endif
-
         public void RefreshPools(bool validateAuthoringTargets = true)
         {
             SanitizePoolList(gridCellObjects);
@@ -78,7 +66,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         {
             gridCellObjects ??= new List<GameObject>();
             SanitizePoolList(gridCellObjects);
-            WarnIfScenePoolIsShort("grid cell", gridCellObjects.Count, requiredCount);
         }
 
         public void EnsureBlockedCellPoolSize(int requiredCount)
@@ -86,40 +73,18 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             requiredCount = Mathf.Max(0, requiredCount);
             blockedCellObjects ??= new List<GameObject>(requiredCount);
             SanitizePoolList(blockedCellObjects);
-            WarnIfScenePoolIsShort("blocked cell", blockedCellObjects.Count, requiredCount);
         }
 
         public void EnsureDoorPoolSize(int requiredCount)
         {
             doorBindings ??= new List<DoorPoolBindings>();
             SanitizePoolList(doorBindings);
-            WarnIfScenePoolIsShort("door", doorBindings.Count, requiredCount);
         }
 
         public void EnsureBlockPoolSizes(IReadOnlyDictionary<string, int> requiredCountByKey)
         {
+            _ = requiredCountByKey;
             SanitizeBlockTypePools();
-            if (requiredCountByKey != null)
-            {
-                foreach (var pair in requiredCountByKey)
-                {
-                    var requiredCount = Mathf.Max(0, pair.Value);
-                    if (!TryGetBlockPoolEntry(pair.Key, out var poolEntry))
-                    {
-                        Debug.LogWarning(
-                            $"BlockScenePoolManager missing block pool entry for shape '{pair.Key}'. " +
-                            $"Add a pool entry with at least {TargetBlockPoolCountPerShape} objects.",
-                            this);
-                        continue;
-                    }
-
-                    WarnIfScenePoolIsShort($"block root ({poolEntry.ResolvePoolKey()})",
-                        poolEntry.blockBindings?.Count ?? 0, requiredCount);
-                }
-            }
-
-            WarnIfBlockPoolIsBelowAuthoringMinimum();
-
             RebuildBlockTypeLookup();
         }
 

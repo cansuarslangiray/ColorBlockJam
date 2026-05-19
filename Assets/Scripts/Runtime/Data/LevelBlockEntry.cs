@@ -9,7 +9,6 @@ namespace Runtime.Data
     public struct LevelBlockEntry
     {
         private const string DefaultShapeKey = "Shape_1x1";
-        private static readonly Vector2Int[] FallbackLocalCells = { Vector2Int.zero };
 
         public Vector2Int position;
         public string shapeKey;
@@ -58,29 +57,13 @@ namespace Runtime.Data
 
         public Vector2Int[] GetLocalCells(BlockShapeCatalog shapeCatalog)
         {
-            var shape = ResolveShape(shapeCatalog);
-            if (shape == null)
-            {
-                return FallbackLocalCells;
-            }
-
-            var localCells = shape.GetLocalCells();
-            return localCells == null || localCells.Length == 0 ? FallbackLocalCells : localCells;
-        }
-
-        private BlockShapeDefinition ResolveShape(BlockShapeCatalog shapeCatalog)
-        {
             if (shapeDefinition != null)
             {
-                return shapeDefinition;
+                return shapeDefinition.GetLocalCells();
             }
 
-            if (shapeCatalog == null)
-            {
-                return null;
-            }
-
-            return shapeCatalog.ResolveShape(ResolvePoolKey());
+            var resolvedShape = shapeCatalog.ResolveShape(ResolvePoolKey());
+            return resolvedShape != null ? resolvedShape.GetLocalCells() : Array.Empty<Vector2Int>();
         }
     }
 }

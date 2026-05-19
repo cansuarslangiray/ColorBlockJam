@@ -28,11 +28,6 @@ namespace Runtime.Data
             Sanitize();
         }
 
-        private void OnValidate()
-        {
-            Sanitize();
-        }
-
         public void Sanitize()
         {
             shapeKey = string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();

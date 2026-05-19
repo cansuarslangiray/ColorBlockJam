@@ -8,18 +8,12 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 {
     public sealed class ConditionIndicatorPresenter
     {
-        private const string ConditionIndicatorObjectName = "ConditionIndicator";
         private static readonly Quaternion VerticalIndicatorRotation = Quaternion.Euler(0f, 0f, 90f);
 
         public void RefreshAll(ConditionIndicatorRefreshRequest request)
         {
             var boardController = request.BoardController;
             var blockViewPool = request.BlockViewPool;
-            if (boardController == null || blockViewPool == null)
-            {
-                return;
-            }
-
             blockViewPool.ForEachActive((blockId, blockView) =>
             {
                 if (blockView == null || !boardController.TryGetRuntimeBlock(blockId, out var runtimeBlock))
@@ -52,18 +46,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 
             if (!blockView.ConditionIndicatorObject || blockView.ConditionIndicatorText == null)
             {
-                if (!blockView.HasLoggedMissingConditionIndicator)
-                {
-                    Debug.LogWarning(
-                        $"Block '{blockView.RootObject.name}' is missing pooled '{ConditionIndicatorObjectName}' TextMesh.",
-                        blockView.RootObject);
-                    blockView.HasLoggedMissingConditionIndicator = true;
-                }
-
                 return;
             }
 
-            blockView.HasLoggedMissingConditionIndicator = false;
             blockView.ConditionIndicatorObject.transform.localRotation = ResolveIndicatorRotation(runtimeBlock);
             request.SetActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, true);
         }

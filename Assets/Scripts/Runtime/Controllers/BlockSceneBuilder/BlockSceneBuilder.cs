@@ -22,7 +22,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();
         
-        private readonly HashSet<BlockColor> _missingMaterialWarnings = new();
         private readonly BlockViewRuntimePool _blockViewPool = new();
 
         [Header("Board Layout")] [SerializeField]
@@ -103,42 +102,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SubscribeBoardEvents();
         }
 
-        private void OnValidate()
-        {
-            _missingMaterialWarnings.Clear();
-            blockRootScale.x = Mathf.Max(0.01f, blockRootScale.x);
-            blockRootScale.y = Mathf.Max(0.01f, blockRootScale.y);
-            blockRootScale.z = Mathf.Max(0.01f, blockRootScale.z);
-            blockMoveSpeedInCellsPerSecond = Mathf.Max(2f, blockMoveSpeedInCellsPerSecond);
-            blockMoveSnapDistanceInCells = Mathf.Max(0.001f, blockMoveSnapDistanceInCells);
-            doorPassThroughDuration = Mathf.Max(0.05f, doorPassThroughDuration);
-            doorMatchDipInCells = Mathf.Max(0f, doorMatchDipInCells);
-            doorMatchFxDuration = Mathf.Max(0.02f, doorMatchFxDuration);
-            blockedCellZOffsetFromGrid = Mathf.Max(0f, blockedCellZOffsetFromGrid);
-            _hasCurrentLayout = false;
-        }
-
         private void OnDisable()
         {
             UnsubscribeBoardEvents();
             StopAllBlockRoutines();
-            _missingMaterialWarnings.Clear();
             _hasCurrentLayout = false;
         }
 
         public virtual void BuildForLevel(LevelDefinition levelData)
         {
-            if (levelData == null)
-            {
-                return;
-            }
-
-            if (!HasRequiredReferences())
-            {
-                Debug.LogError("BlockSceneBuilder requires BoardController and BlockScenePoolManager references.", this);
-                return;
-            }
-
             CacheRequiredBlockRootCounts(levelData);
             StopAllBlockRoutines();
             UnsubscribeBoardEvents();
@@ -157,7 +129,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ConfigurePoolsFromManager(LevelDefinition levelData)
         {
-            poolManager.RefreshPools(validateAuthoringTargets: true);
+            poolManager.RefreshPools(validateAuthoringTargets: false);
             EnsurePoolCoverage(levelData);
             BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
             BindBlockedCellPool(poolManager.BlockedCellObjects);
@@ -285,7 +257,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void CacheRequiredBlockRootCounts(LevelDefinition levelData)
         {
             _requiredBlockRootCountByKey.Clear();
-            var sourceBlocks = levelData != null ? levelData.blocks : null;
+            var sourceBlocks = levelData.blocks;
             if (sourceBlocks == null)
             {
                 return;
@@ -319,11 +291,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             return _currentLayout;
-        }
-
-        private bool HasRequiredReferences()
-        {
-            return boardController != null && poolManager != null;
         }
         
     }

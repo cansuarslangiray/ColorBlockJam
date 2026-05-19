@@ -39,7 +39,7 @@ namespace Runtime.Managers
 
         private void ApplyMusicState(GameState state)
         {
-            if (musicSource != null && musicSource.mute)
+            if (musicSource.mute)
             {
                 StopMusic();
                 return;
@@ -62,7 +62,7 @@ namespace Runtime.Managers
 
         private void TryRegisterSettingsEvents()
         {
-            if (_settingsEventsRegistered || settingsManager == null)
+            if (_settingsEventsRegistered)
             {
                 return;
             }
@@ -82,21 +82,14 @@ namespace Runtime.Managers
                 return;
             }
 
-            if (settingsManager != null)
-            {
-                settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
-                settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
-            }
-
+            settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
             _settingsEventsRegistered = false;
         }
 
         private void HandleMusicEnabledChanged(bool isEnabled)
         {
-            if (musicSource)
-            {
-                musicSource.mute = !isEnabled;
-            }
+            musicSource.mute = !isEnabled;
 
             if (!isEnabled)
             {
@@ -104,15 +97,12 @@ namespace Runtime.Managers
                 return;
             }
 
-            ApplyMusicState(stateManager != null ? stateManager.CurrentState : GameState.StartScreen);
+            ApplyMusicState(stateManager.CurrentState);
         }
 
         private void HandleSfxEnabledChanged(bool isEnabled)
         {
-            if (sfxSource)
-            {
-                sfxSource.mute = !isEnabled;
-            }
+            sfxSource.mute = !isEnabled;
 
             if (!isEnabled)
             {
@@ -130,7 +120,7 @@ namespace Runtime.Managers
 
         private void PlayMusic(AudioClip clip)
         {
-            if (musicSource == null || clip == null)
+            if (clip == null)
             {
                 return;
             }
@@ -148,11 +138,6 @@ namespace Runtime.Managers
 
         private void StopMusic()
         {
-            if (musicSource == null)
-            {
-                return;
-            }
-
             if (musicSource.isPlaying)
             {
                 musicSource.Stop();
@@ -163,7 +148,7 @@ namespace Runtime.Managers
 
         private void PlaySfx(AudioClip clip)
         {
-            if (clip == null || sfxSource == null || sfxSource.mute)
+            if (clip == null || sfxSource.mute)
             {
                 return;
             }
@@ -177,11 +162,6 @@ namespace Runtime.Managers
 
         private void StopAllSfx()
         {
-            if (sfxSource == null)
-            {
-                return;
-            }
-
             if (sfxSource.isPlaying)
             {
                 sfxSource.Stop();

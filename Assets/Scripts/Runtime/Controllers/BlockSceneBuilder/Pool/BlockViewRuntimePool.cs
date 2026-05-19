@@ -10,7 +10,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
-        private readonly HashSet<string> _missingPoolWarnings = new(StringComparer.Ordinal);
 
         public void Rebind(
             IReadOnlyDictionary<string, List<BlockPoolBindings>> blockBindingsByKey,
@@ -18,12 +17,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         {
             _activeBlockRootById.Clear();
             _inactiveBlockRootsByKey.Clear();
-            _missingPoolWarnings.Clear();
-
-            if (blockBindingsByKey == null)
-            {
-                return;
-            }
 
             var pooledRootIds = new HashSet<int>();
             foreach (var pair in blockBindingsByKey)
@@ -58,11 +51,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
         public void MarkActive(int blockId, BlockRootView blockView)
         {
-            if (blockView == null)
-            {
-                return;
-            }
-
             _activeBlockRootById[blockId] = blockView;
         }
 
@@ -88,12 +76,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
             if (!_inactiveBlockRootsByKey.TryGetValue(poolKey, out var typePool) || typePool.Count == 0)
             {
-                if (_missingPoolWarnings.Add(poolKey))
-                {
-                    Debug.LogWarning(
-                        $"Block pool '{poolKey}' is exhausted. Runtime overflow instantiation is disabled. Increase authored pool size.");
-                }
-
                 return null;
             }
 
@@ -130,15 +112,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             {
                 return;
             }
-
-            if (!blockView.HasLoggedMissingBlockCells)
-            {
-                Debug.LogWarning(
-                    $"Block pool object '{blockView.RootObject.name}' has {blockView.Cells.Count} cells but level needs {requiredCellCount}. " +
-                    "Runtime cell generation is disabled. Add missing BlockCell_* children in prefab/scene pool.",
-                    blockView.RootObject);
-                blockView.HasLoggedMissingBlockCells = true;
-            }
         }
 
         private void AddBlockViewsFromPool(
@@ -172,9 +145,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 {
                     PoolKey = poolKey
                 };
-                blockView.PlacementTransform = rootBinding.PlacementTransform
-                    ? rootBinding.PlacementTransform
-                    : rootObject.transform;
+                blockView.PlacementTransform = rootBinding.PlacementTransform;
 
                 CacheBlockCellPool(blockView, rootBinding, setActiveIfChanged);
 
@@ -288,10 +259,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
 
             blockView.RootTransform.localScale = Vector3.one;
-            if (blockView.PlacementTransform)
-            {
-                blockView.PlacementTransform.localScale = Vector3.one;
-            }
+            blockView.PlacementTransform.localScale = Vector3.one;
 
             for (var i = 0; i < blockView.Cells.Count; i++)
             {

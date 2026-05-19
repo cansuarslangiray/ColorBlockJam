@@ -14,12 +14,12 @@ namespace Runtime.Data
         [SerializeField] private List<LevelDefinition> levels = new();
 
         public BlockShapeCatalog RuntimeShapeCatalog => blockShapeCatalog;
-        public int Count => levels?.Count ?? 0;
+        public int Count => levels.Count;
 
         public bool TryGetLevelAt(int index, out LevelDefinition levelData)
         {
             levelData = null;
-            if (levels == null || index < 0 || index >= levels.Count)
+            if (index < 0 || index >= levels.Count)
             {
                 return false;
             }
@@ -35,18 +35,8 @@ namespace Runtime.Data
             SortLevelsByNumber();
         }
 
-        private void OnValidate()
-        {
-            SortLevelsByNumber();
-        }
-
         private void SortLevelsByNumber()
         {
-            if (levels == null)
-            {
-                return;
-            }
-
             levels.RemoveAll(level => level == null);
             if (levels.Count <= 1)
             {

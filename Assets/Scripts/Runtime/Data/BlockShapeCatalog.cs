@@ -21,11 +21,6 @@ namespace Runtime.Data
             _lookupReady = false;
         }
 
-        private void OnValidate()
-        {
-            _lookupReady = false;
-        }
-
         public bool TryResolveShape(string shapeKey, out BlockShapeDefinition shape)
         {
             shape = null;
@@ -35,7 +30,7 @@ namespace Runtime.Data
             }
 
             EnsureLookup();
-            return _shapeByKey.TryGetValue(shapeKey.Trim(), out shape) && shape != null;
+            return _shapeByKey.TryGetValue(shapeKey.Trim(), out shape);
         }
 
         public BlockShapeDefinition ResolveShape(string shapeKey)

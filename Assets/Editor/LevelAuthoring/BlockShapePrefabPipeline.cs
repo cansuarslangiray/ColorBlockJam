@@ -43,12 +43,6 @@ namespace Editor.LevelAuthoring
             SyncInternal(rebuildMainScene: false, logSummary: true);
         }
 
-        [MenuItem("Tools/Color Block Jam/Data/Sync Shape Prefabs + Pool Prefabs + Main Scene")]
-        public static void SyncShapePrefabsAndPoolPrefabsAndScene()
-        {
-            SyncInternal(rebuildMainScene: true, logSummary: true);
-        }
-
         public static void SyncForShapeChange()
         {
             SyncInternal(rebuildMainScene: true, logSummary: false);

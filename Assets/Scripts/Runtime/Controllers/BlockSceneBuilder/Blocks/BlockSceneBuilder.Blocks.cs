@@ -54,11 +54,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void SubscribeBoardEvents()
         {
-            if (boardController == null)
-            {
-                return;
-            }
-
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockMoved += HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
@@ -69,11 +64,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void UnsubscribeBoardEvents()
         {
-            if (boardController == null)
-            {
-                return;
-            }
-
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
@@ -122,7 +112,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 BlockView = blockView,
                 MatchedDoor = matchedDoor,
                 ResolvedExitDirection = resolvedExitDirection,
-                PlayBlockMatchSuccessSfx = () => audioManager?.PlayBlockMatchSuccess(),
+                PlayBlockMatchSuccessSfx = audioManager.PlayBlockMatchSuccess,
                 PlayDoorMatchFx = PlayDoorMatchFx,
                 AnimateBlockDoorExitSequence = AnimateBlockDoorExitSequence,
                 PlayBlockExitDisintegrateFx = PlayBlockExitDisintegrateFx
@@ -202,13 +192,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private static bool TryResolvePlacementTransform(BlockRootView blockView, out Transform placementTransform)
         {
             placementTransform = null;
-            if (blockView?.RootTransform == null)
+            if (blockView == null)
             {
                 return false;
             }
 
-            placementTransform = blockView.PlacementTransform ? blockView.PlacementTransform : blockView.RootTransform;
-            return placementTransform != null;
+            placementTransform = blockView.PlacementTransform;
+            return true;
         }
 
         private void StopBlockMove(int blockId, bool snapToTarget)

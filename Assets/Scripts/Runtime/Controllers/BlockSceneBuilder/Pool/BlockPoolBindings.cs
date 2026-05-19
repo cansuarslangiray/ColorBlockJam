@@ -20,9 +20,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         [SerializeField] private LineRenderer dragOutlineRenderer;
         [SerializeField] private ParticleSystem doorExitParticle;
         [SerializeField] private ParticleSystemRenderer doorExitParticleRenderer;
-
+        
         public GameObject RootObject => gameObject;
-        public Transform PlacementTransform => placementTransform ? placementTransform : transform;
+        public Transform PlacementTransform => placementTransform;
         public IReadOnlyList<BlockPoolCellBinding> CellBindings => cellBindings;
         public TextMesh ConditionIndicatorText => conditionIndicatorText;
         public LineRenderer DragOutlineRenderer => dragOutlineRenderer;
@@ -30,20 +30,15 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public ParticleSystemRenderer DoorExitParticleRenderer => doorExitParticleRenderer;
 
 #if UNITY_EDITOR
-        private void OnValidate()
+        [ContextMenu("Rebuild Pool Bindings")]
+        private void RebuildBindings()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 return;
             }
 
-            RebuildBindings();
-        }
-
-        [ContextMenu("Rebuild Pool Bindings")]
-        private void RebuildBindings()
-        {
-            placementTransform = ResolvePlacementTransform();
+            placementTransform = transform;
 
             cellBindings ??= new List<BlockPoolCellBinding>();
             cellBindings.Clear();
@@ -129,10 +124,5 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             RebuildBindings();
         }
 #endif
-
-        private Transform ResolvePlacementTransform()
-        {
-            return transform;
-        }
     }
 }

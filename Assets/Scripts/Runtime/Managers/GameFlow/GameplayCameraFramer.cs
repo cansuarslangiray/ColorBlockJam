@@ -27,11 +27,6 @@ namespace Runtime.Managers.GameFlow
 
         public void CenterToLevel(LevelDefinition levelData, int levelDisplayNumber)
         {
-            if (!_gameplayCamera || _boardController == null || levelData == null)
-            {
-                return;
-            }
-
             var cellSize = Mathf.Max(0.01f, _boardController.CellSize);
             var width = Mathf.Max(0, levelData.gridDimensions.x) * cellSize;
             var height = Mathf.Max(0, levelData.gridDimensions.y) * cellSize;
@@ -57,11 +52,6 @@ namespace Runtime.Managers.GameFlow
 
         private float ResolveDistanceToBoardPlane()
         {
-            if (!_gameplayCamera || _boardController == null)
-            {
-                return _minimumCameraDistance;
-            }
-
             var cameraTransform = _gameplayCamera.transform;
             var boardPlaneZ = _boardController.transform.position.z;
             var forwardZ = ResolveForwardZ(cameraTransform.forward.z);

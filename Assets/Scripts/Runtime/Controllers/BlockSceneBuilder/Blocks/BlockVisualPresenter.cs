@@ -13,10 +13,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             var levelData = request.LevelData;
             var boardController = request.BoardController;
             var blockViewPool = request.BlockViewPool;
-            if (levelData == null || boardController == null || blockViewPool == null)
-            {
-                return;
-            }
 
             var sourceBlocks = levelData.blocks;
             if (sourceBlocks == null || sourceBlocks.Count == 0)
@@ -45,12 +41,12 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 var placementTransform = blockView.PlacementTransform
                     ? blockView.PlacementTransform
                     : blockView.RootTransform;
-                request.ApplyWorldTransform?.Invoke(placementTransform,
+                request.ApplyWorldTransform(placementTransform,
                     ToWorldPosition(runtimeBlock.Position, request.Layout), request.BlockRootScale);
-                request.SetDragHighlightActive?.Invoke(blockView, false);
+                request.SetDragHighlightActive(blockView, false);
 
                 blockViewPool.MarkActive(i, blockView);
-                request.SetActiveIfChanged?.Invoke(blockView.RootObject, true);
+                request.SetActiveIfChanged(blockView.RootObject, true);
             }
         }
 
@@ -66,11 +62,11 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
             var cellSize = request.Layout.CellSize;
             var targetScale = Vector3.one * Mathf.Max(0.01f, cellSize * request.BlockCellVisualScale);
-            var resolvedMaterial = request.ResolveMaterial?.Invoke(blockState.ColorType);
+            var resolvedMaterial = request.ResolveMaterial(blockState.ColorType);
             blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(resolvedMaterial, out var cachedBlockColor);
             blockView.CachedBlockColor = cachedBlockColor;
 
-            request.EnsureBlockCells?.Invoke(blockView, localCells.Length);
+            request.EnsureBlockCells(blockView, localCells.Length);
             blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
 
             var cells = blockView.Cells;
@@ -82,7 +78,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             for (var i = 0; i < activeCellCount; i++)
             {
                 var cellObject = cells[i];
-                request.SetActiveIfChanged?.Invoke(cellObject, true);
+                request.SetActiveIfChanged(cellObject, true);
 
                 var localCell = localCells[i];
                 var localPosition = new Vector3((localCell.x + 0.5f) * cellSize, (localCell.y + 0.5f) * cellSize, 0f);
@@ -122,7 +118,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 
             for (var i = activeCellCount; i < pooledCellCount; i++)
             {
-                request.SetActiveIfChanged?.Invoke(cells[i], false);
+                request.SetActiveIfChanged(cells[i], false);
             }
         }
 

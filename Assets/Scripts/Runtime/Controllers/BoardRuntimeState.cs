@@ -28,14 +28,6 @@ namespace Runtime.Controllers
             _runtimeBlocks.Clear();
             _doorOpenings.Clear();
 
-            if (levelData == null)
-            {
-                GridDimensions = Vector2Int.zero;
-                _occupancyMap.Configure(0, 0);
-                _occupancyMap.RebuildDoorOverlap(_doorOpenings);
-                return;
-            }
-
             GridDimensions = levelData.gridDimensions;
             PopulateRuntimeBoard(levelData, shapeCatalog);
             _occupancyMap.RebuildDoorOverlap(_doorOpenings);
@@ -44,14 +36,12 @@ namespace Runtime.Controllers
 
         public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
         {
-            block = default;
-            return IsInitialized && _runtimeBlocks.TryGetValue(blockId, out block);
+            return _runtimeBlocks.TryGetValue(blockId, out block);
         }
 
         public bool TryGetBlockAtCell(Vector2Int cell, out int blockId)
         {
-            blockId = -1;
-            return IsInitialized && _occupancyMap.TryGetBlockAt(cell.x, cell.y, out blockId);
+            return _occupancyMap.TryGetBlockAt(cell.x, cell.y, out blockId);
         }
 
         private void PopulateRuntimeBoard(LevelDefinition levelData, BlockShapeCatalog shapeCatalog)
@@ -87,17 +77,14 @@ namespace Runtime.Controllers
                 var blockData = levelData.blocks[i];
                 blockData.Normalize();
                 var resolvedShapeKey = blockData.ResolvePoolKey();
-                var resolvedShape = shapeCatalog != null
-                    ? shapeCatalog.ResolveShape(resolvedShapeKey)
-                    : null;
-                var localCells = resolvedShape != null ? resolvedShape.GetLocalCells() : blockData.GetLocalCells(shapeCatalog);
+                var resolvedShape = shapeCatalog.ResolveShape(resolvedShapeKey);
 
                 if (resolvedShape == null)
                 {
-                    Debug.LogWarning(
-                        $"Level '{levelData.levelKey}' has unresolved shape key '{resolvedShapeKey}' on block index {i}. Falling back to 1x1.");
+                    continue;
                 }
 
+                var localCells = resolvedShape.GetLocalCells();
                 var runtimeBlock = new RuntimeBlockState(i, blockData.position, localCells,
                     blockData.blockFeatures, blockData.colorType);
 
@@ -117,11 +104,7 @@ namespace Runtime.Controllers
             IReadOnlyList<DoorOpeningData> openings,
             List<Vector2Int> result)
         {
-            result?.Clear();
-            if (result == null)
-            {
-                return;
-            }
+            result.Clear();
 
             var unique = UniqueBlockedCellBuffer;
             unique.Clear();

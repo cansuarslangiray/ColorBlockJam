@@ -23,10 +23,10 @@ namespace Runtime.Controllers
         public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
         public event Action<int, bool> BlockDragHighlightChanged;
 
-        public Vector2Int GridDimensions => _runtimeState?.GridDimensions ?? Vector2Int.zero;
+        public Vector2Int GridDimensions => _runtimeState.GridDimensions;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => new(transform.position.x, transform.position.y);
-        public int RemainingBlockCount => _runtimeState?.ActiveBlockCount ?? 0;
+        public int RemainingBlockCount => _runtimeState.ActiveBlockCount;
 
         private BoardRuntimeState _runtimeState;
         private BoardInput _input;
@@ -37,25 +37,19 @@ namespace Runtime.Controllers
 
         private void Awake()
         {
-            EnsureDependencies();
+            InitializeDependencies();
             RefreshProjectionState();
         }
 
         private void OnDisable()
         {
-            _pointerGestureController?.EndPointerGesture();
+            _pointerGestureController.EndPointerGesture();
             ClearGestureHighlight();
-        }
-
-        private void OnValidate()
-        {
-            RefreshProjectionState();
         }
 
 
         public void Setup(LevelDefinition levelData, BlockShapeCatalog shapeCatalog)
         {
-            EnsureDependencies();
             _levelCompletedRaised = false;
             _pointerGestureController.EndPointerGesture();
             ClearGestureHighlight();
@@ -67,20 +61,18 @@ namespace Runtime.Controllers
 
         public bool TryBeginPointerGesture(Vector2 pointerPosition)
         {
-            EnsureDependencies();
             if (!_pointerGestureController.TryBeginPointerGesture(pointerPosition, inputCamera, out var blockId))
             {
                 return false;
             }
 
             SetGestureHighlight(blockId);
-            audioManager?.PlayBlockSelect();
+            audioManager.PlayBlockSelect();
             return true;
         }
 
         public bool TryUpdatePointerGesture(Vector2 pointerPosition)
         {
-            EnsureDependencies();
             return _pointerGestureController.TryUpdatePointerGesture(pointerPosition, inputCamera);
         }
 
@@ -92,8 +84,7 @@ namespace Runtime.Controllers
 
         public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
         {
-            block = default;
-            return _runtimeState != null && _runtimeState.TryGetRuntimeBlock(blockId, out block);
+            return _runtimeState.TryGetRuntimeBlock(blockId, out block);
         }
 
         bool IBoardGestureMoveHost.TryMoveGestureBlock(int blockId, Direction direction,
@@ -101,7 +92,7 @@ namespace Runtime.Controllers
         {
             movedCellCount = 0;
             blockCleared = false;
-            if (requestedCellCount <= 0 || _blockSlideService == null)
+            if (requestedCellCount <= 0)
             {
                 return false;
             }
@@ -134,7 +125,7 @@ namespace Runtime.Controllers
 
         private void EvaluateCompletionState()
         {
-            if (_levelCompletedRaised || _runtimeState == null || _runtimeState.ActiveBlockCount > 0)
+            if (_levelCompletedRaised || _runtimeState.ActiveBlockCount > 0)
             {
                 return;
             }
@@ -143,12 +134,12 @@ namespace Runtime.Controllers
             LevelCompleted?.Invoke();
         }
 
-        private void EnsureDependencies()
+        private void InitializeDependencies()
         {
-            _runtimeState ??= new BoardRuntimeState();
-            _input ??= new BoardInput();
-            _pointerGestureController ??= new BoardPointerGestureController(_runtimeState, _input, this);
-            _blockSlideService ??=
+            _runtimeState = new BoardRuntimeState();
+            _input = new BoardInput();
+            _pointerGestureController = new BoardPointerGestureController(_runtimeState, _input, this);
+            _blockSlideService =
                 new BoardBlockSlideService(_runtimeState.RuntimeBlocks, _runtimeState.DoorOpenings,
                     _runtimeState.OccupancyMap);
         }
@@ -156,12 +147,7 @@ namespace Runtime.Controllers
 
         private void RefreshProjectionState()
         {
-            if (_input == null)
-            {
-                return;
-            }
-
-            var gridDimensions = _runtimeState != null ? _runtimeState.GridDimensions : Vector2Int.zero;
+            var gridDimensions = _runtimeState.GridDimensions;
             _input.Refresh(BoardOrigin, cellSize, gridDimensions, dragActivationInCells, directionDeadZone,
                 transform.position.z);
         }

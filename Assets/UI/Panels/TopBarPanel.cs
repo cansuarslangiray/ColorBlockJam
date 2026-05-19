@@ -44,11 +44,6 @@ namespace UI.Panels
             Hide();
         }
 
-        private void OnValidate()
-        {
-            RefreshTimerStyleThreshold();
-        }
-
         public void StartTimer(float durationSeconds)
         {
             StopTimer();
@@ -170,13 +165,13 @@ namespace UI.Panels
 
         private void HandleReloadClicked()
         {
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             ReloadRequested?.Invoke();
         }
 
         private void HandleSettingsClicked()
         {
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             SettingsRequested?.Invoke();
         }
 

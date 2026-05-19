@@ -18,7 +18,7 @@ namespace Runtime.Managers.GameFlow
         {
             get
             {
-                if (TryGetCurrentLevelData(out var levelData) && levelData != null)
+                if (TryGetCurrentLevelData(out var levelData))
                 {
                     return Mathf.Max(1, levelData.levelNumber);
                 }
@@ -26,11 +26,11 @@ namespace Runtime.Managers.GameFlow
                 return _currentLevelIndex + 1;
             }
         }
-        public BlockShapeCatalog RuntimeShapeCatalog => _levelCollection != null ? _levelCollection.RuntimeShapeCatalog : null;
+        public BlockShapeCatalog RuntimeShapeCatalog => _levelCollection.RuntimeShapeCatalog;
 
         public void SetCurrentLevelFromSavedNumber(int savedLevelNumber)
         {
-            if (_levelCollection == null || _levelCollection.Count <= 0)
+            if (_levelCollection.Count <= 0)
             {
                 SetCurrentLevelIndex(0);
                 return;
@@ -43,7 +43,7 @@ namespace Runtime.Managers.GameFlow
             {
                 for (var i = 0; i < _levelCollection.Count; i++)
                 {
-                    if (!_levelCollection.TryGetLevelAt(i, out var levelData) || levelData == null)
+                    if (!_levelCollection.TryGetLevelAt(i, out var levelData))
                     {
                         continue;
                     }
@@ -61,7 +61,7 @@ namespace Runtime.Managers.GameFlow
 
         public bool TryMoveNextLevel()
         {
-            if (_levelCollection == null || _currentLevelIndex + 1 >= _levelCollection.Count)
+            if (_currentLevelIndex + 1 >= _levelCollection.Count)
             {
                 return false;
             }
@@ -69,7 +69,7 @@ namespace Runtime.Managers.GameFlow
             var currentLevelNumber = CurrentLevelDisplayNumber;
             for (var i = _currentLevelIndex + 1; i < _levelCollection.Count; i++)
             {
-                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData) || candidateLevelData == null)
+                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData))
                 {
                     continue;
                 }
@@ -89,7 +89,7 @@ namespace Runtime.Managers.GameFlow
         public bool TryGetNextLevelData(out LevelDefinition levelData)
         {
             levelData = null;
-            if (_levelCollection == null || _currentLevelIndex + 1 >= _levelCollection.Count)
+            if (_currentLevelIndex + 1 >= _levelCollection.Count)
             {
                 return false;
             }
@@ -97,7 +97,7 @@ namespace Runtime.Managers.GameFlow
             var currentLevelNumber = CurrentLevelDisplayNumber;
             for (var i = _currentLevelIndex + 1; i < _levelCollection.Count; i++)
             {
-                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData) || candidateLevelData == null)
+                if (!_levelCollection.TryGetLevelAt(i, out var candidateLevelData))
                 {
                     continue;
                 }
@@ -116,7 +116,7 @@ namespace Runtime.Managers.GameFlow
 
         public bool TryGetCurrentLevelData(out LevelDefinition levelData)
         {
-            if (_levelCollection != null && _levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
+            if (_levelCollection.TryGetLevelAt(_currentLevelIndex, out var resolvedLevelData))
             {
                 levelData = resolvedLevelData;
                 return true;

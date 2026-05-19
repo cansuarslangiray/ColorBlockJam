@@ -13,24 +13,19 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         [SerializeField] private Renderer[] renderers = Array.Empty<Renderer>();
 
         public GameObject DoorObject => gameObject;
-        public Transform PlacementTransform => placementTransform ? placementTransform : transform;
-        public Renderer[] Renderers => renderers ?? Array.Empty<Renderer>();
+        public Transform PlacementTransform => placementTransform;
+        public Renderer[] Renderers => renderers;
 
 #if UNITY_EDITOR
-        private void OnValidate()
+        [ContextMenu("Rebuild Door Bindings")]
+        private void RebuildBindings()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 return;
             }
 
-            RebuildBindings();
-        }
-
-        [ContextMenu("Rebuild Door Bindings")]
-        private void RebuildBindings()
-        {
-            placementTransform = ResolvePlacementTransform();
+            placementTransform = transform;
 
             var rendererComponents = GetComponentsInChildren<Renderer>(true);
             renderers = rendererComponents ?? Array.Empty<Renderer>();
@@ -42,10 +37,5 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             RebuildBindings();
         }
 #endif
-
-        private Transform ResolvePlacementTransform()
-        {
-            return transform;
-        }
     }
 }

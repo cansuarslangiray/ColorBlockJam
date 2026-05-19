@@ -45,7 +45,7 @@ namespace Runtime.Controllers
         public bool TryWorldToCell(Vector2 worldPosition, BoardOccupancyMap occupancyMap, out Vector2Int cell)
         {
             cell = default;
-            if (_boardWidthWorld <= 0f || _boardHeightWorld <= 0f || _resolvedCellSize <= 0f || occupancyMap == null)
+            if (_boardWidthWorld <= 0f || _boardHeightWorld <= 0f || _resolvedCellSize <= 0f)
             {
                 return false;
             }

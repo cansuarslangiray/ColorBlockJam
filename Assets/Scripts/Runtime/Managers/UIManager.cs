@@ -44,31 +44,19 @@ namespace Runtime.Managers
 
         protected override void OnDestroy()
         {
-            if (topBarPanel != null)
-            {
-                topBarPanel.TimerExpired -= HandleTimerExpired;
-                topBarPanel.SettingsRequested -= HandleSettingsRequested;
-                topBarPanel.ReloadRequested -= HandleReloadRequested;
-                topBarPanel.UnsubscribeFromState();
-            }
+            topBarPanel.TimerExpired -= HandleTimerExpired;
+            topBarPanel.SettingsRequested -= HandleSettingsRequested;
+            topBarPanel.ReloadRequested -= HandleReloadRequested;
+            topBarPanel.UnsubscribeFromState();
 
-            if (settingsPanel != null)
-            {
-                settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
-                settingsPanel.UnsubscribeFromState();
-            }
+            settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
+            settingsPanel.UnsubscribeFromState();
 
-            if (endGamePanel != null)
-            {
-                endGamePanel.ActionRequested -= HandleEndGameActionRequested;
-                endGamePanel.UnsubscribeFromState();
-            }
+            endGamePanel.ActionRequested -= HandleEndGameActionRequested;
+            endGamePanel.UnsubscribeFromState();
 
-            if (startPanel != null)
-            {
-                startPanel.StartRequested -= HandleStartRequested;
-                startPanel.UnsubscribeFromState();
-            }
+            startPanel.StartRequested -= HandleStartRequested;
+            startPanel.UnsubscribeFromState();
 
             base.OnDestroy();
         }

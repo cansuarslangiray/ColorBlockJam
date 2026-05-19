@@ -175,37 +175,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private Transform ResolveDoorPlacementTransform(int doorIndex, GameObject doorObject)
         {
-            if (doorIndex < 0)
-            {
-                return null;
-            }
-
+            _ = doorObject;
             EnsureDoorRuntimeSlot(doorIndex);
-            var doorRuntime = _doorRuntimeByIndex[doorIndex];
-            if (doorRuntime.PlacementTransform)
-            {
-                return doorRuntime.PlacementTransform;
-            }
-
-            if (!doorObject)
-            {
-                return null;
-            }
-
-            doorRuntime.DoorObject = doorObject;
-            doorRuntime.PlacementTransform = ResolvePlacementTransformFromDoor(doorObject);
-            _doorRuntimeByIndex[doorIndex] = doorRuntime;
-            return doorRuntime.PlacementTransform;
-        }
-
-        private static Transform ResolvePlacementTransformFromDoor(GameObject doorObject)
-        {
-            if (!doorObject)
-            {
-                return null;
-            }
-
-            return doorObject.transform;
+            return _doorRuntimeByIndex[doorIndex].PlacementTransform;
         }
 
         private bool TryGetDoorRuntimeBinding(int doorIndex, out DoorRuntimeBinding doorRuntime)
@@ -252,9 +224,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var doorObject = doorBinding.DoorObject;
             var doorRuntime = _doorRuntimeByIndex[doorIndex];
             doorRuntime.DoorObject = doorObject;
-            doorRuntime.PlacementTransform = doorBinding.PlacementTransform
-                ? doorBinding.PlacementTransform
-                : ResolvePlacementTransformFromDoor(doorObject);
+            doorRuntime.PlacementTransform = doorBinding.PlacementTransform;
             doorRuntime.BaseLocalPosition = Vector3.zero;
             var renderers = doorBinding.Renderers;
             doorRuntime.Renderers = renderers != null && renderers.Length > 0

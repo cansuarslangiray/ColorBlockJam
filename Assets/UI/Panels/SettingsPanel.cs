@@ -45,8 +45,8 @@ namespace UI.Panels
             _scrim.RegisterCallback<ClickEvent>(HandleScrimClicked);
 
             RegisterSettingsEvents();
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager?.IsMusicEnabled ?? true);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager?.IsSfxEnabled ?? true);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager.IsMusicEnabled);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager.IsSfxEnabled);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
             Hide();
         }
@@ -111,7 +111,7 @@ namespace UI.Panels
 
         private void RegisterSettingsEvents()
         {
-            if (_settingsEventsRegistered || settingsManager == null)
+            if (_settingsEventsRegistered)
             {
                 return;
             }
@@ -130,12 +130,8 @@ namespace UI.Panels
                 return;
             }
 
-            if (settingsManager != null)
-            {
-                settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
-                settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
-            }
-
+            settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
             _settingsEventsRegistered = false;
         }
 
@@ -155,8 +151,8 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager?.IsMusicEnabled ?? true);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager?.IsSfxEnabled ?? true);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager.IsMusicEnabled);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager.IsSfxEnabled);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
         }
 
@@ -180,35 +176,25 @@ namespace UI.Panels
                 return;
             }
 
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             Hide();
         }
 
         private void HandleMusicToggleClicked(ClickEvent _)
         {
-            audioManager?.PlayButtonClick();
-            if (settingsManager == null)
-            {
-                return;
-            }
-
+            audioManager.PlayButtonClick();
             settingsManager.SetMusicEnabled(!settingsManager.IsMusicEnabled);
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
-            audioManager?.PlayButtonClick();
-            if (settingsManager == null)
-            {
-                return;
-            }
-
+            audioManager.PlayButtonClick();
             settingsManager.SetSfxEnabled(!settingsManager.IsSfxEnabled);
         }
 
         private void HandleLanguageToggleClicked()
         {
-            audioManager?.PlayButtonClick();
+            audioManager.PlayButtonClick();
             var currentLocaleCode = LocalizationSettings.SelectedLocale?.Identifier.Code ?? string.Empty;
             var targetLocaleCode = currentLocaleCode.StartsWith(EnglishLocaleCode, StringComparison.OrdinalIgnoreCase)
                 ? TurkishLocaleCode
