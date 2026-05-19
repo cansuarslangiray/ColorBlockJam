@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     public sealed class BlockRootView
     {
@@ -18,6 +18,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public string PoolKey { get; set; } = "Shape_1x1";
         public List<GameObject> Cells { get; } = new();
         public List<Renderer> CellRenderers { get; } = new();
+        public List<Renderer[]> CellNestedRenderers { get; } = new();
         public List<Vector2Int> CachedOutlineGridLoop { get; } = new();
         public bool HasCachedLocalBounds { get; set; }
         public Vector3 CachedLocalBoundsMin { get; set; }
@@ -29,10 +30,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public bool HasLoggedMissingDragOutline { get; set; }
         public Vector2 LocalCenter { get; set; }
         public Vector3 ConditionIndicatorLocalAnchor { get; set; }
+        public GameObject PooledConditionIndicatorObject { get; set; }
+        public TextMesh PooledConditionIndicatorText { get; set; }
         public GameObject ConditionIndicatorObject { get; set; }
         public TextMesh ConditionIndicatorText { get; set; }
+        public LineRenderer PooledDragOutlineRenderer { get; set; }
         public LineRenderer DragOutlineRenderer { get; set; }
-        public Animator Animator { get; set; }
         public ParticleSystem DoorExitBurstParticle { get; set; }
         public ParticleSystemRenderer DoorExitBurstRenderer { get; set; }
         public Coroutine DoorExitBurstCleanupRoutine { get; set; }

@@ -2,39 +2,31 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     public sealed class BlockViewRuntimePool
     {
-        private const string PlacementAnchorPrefix = "__BlockPlacementAnchor_";
+        private static readonly Renderer[] EmptyRendererArray = Array.Empty<Renderer>();
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
-        private readonly Dictionary<string, BlockRootView> _templateBlockViewByKey =
-            new(StringComparer.Ordinal);
-        private readonly Dictionary<string, int> _runtimeOverflowCountByKey =
-            new(StringComparer.Ordinal);
-        private readonly List<GameObject> _runtimeOverflowRoots = new();
-        private Action<GameObject, bool> _setActiveIfChanged;
+        private readonly HashSet<string> _missingPoolWarnings = new(StringComparer.Ordinal);
 
         public void Rebind(
-            IReadOnlyDictionary<string, List<GameObject>> blockObjectsByKey,
+            IReadOnlyDictionary<string, List<BlockPoolBindings>> blockBindingsByKey,
             Action<GameObject, bool> setActiveIfChanged)
         {
-            CleanupRuntimeOverflowRoots();
             _activeBlockRootById.Clear();
             _inactiveBlockRootsByKey.Clear();
-            _templateBlockViewByKey.Clear();
-            _runtimeOverflowCountByKey.Clear();
-            _setActiveIfChanged = setActiveIfChanged;
+            _missingPoolWarnings.Clear();
 
-            if (blockObjectsByKey == null)
+            if (blockBindingsByKey == null)
             {
                 return;
             }
 
             var pooledRootIds = new HashSet<int>();
-            foreach (var pair in blockObjectsByKey)
+            foreach (var pair in blockBindingsByKey)
             {
                 AddBlockViewsFromPool(pair.Key, pair.Value, pooledRootIds, setActiveIfChanged);
             }
@@ -96,7 +88,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             if (!_inactiveBlockRootsByKey.TryGetValue(poolKey, out var typePool) || typePool.Count == 0)
             {
-                return CreateRuntimeOverflowView(poolKey);
+                if (_missingPoolWarnings.Add(poolKey))
+                {
+                    Debug.LogWarning(
+                        $"Block pool '{poolKey}' is exhausted. Runtime overflow instantiation is disabled. Increase authored pool size.");
+                }
+
+                return null;
             }
 
             var lastIndex = typePool.Count - 1;
@@ -145,7 +143,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void AddBlockViewsFromPool(
             string poolKey,
-            IReadOnlyList<GameObject> sourcePool,
+            IReadOnlyList<BlockPoolBindings> sourcePool,
             HashSet<int> pooledRootIds,
             Action<GameObject, bool> setActiveIfChanged)
         {
@@ -157,12 +155,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var sourceCount = sourcePool.Count;
             for (var i = 0; i < sourceCount; i++)
             {
-                var rootObject = sourcePool[i];
-                if (!rootObject)
+                var rootBinding = sourcePool[i];
+                if (!rootBinding || !rootBinding.RootObject)
                 {
                     continue;
                 }
 
+                var rootObject = rootBinding.RootObject;
                 var rootId = rootObject.GetInstanceID();
                 if (!pooledRootIds.Add(rootId))
                 {
@@ -173,104 +172,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 {
                     PoolKey = poolKey
                 };
+                blockView.PlacementTransform = rootBinding.PlacementTransform
+                    ? rootBinding.PlacementTransform
+                    : rootObject.transform;
 
-                rootObject.TryGetComponent(out Animator animator);
-                blockView.Animator = animator;
-                blockView.PlacementTransform = ResolvePlacementTransform(rootObject);
-
-                CacheBlockCellPool(blockView, setActiveIfChanged);
-                if (!_templateBlockViewByKey.ContainsKey(poolKey))
-                {
-                    _templateBlockViewByKey[poolKey] = blockView;
-                }
+                CacheBlockCellPool(blockView, rootBinding, setActiveIfChanged);
 
                 GetOrCreateInactivePool(poolKey).Add(blockView);
                 setActiveIfChanged?.Invoke(rootObject, false);
             }
-        }
-
-        private BlockRootView CreateRuntimeOverflowView(string poolKey)
-        {
-            if (!_templateBlockViewByKey.TryGetValue(poolKey, out var templateView) ||
-                templateView?.RootObject == null)
-            {
-                return null;
-            }
-
-            var templateRoot = templateView.RootObject;
-            if (!_runtimeOverflowCountByKey.TryGetValue(poolKey, out var overflowCount))
-            {
-                overflowCount = 0;
-            }
-
-            overflowCount++;
-            _runtimeOverflowCountByKey[poolKey] = overflowCount;
-
-            var overflowSuffix = $"{overflowCount:000}";
-            GameObject clonedRoot;
-            if (templateView.PlacementTransform &&
-                templateView.PlacementTransform != templateView.RootTransform &&
-                templateView.PlacementTransform.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal))
-            {
-                var templateAnchor = templateView.PlacementTransform;
-                var anchorClone = UnityEngine.Object.Instantiate(
-                    templateAnchor.gameObject,
-                    templateAnchor.parent);
-                if (!anchorClone || anchorClone.transform.childCount <= 0)
-                {
-                    if (anchorClone)
-                    {
-                        UnityEngine.Object.Destroy(anchorClone);
-                    }
-
-                    return null;
-                }
-
-                anchorClone.name = $"{templateAnchor.name}_Overflow_{overflowSuffix}";
-                anchorClone.SetActive(templateAnchor.gameObject.activeSelf);
-                clonedRoot = anchorClone.transform.GetChild(0).gameObject;
-                _runtimeOverflowRoots.Add(anchorClone);
-            }
-            else
-            {
-                var templateTransform = templateRoot.transform;
-                var parent = templateTransform.parent;
-                clonedRoot = UnityEngine.Object.Instantiate(templateRoot, parent);
-                if (!clonedRoot)
-                {
-                    return null;
-                }
-
-                _runtimeOverflowRoots.Add(clonedRoot);
-            }
-
-            clonedRoot.name = $"{templateRoot.name}_Overflow_{overflowSuffix}";
-
-            var blockView = new BlockRootView(clonedRoot)
-            {
-                PoolKey = poolKey
-            };
-
-            clonedRoot.TryGetComponent(out Animator animator);
-            blockView.Animator = animator;
-            blockView.PlacementTransform = ResolvePlacementTransform(clonedRoot);
-            _setActiveIfChanged?.Invoke(clonedRoot, false);
-            CacheBlockCellPool(blockView, _setActiveIfChanged);
-            return blockView;
-        }
-
-        private void CleanupRuntimeOverflowRoots()
-        {
-            for (var i = 0; i < _runtimeOverflowRoots.Count; i++)
-            {
-                var overflowRoot = _runtimeOverflowRoots[i];
-                if (overflowRoot)
-                {
-                    UnityEngine.Object.Destroy(overflowRoot);
-                }
-            }
-
-            _runtimeOverflowRoots.Clear();
         }
 
         private List<BlockRootView> GetOrCreateInactivePool(string poolKey)
@@ -285,38 +195,63 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return pool;
         }
 
-        private static void CacheBlockCellPool(BlockRootView blockView, Action<GameObject, bool> setActiveIfChanged)
+        private static void CacheBlockCellPool(BlockRootView blockView, BlockPoolBindings rootBinding,
+            Action<GameObject, bool> setActiveIfChanged)
         {
             blockView.Cells.Clear();
             blockView.CellRenderers.Clear();
-            if (blockView.RootTransform == null)
+            blockView.CellNestedRenderers.Clear();
+            blockView.PooledConditionIndicatorObject = null;
+            blockView.PooledConditionIndicatorText = null;
+            blockView.PooledDragOutlineRenderer = null;
+            if (blockView.RootTransform == null || rootBinding == null)
             {
                 return;
             }
 
-            var childCount = blockView.RootTransform.childCount;
-            if (childCount <= 0)
+            var cellBindings = rootBinding.CellBindings;
+            var cellCount = cellBindings?.Count ?? 0;
+            if (cellCount <= 0)
             {
                 return;
             }
 
-            for (var i = 0; i < childCount; i++)
+            for (var i = 0; i < cellCount; i++)
             {
-                var child = blockView.RootTransform.GetChild(i);
-                if (!child)
-                {
-                    continue;
-                }
-
-                var cellObject = child.gameObject;
-                if (!cellObject.name.StartsWith("BlockCell_", StringComparison.Ordinal))
+                var cellBinding = cellBindings[i];
+                var cellObject = cellBinding?.cellObject;
+                if (!cellObject)
                 {
                     continue;
                 }
 
                 blockView.Cells.Add(cellObject);
-                blockView.CellRenderers.Add(cellObject.TryGetComponent<Renderer>(out var renderer) ? renderer : null);
+                var nestedRenderers = cellBinding.nestedRenderers;
+                blockView.CellNestedRenderers.Add(nestedRenderers == null || nestedRenderers.Length == 0
+                    ? EmptyRendererArray
+                    : nestedRenderers);
+                blockView.CellRenderers.Add(
+                    cellBinding.primaryRenderer
+                        ? cellBinding.primaryRenderer
+                        : nestedRenderers != null && nestedRenderers.Length > 0
+                            ? nestedRenderers[0]
+                            : null);
                 setActiveIfChanged?.Invoke(cellObject, false);
+            }
+
+            blockView.PooledConditionIndicatorText = rootBinding.ConditionIndicatorText;
+            blockView.PooledConditionIndicatorObject = rootBinding.ConditionIndicatorText
+                ? rootBinding.ConditionIndicatorText.gameObject
+                : null;
+            if (blockView.PooledConditionIndicatorObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.PooledConditionIndicatorObject, false);
+            }
+
+            blockView.PooledDragOutlineRenderer = rootBinding.DragOutlineRenderer;
+            if (blockView.PooledDragOutlineRenderer && blockView.PooledDragOutlineRenderer.gameObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.PooledDragOutlineRenderer.gameObject, false);
             }
         }
 
@@ -352,28 +287,18 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
             }
 
+            if (blockView.ConditionIndicatorObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
+            }
+
+            if (blockView.DragOutlineRenderer && blockView.DragOutlineRenderer.gameObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.DragOutlineRenderer.gameObject, false);
+            }
+
             setActiveIfChanged?.Invoke(blockView.RootObject, false);
             GetOrCreateInactivePool(blockView.PoolKey).Add(blockView);
-        }
-
-        private static Transform ResolvePlacementTransform(GameObject rootObject)
-        {
-            if (!rootObject)
-            {
-                return null;
-            }
-
-            var rootTransform = rootObject.transform;
-            var existingParent = rootTransform.parent;
-            if (existingParent &&
-                existingParent.name.StartsWith(PlacementAnchorPrefix, StringComparison.Ordinal) &&
-                existingParent.childCount == 1 &&
-                existingParent.GetChild(0) == rootTransform)
-            {
-                return existingParent;
-            }
-
-            return rootTransform;
         }
     }
 }

@@ -1,10 +1,12 @@
+using Runtime.Controllers.BlockSceneBuilder.Conditions;
+
 namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
         private void RefreshAllConditionIndicators()
         {
-            var indicatorRefreshRequest = new ConditionIndicatorPresenter.RefreshRequest
+            var indicatorRefreshRequest = new ConditionIndicatorRefreshRequest
             {
                 BoardController = boardController,
                 BlockViewPool = _blockViewPool,
@@ -22,7 +24,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         public void RefreshConditionIndicatorBillboards()
         {
             _conditionIndicatorPresenter.RequestBillboardRefresh();
-            var billboardRequest = new ConditionIndicatorPresenter.BillboardRequest
+            var billboardRequest = new ConditionIndicatorBillboardRequest
             {
                 ShowBlockConditionIndicators = showBlockConditionIndicators,
                 IndicatorCamera = indicatorCamera,

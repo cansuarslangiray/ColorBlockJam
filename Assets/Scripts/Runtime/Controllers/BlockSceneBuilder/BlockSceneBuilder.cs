@@ -1,4 +1,9 @@
 using System.Collections.Generic;
+using Runtime.Controllers.BlockSceneBuilder.Animations;
+using Runtime.Controllers.BlockSceneBuilder.Blocks;
+using Runtime.Controllers.BlockSceneBuilder.Board;
+using Runtime.Controllers.BlockSceneBuilder.Conditions;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers;
@@ -53,6 +58,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [Header("Particle FX")] [SerializeField]
         private List<ParticleSystem> doorExitBurstParticles = new();
+        [SerializeField] private List<ParticleSystemRenderer> doorExitBurstParticleRenderers = new();
 
         [SerializeField, Min(0)] private int doorExitBurstPoolWarmupCount = 8;
         [SerializeField] private Material dragOutlineSourceMaterial;
@@ -94,6 +100,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly Stack<ParticleSystem> _availableDoorExitBurstParticles = new();
         private readonly HashSet<int> _availableDoorExitBurstParticleIds = new();
         private readonly Dictionary<int, ParticleSystemRenderer> _doorExitBurstRendererByParticleId = new();
+        private bool _hasLoggedDoorExitBurstPoolShortWarning;
 
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
@@ -151,6 +158,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _conditionIndicatorPresenter.ResetRuntimeState();
             _dragHighlightPresenter.ResetRuntimeResources();
             _hasCurrentLayout = false;
+            _hasLoggedDoorExitBurstPoolShortWarning = false;
         }
 
         public virtual void BuildForLevel(LevelDefinition levelData)
@@ -171,6 +179,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             UnsubscribeBoardEvents();
 
             ConfigurePoolsFromManager(levelData);
+            _hasLoggedDoorExitBurstPoolShortWarning = false;
             EnsureDoorExitBurstPoolCapacity(Mathf.Max(doorExitBurstPoolWarmupCount,
                 levelData.GetDoorOpenings()?.Count ?? 0));
 
@@ -191,7 +200,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             BindGridCellPool(poolManager.GridCellObjects, levelData.gridDimensions);
             BindBlockedCellPool(poolManager.BlockedCellObjects);
             BindBoardVisualReferences(poolManager.BorderObjects, poolManager.BackdropObject);
-            BindDoorPool(poolManager.DoorObjects);
+            BindDoorPool(poolManager.DoorBindings);
             BindBlockRootPools();
         }
 
@@ -286,28 +295,29 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private void BindDoorPool(IReadOnlyList<GameObject> doorObjects)
+        private void BindDoorPool(IReadOnlyList<DoorPoolBindings> doorBindings)
         {
             ResetDoorRuntimeCache();
             _doorPool.Clear();
-            var doorCount = doorObjects?.Count ?? 0;
+            var doorCount = doorBindings?.Count ?? 0;
             for (var i = 0; i < doorCount; i++)
             {
-                var doorObject = doorObjects[i];
-                if (!doorObject)
+                var doorBinding = doorBindings[i];
+                if (!doorBinding || !doorBinding.DoorObject)
                 {
                     continue;
                 }
 
+                var doorObject = doorBinding.DoorObject;
                 _doorPool.Add(doorObject);
-                CacheDoorRuntimeReferences(_doorPool.Count - 1, doorObject);
+                CacheDoorRuntimeReferences(_doorPool.Count - 1, doorBinding);
                 SetActiveIfChanged(doorObject, false);
             }
         }
 
         private void BindBlockRootPools()
         {
-            _blockViewPool.Rebind(poolManager.BlockObjectsByKey, SetActiveIfChanged);
+            _blockViewPool.Rebind(poolManager.BlockBindingsByKey, SetActiveIfChanged);
         }
 
         private void CacheRequiredBlockRootCounts(LevelDefinition levelData)

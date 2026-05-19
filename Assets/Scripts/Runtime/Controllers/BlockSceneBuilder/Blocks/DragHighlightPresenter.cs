@@ -1,87 +1,15 @@
 using System;
 using System.Collections.Generic;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 {
     public sealed class DragHighlightPresenter
     {
         private const string DragOutlineObjectName = "BlockDragOutline";
         public delegate bool TryResolveBlockColorDelegate(BlockRootView blockView, out Color blockColor);
-
-        public readonly struct DragHighlightSettings
-        {
-            public DragHighlightSettings(float cellSize, float baseOffsetInCells, float gapInCells,
-                float verticalOffsetInCells, float thicknessInCells, Color defaultOutlineColor, Material sourceMaterial)
-            {
-                CellSize = cellSize;
-                BaseOffsetInCells = baseOffsetInCells;
-                GapInCells = gapInCells;
-                VerticalOffsetInCells = verticalOffsetInCells;
-                ThicknessInCells = thicknessInCells;
-                DefaultOutlineColor = defaultOutlineColor;
-                SourceMaterial = sourceMaterial;
-            }
-
-            public float CellSize { get; }
-            public float BaseOffsetInCells { get; }
-            public float GapInCells { get; }
-            public float VerticalOffsetInCells { get; }
-            public float ThicknessInCells { get; }
-            public Color DefaultOutlineColor { get; }
-            public Material SourceMaterial { get; }
-        }
-
-        private readonly struct DirectedGridEdge
-        {
-            public DirectedGridEdge(Vector2Int start, Vector2Int end)
-            {
-                Start = start;
-                End = end;
-            }
-
-            public Vector2Int Start { get; }
-            public Vector2Int End { get; }
-        }
-
-        private readonly struct UndirectedGridEdgeKey : IEquatable<UndirectedGridEdgeKey>
-        {
-            public UndirectedGridEdgeKey(Vector2Int a, Vector2Int b)
-            {
-                if (IsLexicographicallyBefore(a, b))
-                {
-                    A = a;
-                    B = b;
-                }
-                else
-                {
-                    A = b;
-                    B = a;
-                }
-            }
-
-            public Vector2Int A { get; }
-            public Vector2Int B { get; }
-
-            public bool Equals(UndirectedGridEdgeKey other)
-            {
-                return A == other.A && B == other.B;
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is UndirectedGridEdgeKey other && Equals(other);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    return (A.GetHashCode() * 397) ^ B.GetHashCode();
-                }
-            }
-        }
 
         private const int DragOutlineCornerVertices = 4;
         private const int DragOutlineCapVertices = 2;
@@ -228,7 +156,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (!TryResolveDragOutlineRendererFromPool(blockView, out var outlineRenderer))
+            var outlineRenderer = blockView.PooledDragOutlineRenderer;
+            if (!outlineRenderer)
             {
                 if (!blockView.HasLoggedMissingDragOutline)
                 {
@@ -270,35 +199,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var sourceMaterial = settings.SourceMaterial ? settings.SourceMaterial : fallbackSourceMaterial;
             return sourceMaterial ? sourceMaterial : null;
-        }
-
-        private static bool TryResolveDragOutlineRendererFromPool(BlockRootView blockView, out LineRenderer lineRenderer)
-        {
-            lineRenderer = null;
-            if (blockView?.RootTransform == null)
-            {
-                return false;
-            }
-
-            var renderers = blockView.RootTransform.GetComponentsInChildren<LineRenderer>(true);
-            for (var i = 0; i < renderers.Length; i++)
-            {
-                var candidate = renderers[i];
-                if (!candidate || !candidate.gameObject)
-                {
-                    continue;
-                }
-
-                if (!string.Equals(candidate.gameObject.name, DragOutlineObjectName, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                lineRenderer = candidate;
-                return true;
-            }
-
-            return false;
         }
 
         private void RefreshDragOutlineFrame(BlockRootView blockView, IReadOnlyList<Vector2> outlineVertices,

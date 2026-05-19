@@ -1,15 +1,15 @@
 using System.Collections;
 using System.Collections.Generic;
+using Runtime.Controllers.BlockSceneBuilder.Animations;
+using Runtime.Controllers.BlockSceneBuilder.Blocks;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Domain.Models;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
-        private static readonly int BlockDoorExitTriggerHash = Animator.StringToHash("DoorExit");
-        private static readonly int BlockIdleStateHash = Animator.StringToHash("Base Layer.Idle");
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private const float DoorExitBurstCleanupDelay = 0.28f;
@@ -18,7 +18,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private const float DoorPassThroughMinScale = 0.06f;
         private const float DoorPassThroughRotationRangeInDegrees = 280f;
         private const float DoorPassThroughBurstAtProgress = 0.66f;
-        private const string RuntimeDoorExitBurstNamePrefix = "PS_DoorExitBurst_Runtime_";
 
         private static readonly ParticleSystem.Burst[] DoorExitBurstPattern =
         {
@@ -34,111 +33,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private static readonly Gradient DoorExitBurstAlphaGradient = CreateDoorExitBurstAlphaGradient();
         private static Mesh _doorExitBurstCubeMesh;
 
-        private readonly struct DoorPassThroughMotion
-        {
-            public DoorPassThroughMotion(
-                Transform placementTransform,
-                Vector3 startPosition,
-                Vector3 endPosition,
-                float travelDuration,
-                float collapseStartAt,
-                float burstAt)
-            {
-                PlacementTransform = placementTransform;
-                StartPosition = startPosition;
-                EndPosition = endPosition;
-                TravelDuration = travelDuration;
-                CollapseStartAt = collapseStartAt;
-                BurstAt = burstAt;
-            }
-
-            public Transform PlacementTransform { get; }
-            public Vector3 StartPosition { get; }
-            public Vector3 EndPosition { get; }
-            public float TravelDuration { get; }
-            public float CollapseStartAt { get; }
-            public float BurstAt { get; }
-        }
-
         private void ReleaseRuntimeFxResources()
         {
             RecycleAllDoorExitBurstParticles();
             _doorExitBurstRendererByParticleId.Clear();
             _dragHighlightPresenter.ResetRuntimeResources();
-        }
-
-        private static void ResetBlockAnimatorState(Animator animator)
-        {
-            if (!animator || !animator.runtimeAnimatorController)
-            {
-                return;
-            }
-
-            if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
-            {
-                return;
-            }
-
-            animator.ResetTrigger(BlockDoorExitTriggerHash);
-            animator.Play(0, 0, 0f);
-        }
-
-        private static void PlayBlockDoorExitAnimation(BlockRootView blockView)
-        {
-            var animator = blockView?.Animator;
-            if (!animator || !animator.runtimeAnimatorController)
-            {
-                return;
-            }
-
-            if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
-            {
-                return;
-            }
-
-            animator.ResetTrigger(BlockDoorExitTriggerHash);
-            animator.Play(0, 0, 0f);
-            animator.SetTrigger(BlockDoorExitTriggerHash);
-        }
-
-        private IEnumerator WaitForBlockDoorExitAnimationComplete(Animator animator)
-        {
-            if (!animator || !animator.runtimeAnimatorController)
-            {
-                yield break;
-            }
-
-            if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
-            {
-                yield break;
-            }
-
-            var timeoutAt = Time.unscaledTime + 4f;
-            var exitedIdleState = false;
-            while (animator && Time.unscaledTime < timeoutAt)
-            {
-                if (!animator.isActiveAndEnabled || !animator.gameObject.activeInHierarchy)
-                {
-                    yield break;
-                }
-
-                var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-                if (!exitedIdleState)
-                {
-                    if (stateInfo.fullPathHash != BlockIdleStateHash)
-                    {
-                        exitedIdleState = true;
-                    }
-                }
-                else if (stateInfo.fullPathHash == BlockIdleStateHash)
-                {
-                    yield break;
-                }
-
-                yield return null;
-            }
-
-            ResetBlockAnimatorState(animator);
         }
 
         private void StopDoorExitBurstParticle(BlockRootView blockView)
@@ -184,9 +83,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 TryResolveBlockCellMaterialColor);
         }
 
-        private DragHighlightPresenter.DragHighlightSettings BuildDragHighlightSettings()
+        private DragHighlightSettings BuildDragHighlightSettings()
         {
-            return new DragHighlightPresenter.DragHighlightSettings(CellSize, dragOutlineBaseOffsetInCells,
+            return new DragHighlightSettings(CellSize, dragOutlineBaseOffsetInCells,
                 dragOutlineGapInCells, dragOutlineVerticalOffsetInCells, dragOutlineThicknessInCells, dragOutlineColor,
                 dragOutlineSourceMaterial);
         }
@@ -407,77 +306,15 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (_doorExitBurstParticlePool.Count < requiredCount)
+            if (_doorExitBurstParticlePool.Count < requiredCount &&
+                !_hasLoggedDoorExitBurstPoolShortWarning)
             {
-                ExpandDoorExitBurstPool(requiredCount);
+                Debug.LogWarning(
+                    $"Door exit burst pool has {_doorExitBurstParticlePool.Count} particle object(s), but level needs {requiredCount}. " +
+                    "Runtime particle instantiation is disabled for performance. Add more authored pooled particles.",
+                    this);
+                _hasLoggedDoorExitBurstPoolShortWarning = true;
             }
-        }
-
-        private void ExpandDoorExitBurstPool(int requiredCount)
-        {
-            var missingCount = Mathf.Max(0, requiredCount - _doorExitBurstParticlePool.Count);
-            for (var i = 0; i < missingCount; i++)
-            {
-                var burstParticle = CreateDoorExitBurstParticle(_doorExitBurstParticlePool.Count);
-                if (burstParticle == null)
-                {
-                    return;
-                }
-
-                ReturnDoorExitBurstParticleToPool(burstParticle);
-            }
-        }
-
-        private ParticleSystem CreateDoorExitBurstParticle(int index)
-        {
-            ParticleSystem burstParticle;
-            var template = ResolveDoorExitBurstTemplate();
-            if (template)
-            {
-                burstParticle = Instantiate(template, transform);
-                burstParticle.name = $"{RuntimeDoorExitBurstNamePrefix}{index:000}";
-            }
-            else
-            {
-                var burstObject = new GameObject($"{RuntimeDoorExitBurstNamePrefix}{index:000}");
-                burstObject.transform.SetParent(transform, false);
-                burstParticle = burstObject.AddComponent<ParticleSystem>();
-            }
-
-            burstParticle.TryGetComponent<ParticleSystemRenderer>(out var particleRenderer);
-            _doorExitBurstParticlePool.Add(burstParticle);
-            _doorExitBurstRendererByParticleId[burstParticle.GetInstanceID()] = particleRenderer;
-            ResetDoorExitBurstParticleState(burstParticle, disableObject: true, disableRenderer: true);
-            ConfigureDoorExitBurstParticle(burstParticle, Vector3.right, particleRenderer);
-            return burstParticle;
-        }
-
-        private ParticleSystem ResolveDoorExitBurstTemplate()
-        {
-            for (var i = 0; i < _doorExitBurstParticlePool.Count; i++)
-            {
-                var pooledParticle = _doorExitBurstParticlePool[i];
-                if (pooledParticle)
-                {
-                    return pooledParticle;
-                }
-            }
-
-            if (doorExitBurstParticles == null)
-            {
-                return null;
-            }
-
-            for (var i = 0; i < doorExitBurstParticles.Count; i++)
-            {
-                var pooledParticle = doorExitBurstParticles[i];
-                if (pooledParticle)
-                {
-                    return pooledParticle;
-                }
-            }
-
-            return null;
         }
 
         private ParticleSystem AcquireDoorExitBurstParticle()
@@ -531,7 +368,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ResetDoorExitBurstParticleState(ParticleSystem burstParticle, bool disableObject = false,
+        private void ResetDoorExitBurstParticleState(ParticleSystem burstParticle, bool disableObject = false,
             bool disableRenderer = false)
         {
             if (burstParticle == null)
@@ -543,7 +380,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             burstParticle.Clear(true);
             burstParticle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
 
-            var burstRenderer = burstParticle.GetComponent<ParticleSystemRenderer>();
+            var burstRenderer = ResolveDoorExitBurstRendererFromCache(burstParticle);
             if (disableRenderer && burstRenderer)
             {
                 burstRenderer.enabled = false;
@@ -592,24 +429,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 for (var i = 0; i < doorExitBurstParticles.Count; i++)
                 {
                     var pooledParticle = doorExitBurstParticles[i];
-                    AddDoorExitBurstParticleToRuntimePool(pooledParticle);
+                    var particleRenderer = i < (doorExitBurstParticleRenderers?.Count ?? 0)
+                        ? doorExitBurstParticleRenderers[i]
+                        : null;
+                    AddDoorExitBurstParticleToRuntimePool(pooledParticle, particleRenderer);
                 }
-            }
-
-            var childCount = transform.childCount;
-            for (var i = 0; i < childCount; i++)
-            {
-                var child = transform.GetChild(i);
-                if (!child || !child.name.StartsWith(RuntimeDoorExitBurstNamePrefix, System.StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                AddDoorExitBurstParticleToRuntimePool(child.GetComponent<ParticleSystem>());
             }
         }
 
-        private void AddDoorExitBurstParticleToRuntimePool(ParticleSystem pooledParticle)
+        private void AddDoorExitBurstParticleToRuntimePool(ParticleSystem pooledParticle,
+            ParticleSystemRenderer particleRenderer)
         {
             if (!pooledParticle)
             {
@@ -622,7 +451,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _doorExitBurstParticlePool.Add(pooledParticle);
-            pooledParticle.TryGetComponent<ParticleSystemRenderer>(out var particleRenderer);
             _doorExitBurstRendererByParticleId[pooledParticle.GetInstanceID()] = particleRenderer;
             ResetDoorExitBurstParticleState(pooledParticle, disableObject: true, disableRenderer: true);
             _availableDoorExitBurstParticleIds.Add(pooledParticle.GetInstanceID());
@@ -671,9 +499,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private IEnumerator AnimateBlockDoorExitSequence(BlockRootView blockView, DoorOpeningData matchedDoor,
             Vector2Int resolvedExitDirection)
         {
-            PlayBlockDoorExitAnimation(blockView);
             yield return AnimateBlockDoorPassThrough(blockView, matchedDoor, resolvedExitDirection);
-            yield return WaitForBlockDoorExitAnimationComplete(blockView?.Animator);
         }
 
         private IEnumerator AnimateBlockDoorPassThrough(BlockRootView blockView, DoorOpeningData matchedDoor,
@@ -784,6 +610,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             cellRenderers.Clear();
 
             var blockCells = blockView.Cells;
+            var cachedNestedRenderers = blockView.CellNestedRenderers;
             var scatterDirection = ResolveDoorExitBurstFlowDirection(resolvedExitDirection);
             for (var i = 0; i < blockCells.Count; i++)
             {
@@ -798,21 +625,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 initialScales.Add(cellTransform.localScale);
                 initialPositions.Add(cellTransform.localPosition);
                 initialRotations.Add(cellTransform.localRotation);
-                var childRenderers = cellObject.GetComponentsInChildren<Renderer>(true);
-                if (childRenderers != null && childRenderers.Length > 0)
+
+                var childRenderers =
+                    i < cachedNestedRenderers.Count ? cachedNestedRenderers[i] : System.Array.Empty<Renderer>();
+                for (var rendererIndex = 0; rendererIndex < childRenderers.Length; rendererIndex++)
                 {
-                    for (var rendererIndex = 0; rendererIndex < childRenderers.Length; rendererIndex++)
+                    var childRenderer = childRenderers[rendererIndex];
+                    if (childRenderer)
                     {
-                        var childRenderer = childRenderers[rendererIndex];
-                        if (childRenderer)
-                        {
-                            cellRenderers.Add(childRenderer);
-                        }
+                        cellRenderers.Add(childRenderer);
                     }
-                }
-                else if (cellObject.TryGetComponent<Renderer>(out var renderer))
-                {
-                    cellRenderers.Add(renderer);
                 }
 
                 var directionSeed = ResolveDoorPassThroughScatterDirectionSeed(i, cellTransform.localPosition);

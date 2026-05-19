@@ -7,15 +7,9 @@ namespace Runtime.Controllers
 {
     internal sealed class BoardPointerGestureController
     {
-        internal interface IMoveHost
-        {
-            bool TryMoveGestureBlock(int blockId, Direction direction, int requestedCellCount, out int movedCellCount,
-                out bool blockCleared);
-        }
-
         private readonly BoardRuntimeState _runtimeState;
         private readonly BoardInput _input;
-        private readonly IMoveHost _moveHost;
+        private readonly IBoardGestureMoveHost _moveHost;
 
         private int _activeGestureBlockId = -1;
         private Vector2 _activeGestureStartBoardPoint;
@@ -24,7 +18,7 @@ namespace Runtime.Controllers
         private bool _activeGestureHasMoved;
 
         public BoardPointerGestureController(BoardRuntimeState runtimeState, BoardInput input,
-            IMoveHost moveHost)
+            IBoardGestureMoveHost moveHost)
         {
             _runtimeState = runtimeState;
             _input = input;

@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     [Serializable]
     public sealed class BlockTypePoolEntry
     {
         public string shapeKey = "Shape_1x1";
-        public List<GameObject> blockObjects = new();
+        public List<BlockPoolBindings> blockBindings = new();
+        [HideInInspector] public List<GameObject> blockObjects = new();
 
         public string ResolvePoolKey()
         {

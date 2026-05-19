@@ -1,7 +1,8 @@
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     [DisallowMultipleComponent]
     public sealed class BlockScenePoolManager : MonoBehaviour
@@ -26,28 +27,45 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [SerializeField] private GameObject backdropObject;
 
         [Header("Door Pool")] [SerializeField]
-        private List<GameObject> doorObjects = new(16);
+        private List<DoorPoolBindings> doorBindings = new(16);
+        [HideInInspector] [SerializeField] private List<GameObject> doorObjects = new(16);
 
         [Header("Block Pools")] [SerializeField]
         private List<BlockTypePoolEntry> blockTypePools = new(20);
 
-        private readonly Dictionary<string, List<GameObject>> _blockObjectsByKey =
+        private readonly Dictionary<string, List<BlockPoolBindings>> _blockBindingsByKey =
             new(System.StringComparer.Ordinal);
 
         public IReadOnlyList<GameObject> GridCellObjects => gridCellObjects;
         public IReadOnlyList<GameObject> BlockedCellObjects => blockedCellObjects;
         public IReadOnlyList<GameObject> BorderObjects => borderObjects;
-        public IReadOnlyList<GameObject> DoorObjects => doorObjects;
-        public IReadOnlyDictionary<string, List<GameObject>> BlockObjectsByKey => _blockObjectsByKey;
+        public IReadOnlyList<DoorPoolBindings> DoorBindings => doorBindings;
+        public IReadOnlyDictionary<string, List<BlockPoolBindings>> BlockBindingsByKey => _blockBindingsByKey;
         public GameObject BackdropObject => backdropObject;
         public int RequiredBoardGridCellCount => TargetBoardPoolWidth * TargetBoardPoolHeight;
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                return;
+            }
+
+            RefreshPools(validateAuthoringTargets: false);
+        }
+#endif
 
         public void RefreshPools(bool validateAuthoringTargets = true)
         {
             SanitizePoolList(gridCellObjects);
             SanitizePoolList(blockedCellObjects);
             SanitizePoolList(borderObjects);
-            SanitizePoolList(doorObjects);
+            SanitizePoolList(doorBindings);
+#if UNITY_EDITOR
+            MigrateLegacyDoorObjects();
+#endif
+            SanitizePoolList(doorBindings);
             SanitizeBlockTypePools();
             RebuildBlockTypeLookup();
 
@@ -74,9 +92,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         public void EnsureDoorPoolSize(int requiredCount)
         {
-            doorObjects ??= new List<GameObject>();
-            SanitizePoolList(doorObjects);
-            WarnIfScenePoolIsShort("door", doorObjects.Count, requiredCount);
+            doorBindings ??= new List<DoorPoolBindings>();
+            SanitizePoolList(doorBindings);
+            WarnIfScenePoolIsShort("door", doorBindings.Count, requiredCount);
         }
 
         public void EnsureBlockPoolSizes(IReadOnlyDictionary<string, int> requiredCountByKey,
@@ -98,7 +116,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     }
 
                     WarnIfScenePoolIsShort($"block root ({poolEntry.ResolvePoolKey()})",
-                        poolEntry.blockObjects?.Count ?? 0, requiredCount);
+                        poolEntry.blockBindings?.Count ?? 0, requiredCount);
                 }
             }
 
@@ -128,8 +146,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                poolEntry.blockObjects ??= new List<GameObject>(TargetBlockPoolCountPerShape);
-                SanitizePoolList(poolEntry.blockObjects);
+                poolEntry.blockBindings ??= new List<BlockPoolBindings>(TargetBlockPoolCountPerShape);
+#if UNITY_EDITOR
+                MigrateLegacyBlockObjects(poolEntry);
+#endif
+                SanitizePoolList(poolEntry.blockBindings);
             }
         }
 
@@ -173,13 +194,13 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 WarnIfScenePoolIsShort($"block root ({poolEntry.ResolvePoolKey()})",
-                    poolEntry.blockObjects?.Count ?? 0, TargetBlockPoolCountPerShape);
+                    poolEntry.blockBindings?.Count ?? 0, TargetBlockPoolCountPerShape);
             }
         }
 
         private void RebuildBlockTypeLookup()
         {
-            _blockObjectsByKey.Clear();
+            _blockBindingsByKey.Clear();
             for (var i = 0; i < blockTypePools.Count; i++)
             {
                 var poolEntry = blockTypePools[i];
@@ -188,18 +209,18 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                poolEntry.blockObjects ??= new List<GameObject>(TargetBlockPoolCountPerShape);
+                poolEntry.blockBindings ??= new List<BlockPoolBindings>(TargetBlockPoolCountPerShape);
                 var poolKey = poolEntry.ResolvePoolKey();
-                if (_blockObjectsByKey.ContainsKey(poolKey))
+                if (_blockBindingsByKey.ContainsKey(poolKey))
                 {
                     continue;
                 }
 
-                _blockObjectsByKey[poolKey] = poolEntry.blockObjects;
+                _blockBindingsByKey[poolKey] = poolEntry.blockBindings;
             }
         }
 
-        private static void SanitizePoolList(List<GameObject> pool)
+        private static void SanitizePoolList<T>(List<T> pool) where T : UnityEngine.Object
         {
             if (pool == null)
             {
@@ -218,10 +239,68 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ValidateAuthoringTargets()
         {
             WarnIfScenePoolIsShort("grid cell", gridCellObjects?.Count ?? 0, RequiredBoardGridCellCount);
-            WarnIfScenePoolIsShort("door", doorObjects?.Count ?? 0, TargetDoorPoolCount);
+            WarnIfScenePoolIsShort("door", doorBindings?.Count ?? 0, TargetDoorPoolCount);
             WarnIfScenePoolIsShort("border", borderObjects?.Count ?? 0, 4);
             WarnIfBlockPoolIsBelowAuthoringMinimum();
         }
+
+#if UNITY_EDITOR
+        private void MigrateLegacyDoorObjects()
+        {
+            if (doorObjects == null || doorObjects.Count == 0)
+            {
+                return;
+            }
+
+            doorBindings ??= new List<DoorPoolBindings>(doorObjects.Count);
+            for (var i = 0; i < doorObjects.Count; i++)
+            {
+                var doorObject = doorObjects[i];
+                if (!doorObject)
+                {
+                    continue;
+                }
+
+                if (!doorObject.TryGetComponent<DoorPoolBindings>(out var doorBinding))
+                {
+                    doorBinding = Undo.AddComponent<DoorPoolBindings>(doorObject);
+                }
+
+                if (doorBinding && !doorBindings.Contains(doorBinding))
+                {
+                    doorBindings.Add(doorBinding);
+                }
+            }
+        }
+
+        private static void MigrateLegacyBlockObjects(BlockTypePoolEntry poolEntry)
+        {
+            if (poolEntry == null || poolEntry.blockObjects == null || poolEntry.blockObjects.Count == 0)
+            {
+                return;
+            }
+
+            poolEntry.blockBindings ??= new List<BlockPoolBindings>(poolEntry.blockObjects.Count);
+            for (var i = 0; i < poolEntry.blockObjects.Count; i++)
+            {
+                var blockObject = poolEntry.blockObjects[i];
+                if (!blockObject)
+                {
+                    continue;
+                }
+
+                if (!blockObject.TryGetComponent<BlockPoolBindings>(out var blockBinding))
+                {
+                    blockBinding = Undo.AddComponent<BlockPoolBindings>(blockObject);
+                }
+
+                if (blockBinding && !poolEntry.blockBindings.Contains(blockBinding))
+                {
+                    poolEntry.blockBindings.Add(blockBinding);
+                }
+            }
+        }
+#endif
 
         private void WarnIfScenePoolIsShort(string poolName, int availableCount, int requiredCount)
         {

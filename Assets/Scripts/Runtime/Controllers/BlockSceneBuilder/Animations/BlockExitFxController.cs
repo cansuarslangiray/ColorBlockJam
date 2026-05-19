@@ -1,24 +1,11 @@
-using System;
 using System.Collections;
-using Runtime.Domain.Models;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Animations
 {
     public sealed class BlockExitFxController
     {
-        public struct ExitSequenceRequest
-        {
-            public BlockRootView BlockView;
-            public DoorOpeningData MatchedDoor;
-            public Vector2Int ResolvedExitDirection;
-            public Action PlayBlockMatchSuccessSfx;
-            public Action<DoorOpeningData> PlayDoorMatchFx;
-            public Func<BlockRootView, DoorOpeningData, Vector2Int, IEnumerator> AnimateBlockDoorExitSequence;
-            public Action<BlockRootView, Vector2Int> PlayBlockExitDisintegrateFx;
-        }
-
-        public IEnumerator PlayClearAndExitSequence(ExitSequenceRequest request)
+        public IEnumerator PlayClearAndExitSequence(BlockExitSequenceRequest request)
         {
             request.PlayBlockMatchSuccessSfx?.Invoke();
             request.PlayDoorMatchFx?.Invoke(request.MatchedDoor);

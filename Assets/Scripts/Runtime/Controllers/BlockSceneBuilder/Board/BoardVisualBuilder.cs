@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Runtime.Controllers.BlockSceneBuilder.Board;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
@@ -9,31 +10,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class BoardVisualBuilder
     {
-        public struct BuildRequest
-        {
-            public IReadOnlyDictionary<Vector2Int, GameObject> GridCellPoolByCell;
-            public IReadOnlyList<GameObject> BlockedCellPool;
-            public IReadOnlyList<Vector2Int> BlockedCells;
-            public IReadOnlyList<GameObject> BorderObjects;
-            public GameObject BackdropObject;
-            public IReadOnlyList<GameObject> DoorPool;
-            public IReadOnlyList<DoorOpeningData> Openings;
-            public Vector2Int GridDimensions;
-            public LayoutMetrics Layout;
-            public float BoardBackdropZOffset;
-            public float BlockedCellZOffset;
-            public float DoorInsetInCells;
-            public Action<GameObject, bool> SetActiveIfChanged;
-            public Action<Transform, Vector3, Vector3> ApplyWorldTransform;
-            public Func<int, GameObject, Transform> ResolveDoorPlacementTransform;
-            public Action<int, bool> StopDoorMatchFxAtIndex;
-            public Action<int, Transform> CacheDoorPlacementBaseLocalPosition;
-            public Func<BlockColor, Material> ResolveMaterial;
-            public Action<int, Material> ApplyDoorMaterialAtIndex;
-            public Action<IReadOnlyList<DoorOpeningData>> CacheActiveDoorOpenings;
-        }
-
-        public void ApplyBoardVisuals(in BuildRequest request)
+        public void ApplyBoardVisuals(in BoardVisualBuildRequest request)
         {
             var gridCellPoolByCell = request.GridCellPoolByCell;
             var gridDimensions = request.GridDimensions;
@@ -88,7 +65,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return cell.x >= minX && cell.y >= minY && cell.x <= maxX && cell.y <= maxY;
         }
 
-        private static void ApplyBlockedCells(in BuildRequest request)
+        private static void ApplyBlockedCells(in BoardVisualBuildRequest request)
         {
             var blockedPool = request.BlockedCellPool;
             var blockedCells = request.BlockedCells;
@@ -124,7 +101,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ApplyBackdrop(in BuildRequest request)
+        private static void ApplyBackdrop(in BoardVisualBuildRequest request)
         {
             var backdropObject = request.BackdropObject;
             var dims = request.GridDimensions;
@@ -159,7 +136,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static void ApplyBorders(in BuildRequest request)
+        private static void ApplyBorders(in BoardVisualBuildRequest request)
         {
             var borderObjects = request.BorderObjects;
             var dims = request.GridDimensions;
@@ -258,7 +235,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             applyWorldTransform?.Invoke(borderObject.transform, position, scale);
         }
 
-        private static void ApplyDoors(in BuildRequest request)
+        private static void ApplyDoors(in BoardVisualBuildRequest request)
         {
             var doorPool = request.DoorPool;
             var openings = request.Openings;

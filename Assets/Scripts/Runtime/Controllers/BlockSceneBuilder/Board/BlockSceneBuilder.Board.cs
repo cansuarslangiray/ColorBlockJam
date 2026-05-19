@@ -1,4 +1,5 @@
 using Runtime.Data;
+using Runtime.Controllers.BlockSceneBuilder.Board;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -12,7 +13,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             BoardRuntimeState.CollectBlockedCellsForLayout(dims, levelData.blockedCells, openings,
                 _resolvedBlockedCells);
 
-            var boardVisualRequest = new BoardVisualBuilder.BuildRequest
+            var boardVisualRequest = new BoardVisualBuildRequest
             {
                 GridCellPoolByCell = _gridCellPoolByCell,
                 BlockedCellPool = _blockedCellPool,

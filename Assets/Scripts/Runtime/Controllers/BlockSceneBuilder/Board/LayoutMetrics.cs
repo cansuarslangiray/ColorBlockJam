@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Board
 {
     public readonly struct LayoutMetrics
     {

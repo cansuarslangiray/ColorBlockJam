@@ -1,6 +1,9 @@
 using System.Collections;
+using Runtime.Controllers.BlockSceneBuilder.Animations;
+using Runtime.Controllers.BlockSceneBuilder.Blocks;
+using Runtime.Controllers.BlockSceneBuilder.Board;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Data;
-using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
 using UnityEngine;
@@ -12,7 +15,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ApplyBlockVisuals(LevelDefinition levelData, in LayoutMetrics layout)
         {
             ReleaseActiveBlockViewsToPool();
-            var blockVisualRequest = new BlockVisualPresenter.BuildRequest
+            var blockVisualRequest = new BlockVisualBuildRequest
             {
                 LevelData = levelData,
                 BoardController = boardController,
@@ -28,8 +31,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 ApplyWorldTransform = ApplyWorldTransform,
                 SetDragHighlightActive = SetDragHighlightActive,
                 CacheBlockOutlineGridLoop = CacheBlockOutlineGridLoop,
-                RefreshDragHighlightBounds = RefreshDragHighlightBounds,
-                ResetBlockAnimatorState = ResetBlockAnimatorState
+                RefreshDragHighlightBounds = RefreshDragHighlightBounds
             };
             _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
 
@@ -38,7 +40,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ReleaseActiveBlockViewsToPool()
         {
-            _blockViewPool.ReleaseAllActive(StopBlockExit, SetActiveIfChanged, ResetBlockTransientFx);
+            _blockViewPool.ReleaseAllActive(StopBlockExit, SetActiveIfChanged,
+                ResetBlockTransientFx);
         }
 
         private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
@@ -49,7 +52,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 ResetBlockTransientFx(blockView);
             }
 
-            _blockViewPool.ReleaseAndRemove(blockId, stopRoutines, StopBlockExit, SetActiveIfChanged);
+            _blockViewPool.ReleaseAndRemove(blockId, stopRoutines, StopBlockExit,
+                SetActiveIfChanged);
         }
 
         private void SubscribeBoardEvents()
@@ -117,7 +121,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SyncBlockToGridPosition(blockView, clearedPosition);
 
             var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
-            var exitFxRequest = new BlockExitFxController.ExitSequenceRequest
+            var exitFxRequest = new BlockExitSequenceRequest
             {
                 BlockView = blockView,
                 MatchedDoor = matchedDoor,
@@ -329,10 +333,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private static Vector2 ResolveDoorWorldCenter(DoorOpeningData matchedDoor, Vector2Int gridDimensions,
             in LayoutMetrics layout)
         {
-            var mappedMinX = MapLogicalToVisualCellIndex(matchedDoor.MinCell.x, gridDimensions.x);
-            var mappedMaxX = MapLogicalToVisualCellIndex(matchedDoor.MaxCell.x, gridDimensions.x);
-            var mappedMinY = MapLogicalToVisualCellIndex(matchedDoor.MinCell.y, gridDimensions.y);
-            var mappedMaxY = MapLogicalToVisualCellIndex(matchedDoor.MaxCell.y, gridDimensions.y);
+            var mappedMinX =
+                MapLogicalToVisualCellIndex(matchedDoor.MinCell.x, gridDimensions.x);
+            var mappedMaxX =
+                MapLogicalToVisualCellIndex(matchedDoor.MaxCell.x, gridDimensions.x);
+            var mappedMinY =
+                MapLogicalToVisualCellIndex(matchedDoor.MinCell.y, gridDimensions.y);
+            var mappedMaxY =
+                MapLogicalToVisualCellIndex(matchedDoor.MaxCell.y, gridDimensions.y);
             var centerX = (mappedMinX + mappedMaxX + 1) * 0.5f;
             var centerY = (mappedMinY + mappedMaxY + 1) * 0.5f;
             return new Vector2(

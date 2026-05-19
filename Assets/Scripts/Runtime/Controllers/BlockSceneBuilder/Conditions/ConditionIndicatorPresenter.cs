@@ -1,36 +1,16 @@
-using System;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 {
-        public sealed class ConditionIndicatorPresenter
-        {
-            private const string ConditionIndicatorObjectName = "ConditionIndicator";
-            private const string HorizontalIndicatorText = "<-->";
-            private const string VerticalIndicatorText = "^\n|\nv";
-
-        public struct RefreshRequest
-        {
-            public BoardController BoardController;
-            public BlockViewRuntimePool BlockViewPool;
-            public float CellSize;
-            public bool ShowBlockConditionIndicators;
-            public float IndicatorCharacterSizeInCells;
-            public int IndicatorFontSize;
-            public Color IndicatorTextColor;
-            public Camera IndicatorCamera;
-            public Action<GameObject, bool> SetActiveIfChanged;
-        }
-
-        public struct BillboardRequest
-        {
-            public bool ShowBlockConditionIndicators;
-            public Camera IndicatorCamera;
-            public BlockViewRuntimePool BlockViewPool;
-        }
+    public sealed class ConditionIndicatorPresenter
+    {
+        private const string ConditionIndicatorObjectName = "ConditionIndicator";
+        private const string HorizontalIndicatorText = "<-->";
+        private const string VerticalIndicatorText = "^\n|\nv";
 
         private int _visibleConditionIndicatorCount;
         private bool _needsConditionBillboardRefresh;
@@ -44,7 +24,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _hasLastIndicatorCameraRotation = false;
         }
 
-        public void RefreshAll(RefreshRequest request)
+        public void RefreshAll(ConditionIndicatorRefreshRequest request)
         {
             var boardController = request.BoardController;
             var blockViewPool = request.BlockViewPool;
@@ -70,7 +50,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             });
 
             _needsConditionBillboardRefresh = _visibleConditionIndicatorCount > 0;
-            UpdateBillboards(new BillboardRequest
+            UpdateBillboards(new ConditionIndicatorBillboardRequest
             {
                 ShowBlockConditionIndicators = request.ShowBlockConditionIndicators,
                 IndicatorCamera = request.IndicatorCamera,
@@ -83,7 +63,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             _needsConditionBillboardRefresh = true;
         }
 
-        public void UpdateBillboards(BillboardRequest request)
+        public void UpdateBillboards(ConditionIndicatorBillboardRequest request)
         {
             var blockViewPool = request.BlockViewPool;
             var indicatorCamera = request.IndicatorCamera;
@@ -121,7 +101,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         }
 
         private void ConfigureConditionIndicator(BlockRootView blockView, RuntimeBlockState runtimeBlock,
-            RefreshRequest request)
+            ConditionIndicatorRefreshRequest request)
         {
             if (!request.ShowBlockConditionIndicators || !ShouldShowConditionIndicator(runtimeBlock))
             {
@@ -169,81 +149,32 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            if (!TryResolveConditionIndicatorFromPool(blockView, out var indicatorObject, out var textMesh))
+            blockView.ConditionIndicatorObject = blockView.PooledConditionIndicatorObject;
+            blockView.ConditionIndicatorText = blockView.PooledConditionIndicatorText;
+            if (!blockView.ConditionIndicatorObject || blockView.ConditionIndicatorText == null)
             {
-                CreateConditionIndicator(blockView, cellSize, indicatorCharacterSizeInCells, indicatorFontSize,
-                    indicatorTextColor, out indicatorObject, out textMesh);
+                if (!blockView.HasLoggedMissingConditionIndicator)
+                {
+                    Debug.LogWarning(
+                        $"Block '{blockView.RootObject.name}' is missing pooled '{ConditionIndicatorObjectName}' TextMesh. Runtime creation is disabled.",
+                        blockView.RootObject);
+                    blockView.HasLoggedMissingConditionIndicator = true;
+                }
+
+                return;
             }
 
-            blockView.ConditionIndicatorObject = indicatorObject;
-            blockView.ConditionIndicatorText = textMesh;
+            blockView.ConditionIndicatorText.anchor = TextAnchor.MiddleCenter;
+            blockView.ConditionIndicatorText.alignment = TextAlignment.Center;
+            blockView.ConditionIndicatorText.characterSize =
+                Mathf.Max(0.01f, indicatorCharacterSizeInCells * cellSize);
+            blockView.ConditionIndicatorText.fontSize = Mathf.Max(8, indicatorFontSize);
+            blockView.ConditionIndicatorText.color = indicatorTextColor;
+            blockView.ConditionIndicatorObject.transform.localPosition = blockView.ConditionIndicatorLocalAnchor;
+            blockView.ConditionIndicatorObject.transform.localRotation = Quaternion.identity;
+            blockView.ConditionIndicatorObject.transform.localScale = Vector3.one;
+            blockView.ConditionIndicatorObject.SetActive(false);
             blockView.HasLoggedMissingConditionIndicator = false;
-        }
-
-        private static bool TryResolveConditionIndicatorFromPool(
-            BlockRootView blockView,
-            out GameObject indicatorObject,
-            out TextMesh textMesh)
-        {
-            indicatorObject = null;
-            textMesh = null;
-            if (blockView?.RootTransform == null)
-            {
-                return false;
-            }
-
-            var meshes = blockView.RootTransform.GetComponentsInChildren<TextMesh>(true);
-            for (var i = 0; i < meshes.Length; i++)
-            {
-                var candidateMesh = meshes[i];
-                if (!candidateMesh)
-                {
-                    continue;
-                }
-
-                var candidateObject = candidateMesh.gameObject;
-                if (!candidateObject)
-                {
-                    continue;
-                }
-
-                if (!string.Equals(candidateObject.name, ConditionIndicatorObjectName, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                indicatorObject = candidateObject;
-                textMesh = candidateMesh;
-                indicatorObject.SetActive(false);
-                return true;
-            }
-
-            return false;
-        }
-
-        private static void CreateConditionIndicator(
-            BlockRootView blockView,
-            float cellSize,
-            float indicatorCharacterSizeInCells,
-            int indicatorFontSize,
-            Color indicatorTextColor,
-            out GameObject indicatorObject,
-            out TextMesh textMesh)
-        {
-            indicatorObject = new GameObject(ConditionIndicatorObjectName);
-            var indicatorTransform = indicatorObject.transform;
-            indicatorTransform.SetParent(blockView.RootTransform, false);
-            indicatorTransform.localPosition = blockView.ConditionIndicatorLocalAnchor;
-            indicatorTransform.localRotation = Quaternion.identity;
-            indicatorTransform.localScale = Vector3.one;
-
-            textMesh = indicatorObject.AddComponent<TextMesh>();
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.characterSize = Mathf.Max(0.01f, indicatorCharacterSizeInCells * cellSize);
-            textMesh.fontSize = Mathf.Max(8, indicatorFontSize);
-            textMesh.color = indicatorTextColor;
-            indicatorObject.SetActive(false);
         }
 
         private string BuildConditionIndicatorText(RuntimeBlockState runtimeBlock)

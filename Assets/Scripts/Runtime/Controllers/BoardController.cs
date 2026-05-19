@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Runtime.Controllers
 {
     [DisallowMultipleComponent]
-    public class BoardController : MonoBehaviour, BoardPointerGestureController.IMoveHost
+    public class BoardController : MonoBehaviour, IBoardGestureMoveHost
     {
         [SerializeField] private float cellSize = 1f;
         [SerializeField, Range(0.01f, 1f)] private float dragActivationInCells = 0.35f;
@@ -26,6 +26,7 @@ namespace Runtime.Controllers
         public Vector2Int GridDimensions => _runtimeState?.GridDimensions ?? Vector2Int.zero;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => new(transform.position.x, transform.position.y);
+        public int RemainingBlockCount => _runtimeState?.ActiveBlockCount ?? 0;
 
         private BoardRuntimeState _runtimeState;
         private BoardInput _input;
@@ -61,6 +62,7 @@ namespace Runtime.Controllers
 
             _runtimeState.Setup(levelData, shapeCatalog);
             RefreshProjectionState();
+            EvaluateCompletionState();
         }
 
         public bool TryBeginPointerGesture(Vector2 pointerPosition)
@@ -94,7 +96,7 @@ namespace Runtime.Controllers
             return _runtimeState != null && _runtimeState.TryGetRuntimeBlock(blockId, out block);
         }
 
-        bool BoardPointerGestureController.IMoveHost.TryMoveGestureBlock(int blockId, Direction direction,
+        bool IBoardGestureMoveHost.TryMoveGestureBlock(int blockId, Direction direction,
             int requestedCellCount, out int movedCellCount, out bool blockCleared)
         {
             movedCellCount = 0;

@@ -1,35 +1,14 @@
 using System;
-using Runtime.Data;
-using Runtime.Domain.Enums;
+using Runtime.Controllers.BlockSceneBuilder.Board;
+using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Domain.Models;
-using Runtime.Helpers;
 using UnityEngine;
 
-namespace Runtime.Controllers.BlockSceneBuilder
+namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 {
     public sealed class BlockVisualPresenter
     {
-        public struct BuildRequest
-        {
-            public LevelDefinition LevelData;
-            public BoardController BoardController;
-            public BlockViewRuntimePool BlockViewPool;
-            public LayoutMetrics Layout;
-            public float BlockCellVisualScale;
-            public Vector3 BlockRootScale;
-            public float IndicatorHeightOffsetInCells;
-            public float IndicatorLocalZOffset;
-            public Func<BlockColor, Material> ResolveMaterial;
-            public Action<BlockRootView, int> EnsureBlockCells;
-            public Action<GameObject, bool> SetActiveIfChanged;
-            public Action<Transform, Vector3, Vector3> ApplyWorldTransform;
-            public Action<BlockRootView, bool> SetDragHighlightActive;
-            public Action<BlockRootView, Vector2Int[]> CacheBlockOutlineGridLoop;
-            public Action<BlockRootView> RefreshDragHighlightBounds;
-            public Action<Animator> ResetBlockAnimatorState;
-        }
-
-        public void ApplyLevelBlockVisuals(in BuildRequest request)
+        public void ApplyLevelBlockVisuals(in BlockVisualBuildRequest request)
         {
             var levelData = request.LevelData;
             var boardController = request.BoardController;
@@ -72,7 +51,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 blockViewPool.MarkActive(i, blockView);
                 request.SetActiveIfChanged?.Invoke(blockView.RootObject, true);
-                request.ResetBlockAnimatorState?.Invoke(blockView.Animator);
             }
         }
 
@@ -83,7 +61,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         }
 
         private static void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState,
-            in BuildRequest request)
+            in BlockVisualBuildRequest request)
         {
             var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
             var cellSize = request.Layout.CellSize;

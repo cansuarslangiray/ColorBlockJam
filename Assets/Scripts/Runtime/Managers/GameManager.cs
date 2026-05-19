@@ -37,6 +37,9 @@ namespace Runtime.Managers
         private bool _boardEventsRegistered;
         private bool _stateEventsRegistered;
         private bool _uiEventsRegistered;
+        private bool _completionHandledForCurrentLevel;
+        private Coroutine _levelCompletionWatchdogRoutine;
+        private Coroutine _transitionRoutine;
 
         protected override void Awake()
         {
@@ -69,7 +72,11 @@ namespace Runtime.Managers
             RegisterEvents();
         }
 
-        private void OnDisable() => UnregisterEvents();
+        private void OnDisable()
+        {
+            UnregisterEvents();
+            StopRuntimeRoutines();
+        }
 
         private void OnApplicationPause(bool pauseStatus)
         {
@@ -143,7 +150,9 @@ namespace Runtime.Managers
         private void InitializeRun()
         {
             _levelProgression.SetCurrentLevelFromSavedNumber(ResolveSavedCurrentLevelNumber());
+            StopRuntimeRoutines();
             _transitionInProgress = false;
+            _completionHandledForCurrentLevel = false;
 
             RefreshStaticUI();
             stateManager.ChangeState(GameState.StartScreen);
@@ -156,6 +165,9 @@ namespace Runtime.Managers
                 return;
             }
 
+            StopRuntimeRoutines();
+            _completionHandledForCurrentLevel = false;
+
             boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
             blockSceneBuilder.BuildForLevel(levelData);
             _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
@@ -165,6 +177,7 @@ namespace Runtime.Managers
             stateManager.ChangeState(GameState.Playing);
             RefreshStaticUI(levelData);
             uiManager.StartLevelTimer(levelData.timeLimit);
+            StartLevelCompletionWatchdog();
         }
 
         private void StartNextLevelOrCompleteRun()
@@ -180,63 +193,65 @@ namespace Runtime.Managers
 
         private void HandleTimerExpired()
         {
-            if (_transitionInProgress)
+            if (_transitionInProgress || _completionHandledForCurrentLevel)
                 return;
 
             FailRun();
         }
 
-        private void OnLevelCompleted()
+        private void OnLevelCompleted() => TryHandleLevelCompletedFlow();
+
+        private void TryHandleLevelCompletedFlow()
         {
-            if (_transitionInProgress)
+            if (_transitionInProgress || _completionHandledForCurrentLevel)
                 return;
 
+            _completionHandledForCurrentLevel = true;
+            StopLevelCompletionWatchdog();
             PersistUnlockedLevelProgress();
+            uiManager.StopLevelTimer();
             if (_levelProgression != null && _levelProgression.TryGetNextLevelData(out _))
             {
-                StartCoroutine(ShowLevelCompletedRoutine());
+                StartTransitionRoutine(ShowLevelCompletedRoutine());
             }
             else
             {
-                StartCoroutine(ShowRunCompletedRoutine());
+                StartTransitionRoutine(ShowRunCompletedRoutine());
             }
         }
 
         private IEnumerator ShowLevelCompletedRoutine()
         {
-            _transitionInProgress = true;
-            uiManager.StopLevelTimer();
-
             if (levelCompletePanelDelay > 0f)
             {
-                yield return new WaitForSeconds(levelCompletePanelDelay);
+                yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
             }
 
             stateManager.ChangeState(GameState.LevelCompleted);
-            _transitionInProgress = false;
         }
 
         private IEnumerator ShowRunCompletedRoutine()
         {
-            _transitionInProgress = true;
-            uiManager.StopLevelTimer();
             if (levelCompletePanelDelay > 0f)
             {
-                yield return new WaitForSeconds(levelCompletePanelDelay);
+                yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
             }
 
             stateManager.ChangeState(GameState.GameCompleted);
-            _transitionInProgress = false;
         }
 
         private void CompleteRun()
         {
+            StopRuntimeRoutines();
+            _completionHandledForCurrentLevel = true;
             uiManager.StopLevelTimer();
             stateManager.ChangeState(GameState.GameCompleted);
         }
 
         private void FailRun()
         {
+            StopRuntimeRoutines();
+            _completionHandledForCurrentLevel = true;
             uiManager.StopLevelTimer();
             audioManager.PlayLevelFail();
             stateManager.ChangeState(GameState.LevelFailed);
@@ -250,6 +265,7 @@ namespace Runtime.Managers
             if (newState != GameState.Playing)
             {
                 uiManager.StopLevelTimer();
+                StopLevelCompletionWatchdog();
             }
         }
 
@@ -307,9 +323,11 @@ namespace Runtime.Managers
 
         private void RestartRunFromFirstLevel()
         {
+            StopRuntimeRoutines();
             _localDataManager?.SetCurrentLevel(1);
             _levelProgression.SetCurrentLevelFromSavedNumber(1);
             _transitionInProgress = false;
+            _completionHandledForCurrentLevel = false;
             StartCurrentLevel();
         }
 
@@ -324,6 +342,84 @@ namespace Runtime.Managers
         }
 
         private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
+
+        private void StartTransitionRoutine(IEnumerator routine)
+        {
+            if (routine == null)
+            {
+                return;
+            }
+
+            if (_transitionRoutine != null)
+            {
+                StopCoroutine(_transitionRoutine);
+            }
+
+            _transitionInProgress = true;
+            _transitionRoutine = StartCoroutine(RunTransitionRoutine(routine));
+        }
+
+        private IEnumerator RunTransitionRoutine(IEnumerator routine)
+        {
+            yield return routine;
+            _transitionRoutine = null;
+            _transitionInProgress = false;
+        }
+
+        private void StartLevelCompletionWatchdog()
+        {
+            StopLevelCompletionWatchdog();
+            if (boardController == null || stateManager == null)
+            {
+                return;
+            }
+
+            _levelCompletionWatchdogRoutine = StartCoroutine(LevelCompletionWatchdogRoutine());
+        }
+
+        private void StopLevelCompletionWatchdog()
+        {
+            if (_levelCompletionWatchdogRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_levelCompletionWatchdogRoutine);
+            _levelCompletionWatchdogRoutine = null;
+        }
+
+        private IEnumerator LevelCompletionWatchdogRoutine()
+        {
+            while (enabled &&
+                   boardController != null &&
+                   stateManager != null &&
+                   stateManager.CurrentState == GameState.Playing &&
+                   !_completionHandledForCurrentLevel)
+            {
+                if (!_transitionInProgress && boardController.RemainingBlockCount <= 0)
+                {
+                    TryHandleLevelCompletedFlow();
+                    break;
+                }
+
+                yield return null;
+            }
+
+            _levelCompletionWatchdogRoutine = null;
+        }
+
+        private void StopRuntimeRoutines()
+        {
+            StopLevelCompletionWatchdog();
+
+            if (_transitionRoutine != null)
+            {
+                StopCoroutine(_transitionRoutine);
+                _transitionRoutine = null;
+            }
+
+            _transitionInProgress = false;
+        }
 
         private int ResolveSavedCurrentLevelNumber()
         {
