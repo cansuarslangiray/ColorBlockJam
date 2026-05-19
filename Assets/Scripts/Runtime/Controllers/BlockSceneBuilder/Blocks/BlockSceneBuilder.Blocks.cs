@@ -34,6 +34,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ReleaseActiveBlockViewsToPool()
         {
+            StopAllBlockConditionUnlockTransitions(clearVisualOverrides: true);
             _blockViewPool.ReleaseAllActive(StopBlockExit, SetActiveIfChanged,
                 ResetBlockTransientFx);
         }
@@ -41,6 +42,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ReleaseActiveBlockView(int blockId, bool stopRoutines = true)
         {
             StopBlockMove(blockId, snapToTarget: false);
+            StopBlockConditionUnlockTransition(blockId, clearVisualOverrides: true);
             if (_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 ResetBlockTransientFx(blockView);
@@ -255,6 +257,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void StopBlockExit(int blockId)
         {
             StopBlockMove(blockId, snapToTarget: false);
+            StopBlockConditionUnlockTransition(blockId, clearVisualOverrides: true);
             if (_blockExitRoutineById.TryGetValue(blockId, out var routine))
             {
                 StopCoroutine(routine);
@@ -270,6 +273,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void StopAllBlockRoutines()
         {
             StopAllBlockMoveRoutines(snapToTargets: true);
+            StopAllBlockConditionUnlockTransitions(clearVisualOverrides: true);
             if (_blockExitRoutineById.Count > 0)
             {
                 foreach (var pair in _blockExitRoutineById)
@@ -320,15 +324,35 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 var isLocked = boardController.IsBlockLocked(blockId);
                 if (blockView.IsUsingLockedAppearance == isLocked)
                 {
+                    if (isLocked)
+                    {
+                        StopBlockConditionUnlockTransition(blockId, clearVisualOverrides: true);
+                        ClearBlockColorOverrides(blockView);
+                        ApplyOutlineDragState(blockView, false, forceWhite: true);
+                    }
+
                     return;
                 }
 
+                var wasLocked = blockView.IsUsingLockedAppearance;
+                StopBlockConditionUnlockTransition(blockId, clearVisualOverrides: true);
                 _blockVisualPresenter.ApplyBlockAppearance(blockView, runtimeBlock, GetMaterial(runtimeBlock.ColorType),
                     isLocked);
                 if (isLocked)
                 {
-                    ApplyOutlineDragState(blockView, false);
+                    ClearBlockColorOverrides(blockView);
+                    ApplyOutlineDragState(blockView, false, forceWhite: true);
+                    return;
                 }
+
+                if (wasLocked)
+                {
+                    StartBlockConditionUnlockTransition(blockId, blockView, runtimeBlock);
+                    return;
+                }
+
+                ClearBlockColorOverrides(blockView);
+                ApplyOutlineDragState(blockView, false);
             });
         }
 

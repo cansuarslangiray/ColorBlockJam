@@ -17,7 +17,10 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public Transform RootTransform { get; }
         public Transform PlacementTransform { get; set; }
         public string PoolKey { get; set; } = "Shape_1x1";
+        public string ShapeKey { get; set; } = string.Empty;
+        public Vector2Int[] ShapeLocalCells { get; set; } = Array.Empty<Vector2Int>();
         public List<GameObject> Cells { get; } = new();
+        public int ActiveCellCount { get; set; }
         public List<Renderer> CellRenderers { get; } = new();
         public List<Renderer[]> CellNestedRenderers { get; } = new();
         public List<Material> CellDefaultMaterials { get; } = new();

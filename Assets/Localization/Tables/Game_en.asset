@@ -90,6 +90,49 @@ MonoBehaviour:
     m_Localized: Language
     m_Metadata:
       m_Items: []
+  - m_Id: 376430609
+    m_Localized: New Feature Unlocked
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430610
+    m_Localized: Next
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430611
+    m_Localized: Timed Exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430612
+    m_Localized: This block must reach the exit within a limited number of moves. The
+      counter decreases after every move. If the counter reaches zero before the block
+      exits, the level fails.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430613
+    m_Localized: Locked Until Clears
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430614
+    m_Localized: This block cannot move at the beginning. A required number of other
+      blocks must exit first. Once the condition is completed, the block becomes active.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430615
+    m_Localized: Horizontal Move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430616
+    m_Localized: This block can only move left and right.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430617
+    m_Localized: Vertical Move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430618
+    m_Localized: This block can only move up and down.
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

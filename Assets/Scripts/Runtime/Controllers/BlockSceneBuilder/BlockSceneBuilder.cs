@@ -46,6 +46,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [Header("Block Indicators")] [SerializeField]
         private bool showBlockConditionIndicators = true;
         [SerializeField] private float conditionIndicatorVerticalMovementRotationDegrees = 90f;
+        [SerializeField, Min(0.05f)] private float minClearedUnlockColorTransitionDuration = 0.16f;
 
         [Header("Door Exit UX")] [SerializeField, Min(0f)]
         private float doorEntryAdvanceInCells = 0.2f;
@@ -68,12 +69,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
+        private readonly Dictionary<int, Coroutine> _blockConditionUnlockTransitionRoutineById = new();
         private readonly Dictionary<int, Vector3> _blockMoveTargetWorldById = new();
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;
         private LayoutMetrics _currentLayout;
         private bool _hasCurrentLayout;
         private MaterialPropertyBlock _fxRendererPropertyBlock;
+        private MaterialPropertyBlock _blockColorPropertyBlock;
 
         private Vector2 BoardOrigin => boardController.BoardOrigin;
         private float CellSize => Mathf.Max(0.01f, boardController.CellSize);
@@ -112,6 +115,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             CacheRequiredBlockRootCounts(levelData);
             StopAllBlockRoutines();
+            ReleaseActiveBlockViewsToPool();
             UnsubscribeBoardEvents();
 
             ConfigurePoolsFromManager(levelData);

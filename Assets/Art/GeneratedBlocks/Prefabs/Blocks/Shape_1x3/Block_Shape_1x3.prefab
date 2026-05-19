@@ -988,6 +988,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   placementTransform: {fileID: 6111574853440626558}
+  shapeKey: Shape_1x3
+  shapeLocalCells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
+  - {x: 0, y: 2}
   cellBindings:
   - cellObject: {fileID: 5844576216593916298}
     primaryRenderer: {fileID: 6985047204196605389}

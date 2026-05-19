@@ -58,7 +58,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
         private static void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState,
             in BlockVisualBuildRequest request)
         {
-            var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
+            var localCells = ResolveVisualLocalCells(blockView, blockState.LocalCells);
             var cellSize = request.Layout.CellSize;
             var resolvedMaterial = request.ResolveMaterial(blockState.ColorType);
             var useLockedAppearance = request.IsBlockLocked?.Invoke(blockState.Id) == true;
@@ -70,6 +70,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             var cells = blockView.Cells;
             var pooledCellCount = cells.Count;
             var activeCellCount = Mathf.Min(localCells.Length, pooledCellCount);
+            blockView.ActiveCellCount = activeCellCount;
 
             for (var i = 0; i < activeCellCount; i++)
             {
@@ -107,8 +108,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 return;
             }
 
-            var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
+            var localCells = ResolveVisualLocalCells(blockView, blockState.LocalCells);
             var activeCellCount = Mathf.Min(localCells.Length, blockView.Cells.Count);
+            blockView.ActiveCellCount = activeCellCount;
             ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
         }
 
@@ -287,6 +289,16 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             return new Vector2(
                 ((minX + maxX + 1) * 0.5f) * cellSize,
                 ((minY + maxY + 1) * 0.5f) * cellSize);
+        }
+
+        private static Vector2Int[] ResolveVisualLocalCells(BlockRootView blockView, Vector2Int[] runtimeLocalCells)
+        {
+            if (blockView?.ShapeLocalCells != null && blockView.ShapeLocalCells.Length > 0)
+            {
+                return blockView.ShapeLocalCells;
+            }
+
+            return runtimeLocalCells ?? Array.Empty<Vector2Int>();
         }
     }
 }

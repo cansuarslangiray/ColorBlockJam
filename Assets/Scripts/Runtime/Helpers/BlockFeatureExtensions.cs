@@ -4,11 +4,6 @@ namespace Runtime.Helpers
 {
     public static class BlockFeatureExtensions
     {
-        private const int LegacyHorizontalFlag = 1;
-        private const int LegacyVerticalFlag = 2;
-        private const int LegacyMaxMovesBeforeExitFlag = 8;
-        private const int LegacyMinClearedBlocksBeforeExitFlag = 16;
-
         public static BlockFeature Sanitize(this BlockFeature feature)
         {
             return feature switch
@@ -18,7 +13,7 @@ namespace Runtime.Helpers
                 BlockFeature.Vertical => BlockFeature.Vertical,
                 BlockFeature.MaxMovesBeforeExit => BlockFeature.MaxMovesBeforeExit,
                 BlockFeature.MinClearedBlocksBeforeExit => BlockFeature.MinClearedBlocksBeforeExit,
-                _ => ResolveLegacyFeature((int)feature)
+                _ => BlockFeature.Default
             };
         }
 
@@ -51,31 +46,6 @@ namespace Runtime.Helpers
             }
 
             return true;
-        }
-
-        private static BlockFeature ResolveLegacyFeature(int rawValue)
-        {
-            if ((rawValue & LegacyMaxMovesBeforeExitFlag) != 0)
-            {
-                return BlockFeature.MaxMovesBeforeExit;
-            }
-
-            if ((rawValue & LegacyMinClearedBlocksBeforeExitFlag) != 0)
-            {
-                return BlockFeature.MinClearedBlocksBeforeExit;
-            }
-
-            if ((rawValue & LegacyHorizontalFlag) != 0)
-            {
-                return BlockFeature.Horizontal;
-            }
-
-            if ((rawValue & LegacyVerticalFlag) != 0)
-            {
-                return BlockFeature.Vertical;
-            }
-
-            return BlockFeature.Default;
         }
     }
 }

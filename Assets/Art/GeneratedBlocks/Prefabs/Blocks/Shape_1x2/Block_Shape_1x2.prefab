@@ -961,6 +961,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   placementTransform: {fileID: 7277104581603794110}
+  shapeKey: Shape_1x2
+  shapeLocalCells:
+  - {x: 0, y: 0}
+  - {x: 0, y: 1}
   cellBindings:
   - cellObject: {fileID: 4980596551163320037}
     primaryRenderer: {fileID: 6717867358496126458}

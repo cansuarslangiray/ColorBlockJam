@@ -87,6 +87,46 @@ MonoBehaviour:
     m_Key: ui.settings.language
     m_Metadata:
       m_Items: []
+  - m_Id: 376430609
+    m_Key: ui.feature_unlocked.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430610
+    m_Key: ui.feature_unlocked.action
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430611
+    m_Key: feature.max_moves_before_exit.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430612
+    m_Key: feature.max_moves_before_exit.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430613
+    m_Key: feature.min_cleared_blocks_before_exit.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430614
+    m_Key: feature.min_cleared_blocks_before_exit.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430615
+    m_Key: feature.horizontal.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430616
+    m_Key: feature.horizontal.description
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430617
+    m_Key: feature.vertical.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430618
+    m_Key: feature.vertical.description
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

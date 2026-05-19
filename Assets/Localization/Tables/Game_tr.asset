@@ -92,6 +92,52 @@ MonoBehaviour:
     m_Localized: Dil
     m_Metadata:
       m_Items: []
+  - m_Id: 376430609
+    m_Localized: "Yeni \xD6zellik A\xE7\u0131ld\u0131"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430610
+    m_Localized: Sonraki
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430611
+    m_Localized: "S\xFCreli \xC7\u0131k\u0131\u015F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430612
+    m_Localized: "Bu block belirli say\u0131da hamle i\xE7inde \xE7\u0131k\u0131\u015F
+      yapmak zorundad\u0131r. Her hareket sonras\u0131 saya\xE7 azal\u0131r. Saya\xE7
+      bitmeden kap\u0131ya ula\u015Ft\u0131r\u0131lmazsa level ba\u015Far\u0131s\u0131z
+      olur."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430613
+    m_Localized: Temizlik Kilidi
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430614
+    m_Localized: "Bu block ba\u015Flang\u0131\xE7ta hareket edemez. \xD6nce belirli
+      say\u0131da ba\u015Fka block'un \xE7\u0131k\u0131\u015F yapmas\u0131 gerekir.
+      Ko\u015Ful tamamlan\u0131nca aktif hale gelir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430615
+    m_Localized: Yatay Hareket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430616
+    m_Localized: "Bu block yaln\u0131zca sa\u011Fa ve sola hareket edebilir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430617
+    m_Localized: Dikey Hareket
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430618
+    m_Localized: "Bu block yaln\u0131zca yukar\u0131 ve a\u015Fa\u011F\u0131 hareket
+      edebilir."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

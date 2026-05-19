@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Runtime.Controllers;
 using Runtime.Controllers.BlockSceneBuilder;
 using Runtime.Core;
@@ -12,6 +13,13 @@ namespace Runtime.Managers
     [DisallowMultipleComponent]
     public class GameManager : SingletonMonoBehaviour<GameManager>
     {
+        private enum FeatureUnlockContinuation
+        {
+            None = 0,
+            StartPreparedLevel = 1,
+            AdvanceToNextLevel = 2
+        }
+
         [Header("Core References")] [SerializeField]
         private LevelCollection levelCollection;
 
@@ -25,6 +33,8 @@ namespace Runtime.Managers
         [Header("Flow Settings")] [SerializeField]
         private float levelCompletePanelDelay = 0.4f;
 
+        [SerializeField, Min(0f)] private float panelTransitionDuration = 0.22f;
+
         [Header("Camera Framing")] [SerializeField] [Min(0)]
         private int closeCameraLevelCount = 2;
 
@@ -37,12 +47,17 @@ namespace Runtime.Managers
         private LevelProgression _levelProgression;
         private GameplayCameraFramer _cameraFramer;
         private LocalDataManager _localDataManager;
+        private PlayerFeatureProgress _playerFeatureProgress;
+        private BlockFeatureDefinitionStore _blockFeatureDefinitionStore;
+        private FeatureUnlockFlowController _featureUnlockFlowController;
         private bool _boardEventsRegistered;
         private bool _stateEventsRegistered;
         private bool _uiEventsRegistered;
         private bool _completionHandledForCurrentLevel;
         private Coroutine _levelCompletionWatchdogRoutine;
         private Coroutine _transitionRoutine;
+        private FeatureUnlockContinuation _featureUnlockContinuation = FeatureUnlockContinuation.None;
+        private LevelDefinition _pendingPreparedLevelForFeatureUnlock;
 
         protected override void Awake()
         {
@@ -95,6 +110,9 @@ namespace Runtime.Managers
         {
             _localDataManager = LocalDataManager.Instance;
             _levelProgression = new LevelProgression(levelCollection);
+            _playerFeatureProgress = new PlayerFeatureProgress(_localDataManager);
+            _blockFeatureDefinitionStore = new BlockFeatureDefinitionStore();
+            _featureUnlockFlowController = new FeatureUnlockFlowController(_playerFeatureProgress, _blockFeatureDefinitionStore);
             _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera, closeCameraLevelCount,
                 closeCameraDistanceMultiplier, this, cameraBoundsPaddingInCells, cameraSafeViewportMargin,
                 cameraTransitionDuration);
@@ -121,6 +139,7 @@ namespace Runtime.Managers
                 uiManager.StartRequested += HandleStartRequested;
                 uiManager.EndGameActionRequested += HandleEndGameActionRequested;
                 uiManager.ReloadRequested += HandleReloadRequested;
+                uiManager.FeatureUnlockedNextRequested += HandleFeatureUnlockedNextRequested;
                 _uiEventsRegistered = true;
             }
         }
@@ -148,6 +167,7 @@ namespace Runtime.Managers
                 uiManager.StartRequested -= HandleStartRequested;
                 uiManager.EndGameActionRequested -= HandleEndGameActionRequested;
                 uiManager.ReloadRequested -= HandleReloadRequested;
+                uiManager.FeatureUnlockedNextRequested -= HandleFeatureUnlockedNextRequested;
             }
 
             _uiEventsRegistered = false;
@@ -159,6 +179,7 @@ namespace Runtime.Managers
             StopRuntimeRoutines();
             _transitionInProgress = false;
             _completionHandledForCurrentLevel = false;
+            ResetFeatureUnlockContinuation();
 
             RefreshStaticUI();
             stateManager.ChangeState(GameState.StartScreen);
@@ -166,23 +187,12 @@ namespace Runtime.Managers
 
         private void StartCurrentLevel()
         {
-            if (!_levelProgression.TryGetCurrentLevelData(out var levelData))
+            if (!TryPrepareCurrentLevel(out var levelData))
             {
                 return;
             }
 
-            StopRuntimeRoutines();
-            _completionHandledForCurrentLevel = false;
-
-            boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
-            _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber, true);
-            blockSceneBuilder.BuildForLevel(levelData);
-            PersistCurrentLevelProgress(levelData);
-
-            stateManager.ChangeState(GameState.Playing);
-            RefreshStaticUI(levelData);
-            uiManager.StartLevelTimer(levelData.timeLimit);
-            StartLevelCompletionWatchdog();
+            EnterPreparedLevel(levelData);
         }
 
         private void StartNextLevelOrCompleteRun()
@@ -225,12 +235,21 @@ namespace Runtime.Managers
             StopLevelCompletionWatchdog();
             PersistUnlockedLevelProgress();
             uiManager.StopLevelTimer();
-            if (_levelProgression.TryGetNextLevelData(out _))
+            if (_levelProgression.TryGetNextLevelData(out var nextLevelData))
             {
+                if (TryPrepareFeatureUnlockForLevel(nextLevelData, out var featureDefinitions))
+                {
+                    ConfigureFeatureUnlockPanel(featureDefinitions, FeatureUnlockContinuation.AdvanceToNextLevel, null);
+                    StartTransitionRoutine(ShowFeatureUnlockedRoutine());
+                    return;
+                }
+
+                ResetFeatureUnlockContinuation();
                 StartTransitionRoutine(ShowLevelCompletedRoutine());
             }
             else
             {
+                ResetFeatureUnlockContinuation();
                 StartTransitionRoutine(ShowRunCompletedRoutine());
             }
         }
@@ -243,6 +262,16 @@ namespace Runtime.Managers
             }
 
             stateManager.ChangeState(GameState.LevelCompleted);
+        }
+
+        private IEnumerator ShowFeatureUnlockedRoutine()
+        {
+            if (levelCompletePanelDelay > 0f)
+            {
+                yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
+            }
+
+            stateManager.ChangeState(GameState.FeatureUnlocked);
         }
 
         private IEnumerator ShowRunCompletedRoutine()
@@ -307,7 +336,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            StartCurrentLevel();
+            StartCurrentLevelFromStartScreen();
         }
 
         private void HandleEndGameActionRequested(GameState newState)
@@ -342,6 +371,7 @@ namespace Runtime.Managers
             _levelProgression.SetCurrentLevelFromSavedNumber(1);
             _transitionInProgress = false;
             _completionHandledForCurrentLevel = false;
+            ResetFeatureUnlockContinuation();
             StartCurrentLevel();
         }
 
@@ -353,6 +383,49 @@ namespace Runtime.Managers
             }
 
             StartCurrentLevel();
+        }
+
+        private void HandleFeatureUnlockedNextRequested()
+        {
+            if (_transitionInProgress || !IsCurrentState(GameState.FeatureUnlocked))
+            {
+                return;
+            }
+
+            uiManager.HideFeatureUnlockedPanel();
+            StartTransitionRoutine(AdvanceFromFeatureUnlockedRoutine());
+        }
+
+        private IEnumerator AdvanceFromFeatureUnlockedRoutine()
+        {
+            if (panelTransitionDuration > 0f)
+            {
+                yield return new WaitForSecondsRealtime(panelTransitionDuration);
+            }
+
+            var continuation = _featureUnlockContinuation;
+            var preparedLevel = _pendingPreparedLevelForFeatureUnlock;
+            ResetFeatureUnlockContinuation();
+
+            switch (continuation)
+            {
+                case FeatureUnlockContinuation.StartPreparedLevel:
+                    if (preparedLevel != null)
+                    {
+                        EnterPreparedLevel(preparedLevel);
+                    }
+                    else
+                    {
+                        StartCurrentLevel();
+                    }
+
+                    yield break;
+                case FeatureUnlockContinuation.AdvanceToNextLevel:
+                case FeatureUnlockContinuation.None:
+                default:
+                    StartNextLevelOrCompleteRun();
+                    yield break;
+            }
         }
 
         private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
@@ -427,6 +500,97 @@ namespace Runtime.Managers
             }
 
             _transitionInProgress = false;
+        }
+
+        private void StartCurrentLevelFromStartScreen()
+        {
+            if (!TryPrepareCurrentLevel(out var levelData))
+            {
+                stateManager.ChangeState(GameState.StartScreen);
+                return;
+            }
+
+            if (TryPrepareFeatureUnlockForLevel(levelData, out var featureDefinitions))
+            {
+                ConfigureFeatureUnlockPanel(featureDefinitions, FeatureUnlockContinuation.StartPreparedLevel, levelData);
+                stateManager.ChangeState(GameState.FeatureUnlocked);
+                return;
+            }
+
+            EnterPreparedLevel(levelData);
+        }
+
+        private bool TryPrepareCurrentLevel(out LevelDefinition levelData)
+        {
+            levelData = null;
+            if (!_levelProgression.TryGetCurrentLevelData(out levelData))
+            {
+                return false;
+            }
+
+            StopRuntimeRoutines();
+            _completionHandledForCurrentLevel = false;
+            ResetFeatureUnlockContinuation();
+            uiManager.ConfigureFeatureUnlockedPanel(null);
+
+            boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
+            _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber, true);
+            blockSceneBuilder.BuildForLevel(levelData);
+            PersistCurrentLevelProgress(levelData);
+            RefreshStaticUI(levelData);
+            return true;
+        }
+
+        private void EnterPreparedLevel(LevelDefinition levelData)
+        {
+            if (levelData == null)
+            {
+                return;
+            }
+
+            ResetFeatureUnlockContinuation();
+            stateManager.ChangeState(GameState.Playing);
+            uiManager.StartLevelTimer(levelData.timeLimit);
+            StartLevelCompletionWatchdog();
+        }
+
+        private bool TryPrepareFeatureUnlockForLevel(LevelDefinition levelData,
+            out IReadOnlyList<BlockFeatureDefinition> featureDefinitions)
+        {
+            featureDefinitions = null;
+            if (_featureUnlockFlowController == null || levelData == null)
+            {
+                return false;
+            }
+
+            if (!_featureUnlockFlowController.TryPrepareFeatureUnlock(levelData, out featureDefinitions) ||
+                featureDefinitions == null ||
+                featureDefinitions.Count <= 0)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        private void ConfigureFeatureUnlockPanel(IReadOnlyList<BlockFeatureDefinition> featureDefinitions,
+            FeatureUnlockContinuation continuation,
+            LevelDefinition preparedLevel)
+        {
+            if (featureDefinitions == null || featureDefinitions.Count <= 0)
+            {
+                ResetFeatureUnlockContinuation();
+                return;
+            }
+
+            _featureUnlockContinuation = continuation;
+            _pendingPreparedLevelForFeatureUnlock = preparedLevel;
+            uiManager.ConfigureFeatureUnlockedPanel(featureDefinitions);
+        }
+
+        private void ResetFeatureUnlockContinuation()
+        {
+            _featureUnlockContinuation = FeatureUnlockContinuation.None;
+            _pendingPreparedLevelForFeatureUnlock = null;
         }
 
         private int ResolveSavedCurrentLevelNumber()

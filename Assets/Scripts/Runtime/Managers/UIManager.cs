@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Runtime.Core;
+using Runtime.Data;
 using Runtime.Domain.Enums;
 using UI.Panels;
 using UnityEngine;
@@ -13,6 +15,7 @@ namespace Runtime.Managers
         [SerializeField] private EndGamePanel endGamePanel;
         [SerializeField] private TopBarPanel topBarPanel;
         [SerializeField] private SettingsPanel settingsPanel;
+        [SerializeField] private FeatureUnlockedPanel featureUnlockedPanel;
         [SerializeField] private StateManager stateManager;
 
         public event Action<GameState> GameStateChanged;
@@ -20,6 +23,7 @@ namespace Runtime.Managers
         public event Action StartRequested;
         public event Action<GameState> EndGameActionRequested;
         public event Action ReloadRequested;
+        public event Action FeatureUnlockedNextRequested;
 
         protected override void Awake()
         {
@@ -29,10 +33,16 @@ namespace Runtime.Managers
                 return;
             }
 
+            if (featureUnlockedPanel == null)
+            {
+                featureUnlockedPanel = FindObjectOfType<FeatureUnlockedPanel>(true);
+            }
+
             startPanel.SubscribeToState(this);
             endGamePanel.SubscribeToState(this);
             topBarPanel.SubscribeToState(this);
             settingsPanel.SubscribeToState(this);
+            featureUnlockedPanel?.SubscribeToState(this);
 
             startPanel.StartRequested += HandleStartRequested;
             endGamePanel.ActionRequested += HandleEndGameActionRequested;
@@ -40,6 +50,10 @@ namespace Runtime.Managers
             topBarPanel.SettingsRequested += HandleSettingsRequested;
             topBarPanel.TimerExpired += HandleTimerExpired;
             settingsPanel.OpenStateChanged += HandleSettingsPanelOpenStateChanged;
+            if (featureUnlockedPanel != null)
+            {
+                featureUnlockedPanel.NextRequested += HandleFeatureUnlockedNextRequested;
+            }
         }
 
         protected override void OnDestroy()
@@ -51,6 +65,12 @@ namespace Runtime.Managers
 
             settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
             settingsPanel.UnsubscribeFromState();
+
+            if (featureUnlockedPanel != null)
+            {
+                featureUnlockedPanel.NextRequested -= HandleFeatureUnlockedNextRequested;
+                featureUnlockedPanel.UnsubscribeFromState();
+            }
 
             endGamePanel.ActionRequested -= HandleEndGameActionRequested;
             endGamePanel.UnsubscribeFromState();
@@ -69,6 +89,11 @@ namespace Runtime.Managers
 
         public void StopLevelTimer() => topBarPanel.StopTimer();
 
+        public void ConfigureFeatureUnlockedPanel(IReadOnlyList<BlockFeatureDefinition> definitions) =>
+            featureUnlockedPanel?.Configure(definitions);
+
+        public void HideFeatureUnlockedPanel() => featureUnlockedPanel?.Hide();
+
         private void PauseLevelTimer() => topBarPanel.PauseTimer();
 
         private void ResumeLevelTimer() => topBarPanel.ResumeTimer();
@@ -85,6 +110,8 @@ namespace Runtime.Managers
         private void HandleSettingsRequested() => settingsPanel.Toggle();
 
         private void HandleTimerExpired() => LevelTimerExpired?.Invoke();
+
+        private void HandleFeatureUnlockedNextRequested() => FeatureUnlockedNextRequested?.Invoke();
 
         private void HandleSettingsPanelOpenStateChanged(bool isOpen)
         {

@@ -9,17 +9,44 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
         private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
         private MaterialPropertyBlock _outlinePropertyBlock;
 
-        public void ApplyOutlineState(BlockRootView blockView, bool isDragActive, float idleDarkenFactor)
+        public void ApplyOutlineState(BlockRootView blockView, bool isDragActive, float idleDarkenFactor,
+            bool forceWhite = false)
         {
-            if (blockView == null)
+            if (!TryResolveOutlineRenderer(blockView, out var outlineRenderer))
             {
                 return;
             }
 
-            var outlineRenderer = blockView.OutlineRenderer;
-            if (!outlineRenderer || !outlineRenderer.gameObject)
+            var nextColor = forceWhite
+                ? ResolveWhiteOutlineColor(blockView.CachedOutlineActiveColor)
+                : isDragActive
+                    ? ResolveDragOutlineColor(blockView.CachedOutlineActiveColor)
+                    : ResolveIdleOutlineColor(blockView, idleDarkenFactor);
+            ApplyOutlineColor(blockView, outlineRenderer, nextColor);
+        }
+
+        public void ApplyOutlineColorOverride(BlockRootView blockView, Color color)
+        {
+            if (!TryResolveOutlineRenderer(blockView, out var outlineRenderer))
             {
                 return;
+            }
+
+            ApplyOutlineColor(blockView, outlineRenderer, color);
+        }
+
+        private static bool TryResolveOutlineRenderer(BlockRootView blockView, out LineRenderer outlineRenderer)
+        {
+            outlineRenderer = null;
+            if (blockView == null)
+            {
+                return false;
+            }
+
+            outlineRenderer = blockView.OutlineRenderer;
+            if (!outlineRenderer || !outlineRenderer.gameObject)
+            {
+                return false;
             }
 
             if (!outlineRenderer.gameObject.activeSelf)
@@ -38,15 +65,17 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 blockView.HasCachedOutlineActiveColor = true;
             }
 
-            var nextColor = isDragActive
-                ? ResolveDragOutlineColor(blockView.CachedOutlineActiveColor)
-                : ResolveIdleOutlineColor(blockView, idleDarkenFactor);
-            ApplyOutlineColor(blockView, outlineRenderer, nextColor);
+            return true;
         }
 
         private static Color ResolveDragOutlineColor(Color activeOutlineColor)
         {
             return new Color(1f, 1f, 1f, Mathf.Max(0.0001f, activeOutlineColor.a));
+        }
+
+        private static Color ResolveWhiteOutlineColor(Color outlineBaseColor)
+        {
+            return new Color(1f, 1f, 1f, Mathf.Max(0.0001f, outlineBaseColor.a));
         }
 
         private static Color ResolveOutlineActiveColor(LineRenderer outlineRenderer)

@@ -139,6 +139,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                     PoolKey = poolKey
                 };
                 blockView.PlacementTransform = rootBinding.PlacementTransform;
+                blockView.ShapeKey = rootBinding.ShapeKey;
+                blockView.ShapeLocalCells = ResolveShapeLocalCells(rootBinding.ShapeLocalCells);
 
                 CacheBlockCellPool(blockView, rootBinding, setActiveIfChanged);
 
@@ -167,6 +169,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             blockView.CellNestedRenderers.Clear();
             blockView.CellDefaultMaterials.Clear();
             blockView.CellNestedDefaultMaterials.Clear();
+            blockView.ActiveCellCount = 0;
             blockView.IsUsingLockedAppearance = false;
             blockView.ConditionIndicatorObject = null;
             blockView.ConditionIndicatorText = null;
@@ -239,6 +242,22 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
         }
 
+        private static Vector2Int[] ResolveShapeLocalCells(IReadOnlyList<Vector2Int> sourceCells)
+        {
+            if (sourceCells == null || sourceCells.Count == 0)
+            {
+                return Array.Empty<Vector2Int>();
+            }
+
+            var result = new Vector2Int[sourceCells.Count];
+            for (var i = 0; i < sourceCells.Count; i++)
+            {
+                result[i] = sourceCells[i];
+            }
+
+            return result;
+        }
+
         private static ParticleSystem[] ResolveDoorExitBurstParticles(ParticleSystem doorExitBurstRoot)
         {
             if (!doorExitBurstRoot)
@@ -293,6 +312,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 stopBlockExit?.Invoke(blockId);
             }
 
+            RestoreDefaultCellMaterials(blockView);
+
             for (var i = 0; i < blockView.Cells.Count; i++)
             {
                 var cellObject = blockView.Cells[i];
@@ -324,6 +345,65 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
             setActiveIfChanged?.Invoke(blockView.RootObject, false);
             GetOrCreateInactivePool(blockView.PoolKey).Add(blockView);
+        }
+
+        private static void RestoreDefaultCellMaterials(BlockRootView blockView)
+        {
+            if (blockView == null)
+            {
+                return;
+            }
+
+            var primaryCount = Mathf.Min(blockView.CellRenderers.Count, blockView.CellDefaultMaterials.Count);
+            for (var i = 0; i < primaryCount; i++)
+            {
+                var renderer = blockView.CellRenderers[i];
+                if (!renderer)
+                {
+                    continue;
+                }
+
+                var defaultMaterial = blockView.CellDefaultMaterials[i];
+                if (renderer.sharedMaterial != defaultMaterial)
+                {
+                    renderer.sharedMaterial = defaultMaterial;
+                }
+
+                renderer.SetPropertyBlock(null);
+            }
+
+            var nestedCount = Mathf.Min(blockView.CellNestedRenderers.Count, blockView.CellNestedDefaultMaterials.Count);
+            for (var i = 0; i < nestedCount; i++)
+            {
+                var nestedRenderers = blockView.CellNestedRenderers[i];
+                if (nestedRenderers == null)
+                {
+                    continue;
+                }
+
+                var nestedDefaultMaterials = blockView.CellNestedDefaultMaterials[i];
+                for (var nestedIndex = 0; nestedIndex < nestedRenderers.Length; nestedIndex++)
+                {
+                    var renderer = nestedRenderers[nestedIndex];
+                    if (!renderer)
+                    {
+                        continue;
+                    }
+
+                    var defaultMaterial =
+                        nestedDefaultMaterials != null && nestedIndex < nestedDefaultMaterials.Length
+                            ? nestedDefaultMaterials[nestedIndex]
+                            : null;
+                    if (renderer.sharedMaterial != defaultMaterial)
+                    {
+                        renderer.sharedMaterial = defaultMaterial;
+                    }
+
+                    renderer.SetPropertyBlock(null);
+                }
+            }
+
+            blockView.IsUsingLockedAppearance = false;
         }
     }
 }

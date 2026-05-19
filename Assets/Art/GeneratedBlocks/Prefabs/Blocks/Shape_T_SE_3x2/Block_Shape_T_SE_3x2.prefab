@@ -1575,6 +1575,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   placementTransform: {fileID: 7511897280087506581}
+  shapeKey: Shape_T_SE_3x2
+  shapeLocalCells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 2, y: 0}
+  - {x: 1, y: 1}
   cellBindings:
   - cellObject: {fileID: 6743113325614667956}
     primaryRenderer: {fileID: 8011702956905967128}

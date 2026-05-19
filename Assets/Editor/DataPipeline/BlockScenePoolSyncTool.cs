@@ -104,6 +104,7 @@ namespace Editor.DataPipeline
             var sceneManagerCount = SyncSceneManagers(shapePrefabsByKey);
             var prefabManagerUpdated = SyncManagerPrefabAsset(shapePrefabsByKey);
             var managersPrefabUpdated = SyncManagersPrefabAsset(shapePrefabsByKey);
+            BlockOutlinePrefabBakeTool.BakeOutlines();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -140,8 +141,10 @@ namespace Editor.DataPipeline
             GameObject templatePrefab, Material defaultBlockMaterial, out bool created)
         {
             created = false;
-            var localCells = shape.GetLocalCells();
-            var requiredCellCount = Mathf.Max(1, localCells?.Length ?? 0);
+            var shapeLocalCells = shape.GetLocalCells();
+            var localCells = shapeLocalCells != null && shapeLocalCells.Length > 0
+                ? shapeLocalCells
+                : new[] { Vector2Int.zero };
 
             if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath))
             {
@@ -149,9 +152,9 @@ namespace Editor.DataPipeline
                 try
                 {
                     prefabRoot.name = $"Block_{shape.ShapeKey}";
-                    EnsureCellCount(prefabRoot.transform, requiredCellCount);
+                    EnsureCellLayout(prefabRoot.transform, localCells);
                     ApplyDefaultBlockVisualSetup(prefabRoot, defaultBlockMaterial);
-                    EnsureBindings(prefabRoot);
+                    EnsureBindings(prefabRoot, shape.ShapeKey, localCells);
                     PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath);
                 }
                 finally
@@ -172,9 +175,9 @@ namespace Editor.DataPipeline
             try
             {
                 instance.name = $"Block_{shape.ShapeKey}";
-                EnsureCellCount(instance.transform, requiredCellCount);
+                EnsureCellLayout(instance.transform, localCells);
                 ApplyDefaultBlockVisualSetup(instance, defaultBlockMaterial);
-                EnsureBindings(instance);
+                EnsureBindings(instance, shape.ShapeKey, localCells);
                 var savedPrefab = PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);
                 created = savedPrefab;
             }
@@ -256,7 +259,7 @@ namespace Editor.DataPipeline
             try
             {
                 ApplyDefaultBlockVisualSetup(prefabRoot, defaultBlockMaterial);
-                EnsureBindings(prefabRoot);
+                EnsureBindings(prefabRoot, "Shape_1x1", new[] { Vector2Int.zero });
                 PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath);
             }
             finally
@@ -375,9 +378,10 @@ namespace Editor.DataPipeline
             return $"{BlockPrefabRootFolder}/{shapeKey}/Block_{shapeKey}.prefab";
         }
 
-        private static void EnsureCellCount(Transform root, int requiredCellCount)
+        private static void EnsureCellLayout(Transform root, IReadOnlyList<Vector2Int> localCells)
         {
-            requiredCellCount = Mathf.Max(1, requiredCellCount);
+            var resolvedCells = localCells != null && localCells.Count > 0 ? localCells : new[] { Vector2Int.zero };
+            var requiredCellCount = Mathf.Max(1, resolvedCells.Count);
             var cells = CollectBlockCells(root);
             if (cells.Count == 0)
             {
@@ -410,6 +414,9 @@ namespace Editor.DataPipeline
                 }
 
                 cell.name = $"{BlockCellNamePrefix}{i}";
+                var targetCell = resolvedCells[Mathf.Min(i, resolvedCells.Count - 1)];
+                var existingLocalPosition = cell.localPosition;
+                cell.localPosition = new Vector3(targetCell.x + 0.5f, targetCell.y + 0.5f, existingLocalPosition.z);
             }
         }
 
@@ -543,7 +550,7 @@ namespace Editor.DataPipeline
             }
         }
 
-        private static void EnsureBindings(GameObject rootObject)
+        private static void EnsureBindings(GameObject rootObject, string shapeKey, IReadOnlyList<Vector2Int> localCells)
         {
             if (!rootObject)
             {
@@ -556,6 +563,7 @@ namespace Editor.DataPipeline
                 bindings = rootObject.AddComponent<BlockPoolBindings>();
             }
 
+            bindings.EditorSetShapeDefinition(shapeKey, localCells);
             bindings.EditorRebuildBindingsFromHierarchy();
             EditorUtility.SetDirty(bindings);
         }

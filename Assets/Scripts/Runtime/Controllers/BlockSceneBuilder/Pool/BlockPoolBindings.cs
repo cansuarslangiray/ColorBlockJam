@@ -15,6 +15,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         private const string DoorExitParticleObjectName = "DoorExitParticle";
 
         [SerializeField] private Transform placementTransform;
+        [SerializeField] private string shapeKey = string.Empty;
+        [SerializeField] private List<Vector2Int> shapeLocalCells = new();
         [SerializeField] private List<BlockPoolCellBinding> cellBindings = new();
         [SerializeField] private TextMesh conditionIndicatorText;
         [SerializeField] private LineRenderer outlineRenderer;
@@ -22,6 +24,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         
         public GameObject RootObject => gameObject;
         public Transform PlacementTransform => placementTransform;
+        public string ShapeKey => string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
+        public IReadOnlyList<Vector2Int> ShapeLocalCells => shapeLocalCells;
         public IReadOnlyList<BlockPoolCellBinding> CellBindings => cellBindings;
         public TextMesh ConditionIndicatorText => conditionIndicatorText;
         public LineRenderer OutlineRenderer => outlineRenderer;
@@ -111,6 +115,15 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 break;
             }
 
+            SanitizeShapeDefinition();
+            EditorUtility.SetDirty(this);
+        }
+
+        public void EditorSetShapeDefinition(string nextShapeKey, IReadOnlyList<Vector2Int> nextLocalCells)
+        {
+            shapeKey = string.IsNullOrWhiteSpace(nextShapeKey) ? string.Empty : nextShapeKey.Trim();
+            shapeLocalCells = nextLocalCells != null ? new List<Vector2Int>(nextLocalCells) : new List<Vector2Int>();
+            SanitizeShapeDefinition();
             EditorUtility.SetDirty(this);
         }
 
@@ -119,5 +132,29 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             RebuildBindings();
         }
 #endif
+
+        private void OnValidate()
+        {
+            SanitizeShapeDefinition();
+        }
+
+        private void SanitizeShapeDefinition()
+        {
+            shapeKey = string.IsNullOrWhiteSpace(shapeKey) ? string.Empty : shapeKey.Trim();
+            shapeLocalCells ??= new List<Vector2Int>();
+            if (shapeLocalCells.Count == 0)
+            {
+                shapeLocalCells.Add(Vector2Int.zero);
+            }
+
+            var uniqueCells = new HashSet<Vector2Int>(shapeLocalCells);
+            shapeLocalCells.Clear();
+            shapeLocalCells.AddRange(uniqueCells);
+            shapeLocalCells.Sort((left, right) =>
+            {
+                var yCompare = left.y.CompareTo(right.y);
+                return yCompare != 0 ? yCompare : left.x.CompareTo(right.x);
+            });
+        }
     }
 }

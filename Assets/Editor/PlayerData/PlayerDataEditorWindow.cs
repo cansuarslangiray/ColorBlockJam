@@ -109,6 +109,12 @@ namespace Editor.PlayerData
                     _manualLevelInput = 1;
                     SaveToDisk();
                 }
+
+                if (GUILayout.Button("Reset Seen Features"))
+                {
+                    _workingData.ClearFeatureProgress();
+                    SaveToDisk();
+                }
             }
         }
 

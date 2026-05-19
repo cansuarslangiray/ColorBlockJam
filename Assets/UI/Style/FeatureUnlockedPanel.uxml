@@ -1,0 +1,21 @@
+<UXML xmlns="UnityEngine.UIElements">
+    <VisualElement name="feature-unlocked-root" class="feature-unlocked-root is-hidden">
+        <Style src="FeatureUnlockedPanel.uss" />
+        <VisualElement name="feature-unlocked-content" class="feature-unlocked-content">
+            <Label name="feature-unlocked-title" class="feature-unlocked-title" view-data-key="ui.feature_unlocked.title" />
+            <VisualElement name="feature-unlocked-icon-row" class="feature-unlocked-icon-row">
+                <VisualElement name="feature-unlocked-feature-icon-1" class="feature-unlocked-feature-icon feature-unlocked-icon-hidden" />
+                <VisualElement name="feature-unlocked-feature-icon-2" class="feature-unlocked-feature-icon feature-unlocked-icon-hidden" />
+            </VisualElement>
+            <VisualElement name="feature-unlocked-item-1" class="feature-unlocked-item feature-unlocked-item-hidden">
+                <Label name="feature-unlocked-feature-title-1" class="feature-unlocked-feature-title" />
+                <Label name="feature-unlocked-feature-description-1" class="feature-unlocked-feature-description" />
+            </VisualElement>
+            <VisualElement name="feature-unlocked-item-2" class="feature-unlocked-item feature-unlocked-item-hidden">
+                <Label name="feature-unlocked-feature-title-2" class="feature-unlocked-feature-title" />
+                <Label name="feature-unlocked-feature-description-2" class="feature-unlocked-feature-description" />
+            </VisualElement>
+            <Button name="feature-unlocked-next" class="feature-unlocked-next" view-data-key="ui.feature_unlocked.action" />
+        </VisualElement>
+    </VisualElement>
+</UXML>

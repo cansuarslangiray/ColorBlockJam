@@ -62,7 +62,7 @@ namespace Editor.DataPipeline
                         continue;
                     }
 
-                    if (!TryCollectCells(bindings.CellBindings, out var cells, out var bounds))
+                    if (!TryCollectShapeCells(bindings.ShapeLocalCells, out var cells, out var bounds))
                     {
                         skippedCount++;
                         continue;
@@ -140,12 +140,12 @@ namespace Editor.DataPipeline
             lineRenderer.colorGradient = gradient;
         }
 
-        private static bool TryCollectCells(IReadOnlyList<BlockPoolCellBinding> cellBindings, out HashSet<Vector2Int> cells,
+        private static bool TryCollectShapeCells(IReadOnlyList<Vector2Int> shapeLocalCells, out HashSet<Vector2Int> cells,
             out RectInt bounds)
         {
             cells = new HashSet<Vector2Int>();
             bounds = default;
-            if (cellBindings == null || cellBindings.Count == 0)
+            if (shapeLocalCells == null || shapeLocalCells.Count == 0)
             {
                 return false;
             }
@@ -155,18 +155,9 @@ namespace Editor.DataPipeline
             var maxX = int.MinValue;
             var maxY = int.MinValue;
 
-            for (var i = 0; i < cellBindings.Count; i++)
+            for (var i = 0; i < shapeLocalCells.Count; i++)
             {
-                var cellObject = cellBindings[i].cellObject;
-                if (!cellObject)
-                {
-                    continue;
-                }
-
-                var localPosition = cellObject.transform.localPosition;
-                var cell = new Vector2Int(
-                    Mathf.RoundToInt(localPosition.x - 0.5f),
-                    Mathf.RoundToInt(localPosition.y - 0.5f));
+                var cell = shapeLocalCells[i];
                 if (!cells.Add(cell))
                 {
                     continue;

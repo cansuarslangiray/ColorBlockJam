@@ -1218,6 +1218,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   placementTransform: {fileID: 6988085951414634229}
+  shapeKey: Shape_L_NE_1x1
+  shapeLocalCells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
   cellBindings:
   - cellObject: {fileID: 6912995448153738221}
     primaryRenderer: {fileID: 7623915057155946370}

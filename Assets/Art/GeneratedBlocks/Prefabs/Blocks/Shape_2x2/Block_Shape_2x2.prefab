@@ -638,6 +638,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   placementTransform: {fileID: 2802374982114111990}
+  shapeKey: Shape_2x2
+  shapeLocalCells:
+  - {x: 0, y: 0}
+  - {x: 1, y: 0}
+  - {x: 0, y: 1}
+  - {x: 1, y: 1}
   cellBindings:
   - cellObject: {fileID: 4444981694624707526}
     primaryRenderer: {fileID: 7036301203742532120}

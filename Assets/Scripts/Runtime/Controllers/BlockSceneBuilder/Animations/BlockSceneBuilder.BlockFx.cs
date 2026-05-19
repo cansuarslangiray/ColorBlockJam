@@ -49,7 +49,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ApplyOutlineDragState(BlockRootView blockView, bool isActive)
         {
-            _blockOutlinePresenter.ApplyOutlineState(blockView, isActive, outlineIdleDarkenFactor);
+            ApplyOutlineDragState(blockView, isActive, forceWhite: false);
+        }
+
+        private void ApplyOutlineDragState(BlockRootView blockView, bool isActive, bool forceWhite)
+        {
+            _blockOutlinePresenter.ApplyOutlineState(blockView, isActive, outlineIdleDarkenFactor, forceWhite);
         }
 
         private void SetBlockCellsActive(BlockRootView blockView, bool isActive)
