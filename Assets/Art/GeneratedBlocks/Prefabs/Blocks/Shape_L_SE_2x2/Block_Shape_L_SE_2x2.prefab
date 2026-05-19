@@ -419,7 +419,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
   m_LocalPosition: {x: 1.5, y: 1.5, z: 0.03}
-  m_LocalScale: {x: 0.8, y: 0.8, z: 0.45}
+  m_LocalScale: {x: 1, y: 1, z: 0.58}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7312763128259852919}
@@ -645,7 +645,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3345874174453230664}
-  m_Text: <-->
+  m_Text: <->
   m_OffsetZ: 0
   m_CharacterSize: 0.16
   m_LineSpacing: 1
@@ -936,7 +936,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
   m_LocalPosition: {x: 1.5, y: 0.5, z: 0.03}
-  m_LocalScale: {x: 0.8, y: 0.8, z: 0.45}
+  m_LocalScale: {x: 1, y: 1, z: 0.58}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1340542645224869452}
@@ -1771,7 +1771,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 1, z: 0, w: -0.00000004371139}
   m_LocalPosition: {x: 0.5, y: 1.5, z: 0.03}
-  m_LocalScale: {x: 0.8, y: 0.8, z: 0.45}
+  m_LocalScale: {x: 1, y: 1, z: 0.58}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8659141667390381709}

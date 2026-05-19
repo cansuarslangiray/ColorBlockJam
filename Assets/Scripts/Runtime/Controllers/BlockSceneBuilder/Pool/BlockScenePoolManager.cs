@@ -12,7 +12,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public const int TargetBoardPoolWidth = 25;
         public const int TargetBoardPoolHeight = 25;
         public const int TargetDoorPoolCount = 16;
-        public const int TargetBlockPoolCountPerShape = 5;
+        public const int TargetBlockPoolCountPerShape = 15;
         private const string BlockPlacementAnchorPrefix = "__BlockPlacementAnchor_";
         private const string DoorPlacementAnchorPrefix = "__DoorPlacementAnchor_";
 
@@ -113,30 +113,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 SanitizePoolList(poolEntry.blockBindings);
             }
         }
-
-        private bool TryGetBlockPoolEntry(string poolKey, out BlockTypePoolEntry entry)
-        {
-            entry = null;
-            if (string.IsNullOrWhiteSpace(poolKey) || blockTypePools == null)
-            {
-                return false;
-            }
-
-            var normalizedPoolKey = poolKey.Trim();
-
-            for (var i = 0; i < blockTypePools.Count; i++)
-            {
-                var poolEntry = blockTypePools[i];
-                if (poolEntry != null &&
-                    string.Equals(poolEntry.ResolvePoolKey(), normalizedPoolKey, System.StringComparison.Ordinal))
-                {
-                    entry = poolEntry;
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        
 
         private void WarnIfBlockPoolIsBelowAuthoringMinimum()
         {
@@ -180,7 +157,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
         }
 
-        private static void SanitizePoolList<T>(List<T> pool) where T : UnityEngine.Object
+        private static void SanitizePoolList<T>(List<T> pool) where T : Object
         {
             if (pool == null)
             {

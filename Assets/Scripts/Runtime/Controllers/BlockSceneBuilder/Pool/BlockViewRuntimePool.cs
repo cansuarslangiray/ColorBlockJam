@@ -6,6 +6,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     public sealed class BlockViewRuntimePool
     {
+        private const string ConditionIndicatorObjectName = "ConditionIndicator";
         private static readonly Renderer[] EmptyRendererArray = Array.Empty<Renderer>();
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
             new(StringComparer.Ordinal);
@@ -106,14 +107,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             _activeBlockRootById.Remove(blockId);
         }
 
-        public void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
-        {
-            if (blockView == null || requiredCellCount <= blockView.Cells.Count)
-            {
-                return;
-            }
-        }
-
         private void AddBlockViewsFromPool(
             string poolKey,
             IReadOnlyList<BlockPoolBindings> sourcePool,
@@ -187,10 +180,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
             var cellBindings = rootBinding.CellBindings;
             var cellCount = cellBindings?.Count ?? 0;
-            if (cellCount <= 0)
-            {
-                return;
-            }
 
             for (var i = 0; i < cellCount; i++)
             {
@@ -215,12 +204,17 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 setActiveIfChanged?.Invoke(cellObject, false);
             }
 
-            blockView.PooledConditionIndicatorText = rootBinding.ConditionIndicatorText;
-            blockView.PooledConditionIndicatorObject = rootBinding.ConditionIndicatorText
-                ? rootBinding.ConditionIndicatorText.gameObject
+            var resolvedIndicatorText =
+                ResolveConditionIndicatorText(rootBinding.ConditionIndicatorText, blockView.RootTransform);
+            blockView.PooledConditionIndicatorText = resolvedIndicatorText;
+            blockView.PooledConditionIndicatorObject = resolvedIndicatorText
+                ? resolvedIndicatorText.gameObject
                 : null;
             blockView.ConditionIndicatorText = blockView.PooledConditionIndicatorText;
             blockView.ConditionIndicatorObject = blockView.PooledConditionIndicatorObject;
+            blockView.ConditionIndicatorBaseCharacterSize = blockView.ConditionIndicatorText != null
+                ? blockView.ConditionIndicatorText.characterSize
+                : 0.16f;
             if (blockView.PooledConditionIndicatorObject)
             {
                 setActiveIfChanged?.Invoke(blockView.PooledConditionIndicatorObject, false);
@@ -241,6 +235,36 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
         }
 
+        private static TextMesh ResolveConditionIndicatorText(TextMesh boundConditionIndicatorText,
+            Transform rootTransform)
+        {
+            if (boundConditionIndicatorText)
+            {
+                return boundConditionIndicatorText;
+            }
+
+            if (rootTransform == null)
+            {
+                return null;
+            }
+
+            var textMeshes = rootTransform.GetComponentsInChildren<TextMesh>(true);
+            for (var i = 0; i < textMeshes.Length; i++)
+            {
+                var textMesh = textMeshes[i];
+                if (!textMesh ||
+                    !textMesh.gameObject ||
+                    !string.Equals(textMesh.gameObject.name, ConditionIndicatorObjectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return textMesh;
+            }
+
+            return null;
+        }
+
         private void Release(
             int blockId,
             BlockRootView blockView,
@@ -257,9 +281,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             {
                 stopBlockExit?.Invoke(blockId);
             }
-
-            blockView.RootTransform.localScale = Vector3.one;
-            blockView.PlacementTransform.localScale = Vector3.one;
 
             for (var i = 0; i < blockView.Cells.Count; i++)
             {

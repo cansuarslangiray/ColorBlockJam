@@ -5,7 +5,6 @@ using Runtime.Controllers.BlockSceneBuilder.Board;
 using Runtime.Controllers.BlockSceneBuilder.Conditions;
 using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Data;
-using Runtime.Domain.Enums;
 using Runtime.Managers;
 using UnityEngine;
 
@@ -28,18 +27,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private float boardCellsZOffset = 0.75f;
 
         [SerializeField] private float boardBackdropZOffset = 0.95f;
-        [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.48f;
-        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.28f;
+        [SerializeField, Min(0.01f)] private float edgeFrameThicknessInCells = 0.36f;
+        [SerializeField, Min(0.01f)] private float edgeFrameDepthInCells = 0.33f;
         [SerializeField, Min(0f)] private float doorInsetInCells = 0.02f;
         [SerializeField, Min(0f)] private float doorDepthBiasFromFrame = 0.02f;
         [SerializeField, Min(0f)] private float blockedCellZOffsetFromGrid = 0.03f;
-
-        [Header("Block Layout")] [SerializeField, Range(0.75f, 1f)]
-        private float blockCellVisualScale = 1f;
-
+        
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
-        [SerializeField] private Vector3 blockRootScale = new(1f, 1f, 0.45f);
-
+        
         [Header("Block Movement")] [SerializeField, Min(2f)]
         private float blockMoveSpeedInCellsPerSecond = 16f;
 
@@ -84,7 +79,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             var cellSize = CellSize;
             var gridZ = Mathf.Abs(boardCellsZOffset);
             // Keep frame outside playable cells without visually reading as +2 grid cells.
-            var frameThicknessInCells = Mathf.Clamp(edgeFrameThicknessInCells, 0.01f, 0.2f);
+            var frameThicknessInCells = Mathf.Clamp(edgeFrameThicknessInCells, 0.01f, 0.6f);
             var frameThickness = frameThicknessInCells * cellSize;
             var frameDepth = Mathf.Max(0.01f, edgeFrameDepthInCells * cellSize * 2f);
             var borderZ = gridZ - 0.01f;

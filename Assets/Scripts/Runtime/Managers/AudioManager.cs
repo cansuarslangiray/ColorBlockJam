@@ -48,10 +48,10 @@ namespace Runtime.Managers
             switch (state)
             {
                 case GameState.Playing:
-                case GameState.LevelCompleted:
-                case GameState.LevelFailed:
                     PlayMusic(gameplayAmbientMusic);
                     return;
+                case GameState.LevelCompleted:
+                case GameState.LevelFailed:
                 case GameState.StartScreen:
                 case GameState.GameCompleted:
                 default:

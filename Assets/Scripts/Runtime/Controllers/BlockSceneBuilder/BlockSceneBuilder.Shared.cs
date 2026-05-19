@@ -24,6 +24,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
             target.localScale = scale;
         }
 
+        private static void ApplyWorldPosition(Transform target, Vector3 position)
+        {
+            target.SetPositionAndRotation(position, Quaternion.identity);
+        }
+
         private Material GetMaterial(BlockColor colorType)
         {
             var materialCount = materialsByColor.Count;

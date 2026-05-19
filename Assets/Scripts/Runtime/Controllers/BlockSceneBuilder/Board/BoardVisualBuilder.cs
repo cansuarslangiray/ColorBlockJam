@@ -10,6 +10,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class BoardVisualBuilder
     {
+        // BlockedCell prefab uses a stylized inner Rim child (0.93 xy, 0.42 z).
+        // We compensate at runtime so blocked tiles fill the grid and match border depth.
+        private const float BlockedOuterRimScaleXY = 0.93f;
+        private const float BlockedOuterRimScaleZ = 0.42f;
+        private const float BlockedNeighborOverlapInCells = 0.02f;
+
         public void ApplyBoardVisuals(in BoardVisualBuildRequest request)
         {
             var gridCellPoolByCell = request.GridCellPoolByCell;
@@ -69,6 +75,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             var blockedPool = request.BlockedCellPool;
             var blockedCells = request.BlockedCells;
+            var layout = request.Layout;
             var poolCount = blockedPool?.Count ?? 0;
             if (poolCount <= 0)
             {
@@ -77,7 +84,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             var blockedCount = blockedCells?.Count ?? 0;
             var activeCount = Mathf.Min(poolCount, blockedCount);
-            var worldZ = request.Layout.GridZ + Mathf.Max(0f, request.BlockedCellZOffset);
+            var worldZ = layout.BorderZ;
+
+            var outerCellFootprint = Mathf.Max(0.01f, layout.CellSize * (1f + BlockedNeighborOverlapInCells));
+            var blockedDepth = Mathf.Max(0.01f, layout.FrameDepth);
+            var blockedScale = new Vector3(
+                outerCellFootprint / BlockedOuterRimScaleXY,
+                outerCellFootprint / BlockedOuterRimScaleXY,
+                blockedDepth / BlockedOuterRimScaleZ);
 
             for (var i = 0; i < poolCount; i++)
             {
@@ -90,8 +104,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 }
 
                 var blockedCell = blockedCells[i];
-                var position = ResolveCellCenterWorld(request.Layout, blockedCell.x, blockedCell.y, worldZ);
-                blockedCellObject.transform.position = position;
+                var position = ResolveCellCenterWorld(layout, blockedCell.x, blockedCell.y, worldZ);
+                if (request.ApplyWorldTransform != null)
+                {
+                    request.ApplyWorldTransform.Invoke(blockedCellObject.transform, position, blockedScale);
+                }
+                else
+                {
+                    blockedCellObject.transform.position = position;
+                    blockedCellObject.transform.localScale = blockedScale;
+                }
             }
         }
 

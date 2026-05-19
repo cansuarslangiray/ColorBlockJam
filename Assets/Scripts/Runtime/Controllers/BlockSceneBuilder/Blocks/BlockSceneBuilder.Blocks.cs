@@ -21,12 +21,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 BoardController = boardController,
                 BlockViewPool = _blockViewPool,
                 Layout = layout,
-                BlockCellVisualScale = blockCellVisualScale,
-                BlockRootScale = blockRootScale,
                 ResolveMaterial = GetMaterial,
-                EnsureBlockCells = EnsureBlockCells,
                 SetActiveIfChanged = SetActiveIfChanged,
-                ApplyWorldTransform = ApplyWorldTransform,
+                ApplyWorldPosition = ApplyWorldPosition,
                 SetDragHighlightActive = SetDragHighlightActive
             };
             _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
@@ -293,19 +290,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ResetBlockTransientFx(BlockRootView blockView)
         {
-            ApplyDoorPassThroughScale(
-                blockView?.DoorPassThroughCellTransformsBuffer,
-                blockView?.DoorPassThroughInitialScalesBuffer,
-                1f);
-            ApplyDoorPassThroughPositions(blockView?.DoorPassThroughCellTransformsBuffer,
-                blockView?.DoorPassThroughInitialPositionsBuffer);
-            ApplyDoorPassThroughRotations(blockView?.DoorPassThroughCellTransformsBuffer,
-                blockView?.DoorPassThroughInitialRotationsBuffer, blockView?.DoorPassThroughScatterRotationBuffer,
-                blockView?.DoorPassThroughScatterDelayBuffer,
-                0f);
+            SetBlockCellsActive(blockView, true);
             SetDragHighlightActive(blockView, false);
             StopDoorExitBurstParticle(blockView);
-            ClearDoorPassThroughVisualOverrides(blockView?.DoorPassThroughCellRendererBuffer);
         }
 
         private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)
@@ -332,11 +319,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return new Vector2(
                 layout.BoardOrigin.x + (centerX * layout.CellSize),
                 layout.BoardOrigin.y + (centerY * layout.CellSize));
-        }
-
-        private void EnsureBlockCells(BlockRootView blockView, int requiredCellCount)
-        {
-            _blockViewPool.EnsureBlockCells(blockView, requiredCellCount);
         }
     }
 }

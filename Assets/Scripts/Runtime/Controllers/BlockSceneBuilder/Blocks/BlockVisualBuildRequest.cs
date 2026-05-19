@@ -13,12 +13,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
         public BoardController BoardController;
         public BlockViewRuntimePool BlockViewPool;
         public LayoutMetrics Layout;
-        public float BlockCellVisualScale;
-        public Vector3 BlockRootScale;
         public Func<BlockColor, Material> ResolveMaterial;
-        public Action<BlockRootView, int> EnsureBlockCells;
         public Action<GameObject, bool> SetActiveIfChanged;
-        public Action<Transform, Vector3, Vector3> ApplyWorldTransform;
+        public Action<Transform, Vector3> ApplyWorldPosition;
         public Action<BlockRootView, bool> SetDragHighlightActive;
     }
 }

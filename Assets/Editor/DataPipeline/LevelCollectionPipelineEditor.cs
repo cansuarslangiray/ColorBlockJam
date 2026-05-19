@@ -1,5 +1,4 @@
 using Runtime.Data;
-using Editor.LevelAuthoring;
 using UnityEditor;
 using UnityEngine;
 
@@ -39,11 +38,6 @@ namespace Editor.DataPipeline
             if (GUILayout.Button("Create Empty Level Asset", GUILayout.Height(24f)))
             {
                 LevelContentPipelineTool.CreateEmptyLevelAsset();
-            }
-
-            if (GUILayout.Button("Sync Shape Prefabs + Pools", GUILayout.Height(24f)))
-            {
-                BlockShapePrefabPipeline.SyncShapePrefabsAndPoolPrefabs();
             }
 
             EditorGUILayout.Space(4f);

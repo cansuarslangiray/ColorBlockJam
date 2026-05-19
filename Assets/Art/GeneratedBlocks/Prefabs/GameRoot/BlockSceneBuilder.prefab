@@ -74,8 +74,8 @@ MonoBehaviour:
     material: {fileID: 2100000, guid: c7d8e9f0a1b27890de45f06712893478, type: 2}
   boardCellsZOffset: 0.74
   boardBackdropZOffset: 0.18
-  edgeFrameThicknessInCells: 0.52
-  edgeFrameDepthInCells: 0.18
+  edgeFrameThicknessInCells: 0.36
+  edgeFrameDepthInCells: 0.33
   doorInsetInCells: 0.01
   doorDepthBiasFromFrame: 0.018
   blockedCellZOffsetFromGrid: 0.03

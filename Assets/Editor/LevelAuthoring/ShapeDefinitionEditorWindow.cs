@@ -133,7 +133,8 @@ namespace Editor.LevelAuthoring
                 EditorGUILayout.LabelField(_isDirty ? "Unsaved" : "Saved",
                     _isDirty ? EditorStyles.boldLabel : EditorStyles.miniLabel);
                 GUILayout.FlexibleSpace();
-                using (new EditorGUI.DisabledScope(_selectedShapeIndex < 0 || _selectedShapeIndex >= _shapeAssets.Count))
+                using (new EditorGUI.DisabledScope(_selectedShapeIndex < 0 ||
+                                                   _selectedShapeIndex >= _shapeAssets.Count))
                 {
                     if (GUILayout.Button("Ping", GUILayout.Height(22f), GUILayout.Width(72f)))
                     {
@@ -234,7 +235,8 @@ namespace Editor.LevelAuthoring
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                _showCoordinateLabels = EditorGUILayout.ToggleLeft("Show Coordinates", _showCoordinateLabels, GUILayout.Width(140f));
+                _showCoordinateLabels =
+                    EditorGUILayout.ToggleLeft("Show Coordinates", _showCoordinateLabels, GUILayout.Width(140f));
                 if (GUILayout.Button("Fit Grid", GUILayout.Width(80f), GUILayout.Height(20f)))
                 {
                     FitEditGridToCells();
@@ -263,14 +265,17 @@ namespace Editor.LevelAuthoring
             EditorGUILayout.LabelField("Create New Shape", EditorStyles.boldLabel);
 
             _newShapeKey = EditorGUILayout.TextField("Shape ID", _newShapeKey);
-            _newShapeUseRectangle = GUILayout.Toolbar(_newShapeUseRectangle ? 0 : 1, new[] { "Rectangle", "Custom Cells" }) == 0;
+            _newShapeUseRectangle =
+                GUILayout.Toolbar(_newShapeUseRectangle ? 0 : 1, new[] { "Rectangle", "Custom Cells" }) == 0;
 
             if (_newShapeUseRectangle)
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    _newRectangleWidth = Mathf.Clamp(EditorGUILayout.IntField("Width", _newRectangleWidth), 1, MaxGridDimension);
-                    _newRectangleHeight = Mathf.Clamp(EditorGUILayout.IntField("Height", _newRectangleHeight), 1, MaxGridDimension);
+                    _newRectangleWidth = Mathf.Clamp(EditorGUILayout.IntField("Width", _newRectangleWidth), 1,
+                        MaxGridDimension);
+                    _newRectangleHeight = Mathf.Clamp(EditorGUILayout.IntField("Height", _newRectangleHeight), 1,
+                        MaxGridDimension);
                 }
 
                 DrawPreviewGrid(_newRectangleWidth, _newRectangleHeight);
@@ -345,7 +350,8 @@ namespace Editor.LevelAuthoring
                 EditorGUILayout.BeginHorizontal();
                 if (showCoordinates)
                 {
-                    GUILayout.Label(y.ToString(), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(24f), GUILayout.Height(GridCellSize));
+                    GUILayout.Label(y.ToString(), EditorStyles.centeredGreyMiniLabel, GUILayout.Width(24f),
+                        GUILayout.Height(GridCellSize));
                 }
 
                 for (var x = 0; x < width; x++)
@@ -506,7 +512,6 @@ namespace Editor.LevelAuthoring
             shape.ApplyImportedData(effectiveShapeKey, _editCells);
             EditorUtility.SetDirty(shape);
             AssetDatabase.SaveAssets();
-            BlockShapePrefabPipeline.SyncForShapeChange();
             _isDirty = false;
             RefreshShapeAssetCache();
             SelectShape(shape);
@@ -537,7 +542,6 @@ namespace Editor.LevelAuthoring
             AssetDatabase.CreateAsset(shape, assetPath);
             EditorUtility.SetDirty(shape);
             AssetDatabase.SaveAssets();
-            BlockShapePrefabPipeline.SyncForShapeChange();
 
             RefreshShapeAssetCache();
             SelectShape(shape);

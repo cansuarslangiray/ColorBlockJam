@@ -8,6 +8,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 {
     public sealed class ConditionIndicatorPresenter
     {
+        private const string IndicatorGlyph = "<->";
         private static readonly Quaternion VerticalIndicatorRotation = Quaternion.Euler(0f, 0f, 90f);
 
         public void RefreshAll(ConditionIndicatorRefreshRequest request)
@@ -28,7 +29,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 
                 ConfigureConditionIndicator(blockView, runtimeBlock, request);
             });
-
         }
 
         private void ConfigureConditionIndicator(BlockRootView blockView, RuntimeBlockState runtimeBlock,
@@ -47,6 +47,11 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
             if (!blockView.ConditionIndicatorObject || blockView.ConditionIndicatorText == null)
             {
                 return;
+            }
+
+            if (!string.Equals(blockView.ConditionIndicatorText.text, IndicatorGlyph, System.StringComparison.Ordinal))
+            {
+                blockView.ConditionIndicatorText.text = IndicatorGlyph;
             }
 
             blockView.ConditionIndicatorObject.transform.localRotation = ResolveIndicatorRotation(runtimeBlock);
@@ -68,6 +73,5 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 
             return Quaternion.identity;
         }
-
     }
 }
