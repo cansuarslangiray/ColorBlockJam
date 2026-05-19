@@ -20,8 +20,49 @@ namespace Editor.LevelAuthoring
             Blocks
         }
 
+        private readonly struct BlockFeatureVisualization
+        {
+            public readonly BlockFeature Feature;
+            public readonly string Badge;
+            public readonly string Label;
+
+            public BlockFeatureVisualization(BlockFeature feature, string badge, string label)
+            {
+                Feature = feature;
+                Badge = badge;
+                Label = label;
+            }
+        }
+
         private static readonly BlockColor[] AllColors = (BlockColor[])Enum.GetValues(typeof(BlockColor));
         private static readonly string[] EditModeLabels = { "Blocked", "Doors", "Blocks" };
+
+        private static readonly BlockFeatureVisualization[] BlockFeatureVisualizations =
+        {
+            new(BlockFeature.Horizontal, "↔", "Horizontal"),
+            new(BlockFeature.Vertical, "↕", "Vertical"),
+            new(BlockFeature.MaxMovesBeforeExit, "M", "MaxMovesBeforeExit"),
+            new(BlockFeature.MinClearedBlocksBeforeExit, "C", "MinClearedBlocksBeforeExit")
+        };
+
+        private static readonly BlockFeature[] BlockFeatureOptions =
+        {
+            BlockFeature.Default,
+            BlockFeature.Horizontal,
+            BlockFeature.Vertical,
+            BlockFeature.MaxMovesBeforeExit,
+            BlockFeature.MinClearedBlocksBeforeExit
+        };
+
+        private static readonly string[] BlockFeatureLabels =
+        {
+            "None (Free)",
+            "Horizontal",
+            "Vertical",
+            "MaxMovesBeforeExit",
+            "MinClearedBlocksBeforeExit"
+        };
+
         private static readonly Color BlockedCellColor = new(0.22f, 0.22f, 0.22f);
         private static readonly Color FrameCellColor = new(0.32f, 0.35f, 0.47f);
         private static readonly Color EmptyCellColor = new(0.89f, 0.9f, 0.92f);
@@ -43,10 +84,13 @@ namespace Editor.LevelAuthoring
         private BlockColor _selectedDoorColor = BlockColor.Red;
         private BlockColor _selectedBlockColor = BlockColor.Red;
         private BlockFeature _selectedBlockFeature = BlockFeature.Default;
+        private int _selectedBlockMaxMovesBeforeExit = 3;
+        private int _selectedBlockMinClearedBlocksBeforeExit = 1;
         private Vector2 _scrollPosition;
         private bool _cacheDirty = true;
         private bool _forceGuiRefreshOnNextOnGUI;
         private string _lastActiveLevelPath = string.Empty;
+        private GUIStyle _featureLegendBadgeStyle;
 
         [MenuItem("Tools/Color Block Jam/Level Editor")]
         private static void OpenWindow()
@@ -66,6 +110,24 @@ namespace Editor.LevelAuthoring
         private void OnDisable()
         {
             EditorApplication.projectChanged -= HandleProjectChanged;
+        }
+
+        private GUIStyle FeatureLegendBadgeStyle
+        {
+            get
+            {
+                if (_featureLegendBadgeStyle != null)
+                {
+                    return _featureLegendBadgeStyle;
+                }
+
+                _featureLegendBadgeStyle = new GUIStyle(EditorStyles.helpBox)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Bold
+                };
+                return _featureLegendBadgeStyle;
+            }
         }
 
         private void OnGUI()
@@ -317,7 +379,8 @@ namespace Editor.LevelAuthoring
                     }
 
                     _selectedBlockColor = DrawAvailableColorPopup(level, "Block Color", _selectedBlockColor);
-                    _selectedBlockFeature = DrawFeatureSelector(_selectedBlockFeature);
+                    DrawBlockFeatureEditor(ref _selectedBlockFeature, ref _selectedBlockMaxMovesBeforeExit,
+                        ref _selectedBlockMinClearedBlocksBeforeExit);
 
                     EditorGUILayout.HelpBox(
                         "Grid'e tıklayınca seçili shape anchor pozisyonuna yerleşir. Border hücrelerine block yerleşmez.",
@@ -342,6 +405,20 @@ namespace Editor.LevelAuthoring
 
             var cellSize = ResolveCellSize(level.gridDimensions);
             var previousColor = GUI.backgroundColor;
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.BeginVertical();
+            DrawGridCells(level, cellSize);
+            EditorGUILayout.EndVertical();
+            GUILayout.Space(10f);
+            DrawBlockFeatureLegend();
+            EditorGUILayout.EndHorizontal();
+
+            GUI.backgroundColor = previousColor;
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawGridCells(LevelDefinition level, float cellSize)
+        {
             for (var y = level.gridDimensions.y - 1; y >= 0; y--)
             {
                 EditorGUILayout.BeginHorizontal();
@@ -358,8 +435,24 @@ namespace Editor.LevelAuthoring
 
                 EditorGUILayout.EndHorizontal();
             }
+        }
 
-            GUI.backgroundColor = previousColor;
+        private void DrawBlockFeatureLegend()
+        {
+            EditorGUILayout.BeginVertical("box", GUILayout.Width(220f), GUILayout.ExpandHeight(false));
+            EditorGUILayout.LabelField("Feature Legend", EditorStyles.boldLabel);
+            for (var i = 0; i < BlockFeatureVisualizations.Length; i++)
+            {
+                var visualization = BlockFeatureVisualizations[i];
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label(visualization.Badge, FeatureLegendBadgeStyle, GUILayout.Width(28f),
+                    GUILayout.Height(18f));
+                EditorGUILayout.LabelField(visualization.Label);
+                EditorGUILayout.EndHorizontal();
+            }
+
+            EditorGUILayout.LabelField("No sign: Default / Free", EditorStyles.miniLabel);
+
             EditorGUILayout.EndVertical();
         }
 
@@ -405,9 +498,13 @@ namespace Editor.LevelAuthoring
 
                 EditorGUI.BeginChangeCheck();
                 var position = EditorGUILayout.Vector2IntField("Anchor", block.position);
-                var shape = EditorGUILayout.ObjectField("Shape", block.shapeDefinition, typeof(BlockShapeDefinition), false) as BlockShapeDefinition;
+                var shape = EditorGUILayout.ObjectField("Shape", block.shapeDefinition, typeof(BlockShapeDefinition),
+                    false) as BlockShapeDefinition;
                 var color = DrawAvailableColorPopup(level, "Color", block.colorType);
-                var features = DrawFeatureSelector(block.blockFeatures);
+                var features = block.blockFeatures;
+                var maxMovesBeforeExit = block.maxMovesBeforeExit;
+                var minClearedBlocksBeforeExit = block.minClearedBlocksBeforeExit;
+                DrawBlockFeatureEditor(ref features, ref maxMovesBeforeExit, ref minClearedBlocksBeforeExit);
 
                 if (EditorGUI.EndChangeCheck())
                 {
@@ -417,6 +514,8 @@ namespace Editor.LevelAuthoring
                     block.shapeKey = shape ? shape.ShapeKey : block.shapeKey;
                     block.colorType = color;
                     block.blockFeatures = features.Sanitize();
+                    block.maxMovesBeforeExit = maxMovesBeforeExit;
+                    block.minClearedBlocksBeforeExit = minClearedBlocksBeforeExit;
                     level.blocks[i] = block;
                     SaveLevelChange(level);
                 }
@@ -522,11 +621,11 @@ namespace Editor.LevelAuthoring
 
         private void ToggleBlock(LevelDefinition level, Vector2Int anchorCell)
         {
-            var existingAnchorIndex = GetBlockIndexByAnchor(level, anchorCell);
-            if (existingAnchorIndex >= 0)
+            var existingBlockIndex = GetBlockIndexAtCell(level, anchorCell);
+            if (existingBlockIndex >= 0)
             {
                 Undo.RecordObject(level, "Remove Block");
-                level.blocks.RemoveAt(existingAnchorIndex);
+                level.blocks.RemoveAt(existingBlockIndex);
                 SaveLevelChange(level);
                 return;
             }
@@ -551,7 +650,9 @@ namespace Editor.LevelAuthoring
                 shapeKey = shape.ShapeKey,
                 shapeDefinition = shape,
                 blockFeatures = _selectedBlockFeature.Sanitize(),
-                colorType = _selectedBlockColor
+                colorType = _selectedBlockColor,
+                maxMovesBeforeExit = _selectedBlockMaxMovesBeforeExit,
+                minClearedBlocksBeforeExit = _selectedBlockMinClearedBlocksBeforeExit
             };
             block.Normalize();
             level.blocks.Add(block);
@@ -656,8 +757,15 @@ namespace Editor.LevelAuthoring
                 blockIndex >= 0 &&
                 blockIndex < level.blocks.Count)
             {
-                color = ResolvePaletteColor(level.blocks[blockIndex].colorType);
+                var block = level.blocks[blockIndex];
+                color = ResolvePaletteColor(block.colorType);
                 color.a = 0.9f;
+                if (block.position == cell)
+                {
+                    var featureSuffix = ResolveFeatureBadgeSuffix(block.blockFeatures);
+                    return string.Concat(blockIndex.ToString(), featureSuffix);
+                }
+
                 return blockIndex.ToString();
             }
 
@@ -695,25 +803,8 @@ namespace Editor.LevelAuthoring
             return _blockIndexByCell.TryGetValue(cell, out var index) ? index : -1;
         }
 
-        private int GetBlockIndexByAnchor(LevelDefinition level, Vector2Int anchor)
-        {
-            if (level.blocks == null)
-            {
-                return -1;
-            }
-
-            for (var i = 0; i < level.blocks.Count; i++)
-            {
-                if (level.blocks[i].position == anchor)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private bool CanPlaceShape(LevelDefinition level, Vector2Int anchor, BlockShapeDefinition shape, int ignoredBlockIndex)
+        private bool CanPlaceShape(LevelDefinition level, Vector2Int anchor, BlockShapeDefinition shape,
+            int ignoredBlockIndex)
         {
             var localCells = shape.GetLocalCells();
             for (var i = 0; i < localCells.Length; i++)
@@ -905,7 +996,8 @@ namespace Editor.LevelAuthoring
             if (level.doors != null)
             {
                 level.doors.RemoveAll(door =>
-                    !IsInGrid(level, door.position) || !IsFrameCell(level, door.position) || DoorOpeningMap.IsCornerCell(door.position, level.gridDimensions));
+                    !IsInGrid(level, door.position) || !IsFrameCell(level, door.position) ||
+                    DoorOpeningMap.IsCornerCell(door.position, level.gridDimensions));
             }
 
             if (level.blocks != null)
@@ -960,31 +1052,68 @@ namespace Editor.LevelAuthoring
             }
         }
 
-        private static BlockFeature DrawFeatureSelector(BlockFeature currentFeature)
+        private static void DrawBlockFeatureEditor(ref BlockFeature features, ref int maxMovesBeforeExit,
+            ref int minClearedBlocksBeforeExit)
         {
-            var currentIndex = FeatureToIndex(currentFeature.Sanitize());
-            var nextIndex = EditorGUILayout.Popup("Movement", currentIndex, new[] { "Default", "Horizontal", "Vertical" });
-            return nextIndex switch
+            features = DrawBlockFeatureSelector(features.Sanitize());
+
+            switch (features)
             {
-                1 => BlockFeature.Horizontal,
-                2 => BlockFeature.Vertical,
-                _ => BlockFeature.Default
-            };
+                case BlockFeature.MaxMovesBeforeExit:
+                    maxMovesBeforeExit = Mathf.Max(1, EditorGUILayout.IntField("Move Limit", maxMovesBeforeExit));
+                    minClearedBlocksBeforeExit = 0;
+                    break;
+                case BlockFeature.MinClearedBlocksBeforeExit:
+                    minClearedBlocksBeforeExit =
+                        Mathf.Max(1, EditorGUILayout.IntField("Required Cleared Blocks", minClearedBlocksBeforeExit));
+                    maxMovesBeforeExit = 0;
+                    break;
+                default:
+                    maxMovesBeforeExit = 0;
+                    minClearedBlocksBeforeExit = 0;
+                    break;
+            }
         }
 
-        private static int FeatureToIndex(BlockFeature feature)
+        private static BlockFeature DrawBlockFeatureSelector(BlockFeature feature)
         {
-            if (feature.HasFeature(BlockFeature.Horizontal))
+            var currentFeature = feature.Sanitize();
+            var currentIndex = Array.IndexOf(BlockFeatureOptions, currentFeature);
+            if (currentIndex < 0)
             {
-                return 1;
+                currentIndex = 0;
             }
 
-            if (feature.HasFeature(BlockFeature.Vertical))
+            var nextIndex = EditorGUILayout.Popup("Block Feature", currentIndex, BlockFeatureLabels);
+            nextIndex = Mathf.Clamp(nextIndex, 0, BlockFeatureOptions.Length - 1);
+            return BlockFeatureOptions[nextIndex];
+        }
+
+        private static BlockFeatureVisualization ResolveFeatureVisualization(BlockFeature feature)
+        {
+            var sanitizedFeature = feature.Sanitize();
+            for (var i = 0; i < BlockFeatureVisualizations.Length; i++)
             {
-                return 2;
+                var visualization = BlockFeatureVisualizations[i];
+                if (visualization.Feature == sanitizedFeature)
+                {
+                    return visualization;
+                }
             }
 
-            return 0;
+            return default;
+        }
+
+        private static string ResolveFeatureBadgeSuffix(BlockFeature feature)
+        {
+            var sanitizedFeature = feature.Sanitize();
+            if (sanitizedFeature == BlockFeature.Default)
+            {
+                return string.Empty;
+            }
+
+            var visualization = ResolveFeatureVisualization(sanitizedFeature);
+            return string.IsNullOrWhiteSpace(visualization.Badge) ? string.Empty : visualization.Badge;
         }
 
         private static BlockColor DrawAvailableColorPopup(LevelDefinition level, string label, BlockColor currentColor)
@@ -992,7 +1121,8 @@ namespace Editor.LevelAuthoring
             var colorOptions = ResolveAvailableColorOptions(level);
             if (colorOptions.Length == 0)
             {
-                EditorGUILayout.HelpBox("Available Colors boş. Önce checkbox ile en az bir renk seç.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Available Colors boş. Önce checkbox ile en az bir renk seç.",
+                    MessageType.Warning);
                 return currentColor;
             }
 
@@ -1087,7 +1217,8 @@ namespace Editor.LevelAuthoring
             level.Sanitize();
 
             var assetPath =
-                AssetDatabase.GenerateUniqueAssetPath($"{LevelContentPipelineTool.LevelDefinitionFolder}/{level.levelKey}.asset");
+                AssetDatabase.GenerateUniqueAssetPath(
+                    $"{LevelContentPipelineTool.LevelDefinitionFolder}/{level.levelKey}.asset");
             AssetDatabase.CreateAsset(level, assetPath);
             EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssets();
@@ -1103,36 +1234,22 @@ namespace Editor.LevelAuthoring
         {
             level.levelNumber = levelNumber;
             level.levelKey = $"Level{levelNumber}";
-
-            var template = ActiveLevel;
-            if (!template)
-            {
-                level.gridDimensions = new Vector2Int(6, 8);
-                level.timeLimit = 60f;
-                return;
-            }
-
-            level.gridDimensions = template.gridDimensions;
-            level.timeLimit = template.timeLimit;
-            level.blockedCells = template.blockedCells != null
-                ? new List<Vector2Int>(template.blockedCells)
-                : new List<Vector2Int>();
-            level.availableColors = template.availableColors != null
-                ? new List<BlockColor>(template.availableColors)
-                : new List<BlockColor>();
-            level.doors = template.doors != null
-                ? new List<DoorData>(template.doors)
-                : new List<DoorData>();
-            level.blocks = template.blocks != null
-                ? new List<LevelBlockEntry>(template.blocks)
-                : new List<LevelBlockEntry>();
+            level.gridDimensions = new Vector2Int(6, 8);
+            level.timeLimit = 60f;
+            level.blockedCells = new List<Vector2Int>();
+            level.availableColors = new List<BlockColor>(AllColors);
+            level.doors = new List<DoorData>();
+            level.blocks = new List<LevelBlockEntry>();
         }
 
-        private void RefreshCaches(bool selectFirstIfEmpty, bool refreshAssetDatabase = false, string preferredLevelPath = null)
+        private void RefreshCaches(bool selectFirstIfEmpty, bool refreshAssetDatabase = false,
+            string preferredLevelPath = null)
         {
             var currentLevelPath = !string.IsNullOrWhiteSpace(preferredLevelPath)
                 ? preferredLevelPath
-                : ActiveLevel ? AssetDatabase.GetAssetPath(ActiveLevel) : string.Empty;
+                : ActiveLevel
+                    ? AssetDatabase.GetAssetPath(ActiveLevel)
+                    : string.Empty;
             var currentShapeKey = SelectedShape ? SelectedShape.ShapeKey : string.Empty;
 
             if (refreshAssetDatabase)

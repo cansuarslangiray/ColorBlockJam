@@ -8,8 +8,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
 {
     public sealed class ConditionIndicatorPresenter
     {
-        private const string IndicatorGlyph = "<->";
-        private static readonly Quaternion VerticalIndicatorRotation = Quaternion.Euler(0f, 0f, 90f);
+        private const string MovementIndicatorText = "<->";
 
         public void RefreshAll(ConditionIndicatorRefreshRequest request)
         {
@@ -17,61 +16,109 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
             var blockViewPool = request.BlockViewPool;
             blockViewPool.ForEachActive((blockId, blockView) =>
             {
-                if (blockView == null || !boardController.TryGetRuntimeBlock(blockId, out var runtimeBlock))
+                if (blockView == null)
                 {
-                    if (blockView?.ConditionIndicatorObject)
-                    {
-                        request.SetActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
-                    }
-
                     return;
                 }
 
-                ConfigureConditionIndicator(blockView, runtimeBlock, request);
+                ConfigureConditionIndicator(blockId, blockView, request);
             });
         }
 
-        private void ConfigureConditionIndicator(BlockRootView blockView, RuntimeBlockState runtimeBlock,
+        private static void ConfigureConditionIndicator(int blockId, BlockRootView blockView,
             ConditionIndicatorRefreshRequest request)
         {
-            if (!request.ShowBlockConditionIndicators || !ShouldShowConditionIndicator(runtimeBlock))
+            if (!request.ShowBlockConditionIndicators || !blockView.ConditionIndicatorObject ||
+                blockView.ConditionIndicatorText == null)
             {
-                if (blockView?.ConditionIndicatorObject)
-                {
-                    request.SetActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
-                }
-
+                HideConditionIndicator(blockView, request);
                 return;
             }
 
-            if (!blockView.ConditionIndicatorObject || blockView.ConditionIndicatorText == null)
+            if (!request.BoardController.TryGetRuntimeBlock(blockId, out var runtimeBlock))
             {
+                HideConditionIndicator(blockView, request);
                 return;
             }
 
-            if (!string.Equals(blockView.ConditionIndicatorText.text, IndicatorGlyph, System.StringComparison.Ordinal))
+            var resolvedIndicatorText = ResolveIndicatorText(request.BoardController, blockId, runtimeBlock);
+            if (string.IsNullOrWhiteSpace(resolvedIndicatorText))
             {
-                blockView.ConditionIndicatorText.text = IndicatorGlyph;
+                HideConditionIndicator(blockView, request);
+                return;
             }
 
-            blockView.ConditionIndicatorObject.transform.localRotation = ResolveIndicatorRotation(runtimeBlock);
+            if (!string.Equals(blockView.ConditionIndicatorText.text, resolvedIndicatorText,
+                    System.StringComparison.Ordinal))
+            {
+                blockView.ConditionIndicatorText.text = resolvedIndicatorText;
+            }
+
+            var indicatorTransform = blockView.ConditionIndicatorObject.transform;
+            if (TryResolveIndicatorRotation(runtimeBlock, blockView.ConditionIndicatorDefaultLocalRotation,
+                    request.VerticalMovementRotationDegrees,
+                    out var targetRotation) &&
+                HasDifferentRotation(indicatorTransform.localRotation, targetRotation))
+            {
+                indicatorTransform.localRotation = targetRotation;
+            }
+
             request.SetActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, true);
         }
 
-        private static bool ShouldShowConditionIndicator(RuntimeBlockState runtimeBlock)
+        private static string ResolveIndicatorText(BoardController boardController, int blockId,
+            RuntimeBlockState runtimeBlock)
         {
-            return runtimeBlock.BlockFeatures != BlockFeature.Default;
-        }
-
-        private static Quaternion ResolveIndicatorRotation(RuntimeBlockState runtimeBlock)
-        {
-            var features = runtimeBlock.BlockFeatures;
-            if (features.HasFeature(BlockFeature.Vertical))
+            if (boardController.TryGetConditionIndicatorState(blockId, out var indicatorState) &&
+                indicatorState.IsVisible &&
+                !string.IsNullOrWhiteSpace(indicatorState.Text))
             {
-                return VerticalIndicatorRotation;
+                return indicatorState.Text;
             }
 
-            return Quaternion.identity;
+            var feature = runtimeBlock.BlockFeatures.Sanitize();
+            return feature switch
+            {
+                BlockFeature.Horizontal => MovementIndicatorText,
+                BlockFeature.Vertical => MovementIndicatorText,
+                BlockFeature.MaxMovesBeforeExit => ResolveFallbackCounterText(runtimeBlock.MaxMovesBeforeExit),
+                BlockFeature.MinClearedBlocksBeforeExit =>
+                    ResolveFallbackCounterText(runtimeBlock.MinClearedBlocksBeforeExit),
+                _ => string.Empty
+            };
+        }
+
+        private static string ResolveFallbackCounterText(int value)
+        {
+            return value > 0 ? value.ToString() : string.Empty;
+        }
+
+        private static bool TryResolveIndicatorRotation(RuntimeBlockState runtimeBlock, Quaternion defaultRotation,
+            float verticalRotationDegrees,
+            out Quaternion targetRotation)
+        {
+            var features = runtimeBlock.BlockFeatures;
+            if (features.IsMovementVertical())
+            {
+                targetRotation = Quaternion.Euler(0f, 0f, verticalRotationDegrees);
+                return true;
+            }
+
+            targetRotation = defaultRotation;
+            return true;
+        }
+
+        private static bool HasDifferentRotation(Quaternion current, Quaternion target)
+        {
+            return Quaternion.Angle(current, target) > 0.01f;
+        }
+
+        private static void HideConditionIndicator(BlockRootView blockView, ConditionIndicatorRefreshRequest request)
+        {
+            if (blockView?.ConditionIndicatorObject)
+            {
+                request.SetActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
+            }
         }
     }
 }

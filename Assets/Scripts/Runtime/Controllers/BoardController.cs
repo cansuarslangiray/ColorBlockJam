@@ -22,16 +22,20 @@ namespace Runtime.Controllers
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
         public event Action<int, bool> BlockDragHighlightChanged;
+        public event Action ConditionStatesChanged;
+        public event Action ConditionFailed;
 
         public Vector2Int GridDimensions => _runtimeState.GridDimensions;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => new(transform.position.x, transform.position.y);
         public int RemainingBlockCount => _runtimeState.ActiveBlockCount;
+        public int TotalMoveCount => _blockConditionService.TotalMoveCount;
 
         private BoardRuntimeState _runtimeState;
         private BoardInput _input;
         private BoardPointerGestureController _pointerGestureController;
         private BoardBlockSlideService _blockSlideService;
+        private BoardBlockConditionService _blockConditionService;
         private bool _levelCompletedRaised;
         private int _highlightedGestureBlockId = -1;
 
@@ -55,6 +59,7 @@ namespace Runtime.Controllers
             ClearGestureHighlight();
 
             _runtimeState.Setup(levelData, shapeCatalog);
+            _blockConditionService.Setup(_runtimeState.RuntimeBlocks);
             RefreshProjectionState();
             EvaluateCompletionState();
         }
@@ -63,6 +68,12 @@ namespace Runtime.Controllers
         {
             if (!_pointerGestureController.TryBeginPointerGesture(pointerPosition, inputCamera, out var blockId))
             {
+                return false;
+            }
+
+            if (_blockConditionService.IsBlockLocked(blockId))
+            {
+                _pointerGestureController.EndPointerGesture();
                 return false;
             }
 
@@ -87,12 +98,24 @@ namespace Runtime.Controllers
             return _runtimeState.TryGetRuntimeBlock(blockId, out block);
         }
 
+        public bool TryGetConditionIndicatorState(int blockId, out BlockConditionIndicatorState indicatorState)
+        {
+            return _blockConditionService.TryGetIndicatorState(blockId, out indicatorState);
+        }
+
+        public bool IsBlockLocked(int blockId) => _blockConditionService.IsBlockLocked(blockId);
+
         bool IBoardGestureMoveHost.TryMoveGestureBlock(int blockId, Direction direction,
             int requestedCellCount, out int movedCellCount, out bool blockCleared)
         {
             movedCellCount = 0;
             blockCleared = false;
             if (requestedCellCount <= 0)
+            {
+                return false;
+            }
+
+            if (_blockConditionService.IsBlockLocked(blockId))
             {
                 return false;
             }
@@ -104,6 +127,8 @@ namespace Runtime.Controllers
 
             movedCellCount = slideResult.MovedCellCount;
             blockCleared = slideResult.ClearedThroughDoor;
+            _blockConditionService.ConsumeSuccessfulMove(slideResult.BlockId, slideResult.ClearedThroughDoor,
+                out var conditionFailed);
 
             if (slideResult.ClearedThroughDoor)
             {
@@ -116,10 +141,19 @@ namespace Runtime.Controllers
                 BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection,
                     slideResult.MatchedDoor);
                 EvaluateCompletionState();
-                return true;
+            }
+            else
+            {
+                BlockMoved?.Invoke(slideResult.BlockId, slideResult.StartPosition, slideResult.EndPosition);
             }
 
-            BlockMoved?.Invoke(slideResult.BlockId, slideResult.StartPosition, slideResult.EndPosition);
+            ConditionStatesChanged?.Invoke();
+
+            if (conditionFailed)
+            {
+                ConditionFailed?.Invoke();
+            }
+
             return true;
         }
 
@@ -142,6 +176,7 @@ namespace Runtime.Controllers
             _blockSlideService =
                 new BoardBlockSlideService(_runtimeState.RuntimeBlocks, _runtimeState.DoorOpenings,
                     _runtimeState.OccupancyMap);
+            _blockConditionService = new BoardBlockConditionService();
         }
 
 

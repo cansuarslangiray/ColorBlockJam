@@ -332,6 +332,5 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             StopDoorExitBurstParticle(blockView);
         }
-
     }
 }

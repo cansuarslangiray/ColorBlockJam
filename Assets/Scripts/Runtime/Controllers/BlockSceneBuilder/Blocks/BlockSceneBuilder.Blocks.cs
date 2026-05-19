@@ -22,13 +22,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 BlockViewPool = _blockViewPool,
                 Layout = layout,
                 ResolveMaterial = GetMaterial,
+                IsBlockLocked = boardController.IsBlockLocked,
                 SetActiveIfChanged = SetActiveIfChanged,
                 ApplyWorldPosition = ApplyWorldPosition,
                 SetDragHighlightActive = SetDragHighlightActive
             };
             _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
 
-            RefreshAllConditionIndicators();
+            RefreshConditionDrivenVisuals();
         }
 
         private void ReleaseActiveBlockViewsToPool()
@@ -57,6 +58,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockCleared += HandleBlockCleared;
             boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
             boardController.BlockDragHighlightChanged += HandleBlockDragHighlightChanged;
+            boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
+            boardController.ConditionStatesChanged += HandleConditionStatesChanged;
         }
 
         private void UnsubscribeBoardEvents()
@@ -64,6 +67,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
+            boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
         }
 
         private void HandleBlockMoved(int blockId, Vector2Int fromPosition, Vector2Int toPosition)
@@ -93,8 +97,11 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SetDragHighlightActive(blockView, false);
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
+        }
 
-            RefreshAllConditionIndicators();
+        private void HandleConditionStatesChanged()
+        {
+            RefreshConditionDrivenVisuals();
         }
 
         private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
@@ -293,6 +300,36 @@ namespace Runtime.Controllers.BlockSceneBuilder
             SetBlockCellsActive(blockView, true);
             SetDragHighlightActive(blockView, false);
             StopDoorExitBurstParticle(blockView);
+        }
+
+        private void RefreshConditionDrivenVisuals()
+        {
+            RefreshBlockConditionAppearances();
+            RefreshAllConditionIndicators();
+        }
+
+        private void RefreshBlockConditionAppearances()
+        {
+            _blockViewPool.ForEachActive((blockId, blockView) =>
+            {
+                if (blockView == null || !boardController.TryGetRuntimeBlock(blockId, out var runtimeBlock))
+                {
+                    return;
+                }
+
+                var isLocked = boardController.IsBlockLocked(blockId);
+                if (blockView.IsUsingLockedAppearance == isLocked)
+                {
+                    return;
+                }
+
+                _blockVisualPresenter.ApplyBlockAppearance(blockView, runtimeBlock, GetMaterial(runtimeBlock.ColorType),
+                    isLocked);
+                if (isLocked)
+                {
+                    SetDragHighlightActive(blockView, false);
+                }
+            });
         }
 
         private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)

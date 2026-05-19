@@ -9,6 +9,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
         public BoardController BoardController;
         public BlockViewRuntimePool BlockViewPool;
         public bool ShowBlockConditionIndicators;
+        public float VerticalMovementRotationDegrees;
         public Action<GameObject, bool> SetActiveIfChanged;
     }
 }

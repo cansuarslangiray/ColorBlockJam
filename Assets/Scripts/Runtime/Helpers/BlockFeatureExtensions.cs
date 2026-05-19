@@ -4,41 +4,78 @@ namespace Runtime.Helpers
 {
     public static class BlockFeatureExtensions
     {
-        private const BlockFeature KnownFeatures =
-            BlockFeature.Horizontal |
-            BlockFeature.Vertical;
+        private const int LegacyHorizontalFlag = 1;
+        private const int LegacyVerticalFlag = 2;
+        private const int LegacyMaxMovesBeforeExitFlag = 8;
+        private const int LegacyMinClearedBlocksBeforeExitFlag = 16;
 
-        public static BlockFeature Sanitize(this BlockFeature features)
+        public static BlockFeature Sanitize(this BlockFeature feature)
         {
-            var sanitized = features & KnownFeatures;
-            if ((sanitized & BlockFeature.Horizontal) != 0 &&
-                (sanitized & BlockFeature.Vertical) != 0)
+            return feature switch
             {
-                sanitized &= ~BlockFeature.Vertical;
-            }
-
-            return sanitized;
+                BlockFeature.Default => BlockFeature.Default,
+                BlockFeature.Horizontal => BlockFeature.Horizontal,
+                BlockFeature.Vertical => BlockFeature.Vertical,
+                BlockFeature.MaxMovesBeforeExit => BlockFeature.MaxMovesBeforeExit,
+                BlockFeature.MinClearedBlocksBeforeExit => BlockFeature.MinClearedBlocksBeforeExit,
+                _ => ResolveLegacyFeature((int)feature)
+            };
         }
 
-        public static bool HasFeature(this BlockFeature features, BlockFeature feature)
+        public static bool HasFeature(this BlockFeature source, BlockFeature feature)
         {
-            return feature != BlockFeature.Default && (features & feature) == feature;
+            return source.Sanitize() == feature;
         }
 
-        public static BlockMovementConstraint ResolveMovementConstraint(this BlockFeature features,
-            BlockMovementConstraint fallback = BlockMovementConstraint.Default)
+        public static bool IsMovementHorizontal(this BlockFeature feature)
         {
-            if (features.HasFeature(BlockFeature.Horizontal))
+            return feature.Sanitize() == BlockFeature.Horizontal;
+        }
+
+        public static bool IsMovementVertical(this BlockFeature feature)
+        {
+            return feature.Sanitize() == BlockFeature.Vertical;
+        }
+
+        public static bool IsDirectionAllowed(this BlockFeature feature, Direction direction)
+        {
+            var sanitizedFeature = feature.Sanitize();
+            if (sanitizedFeature == BlockFeature.Horizontal)
             {
-                return BlockMovementConstraint.Horizontal;
+                return direction is Direction.Left or Direction.Right;
             }
 
-            if (features.HasFeature(BlockFeature.Vertical))
+            if (sanitizedFeature == BlockFeature.Vertical)
             {
-                return BlockMovementConstraint.Vertical;
+                return direction is Direction.Up or Direction.Down;
             }
 
-            return fallback;
+            return true;
+        }
+
+        private static BlockFeature ResolveLegacyFeature(int rawValue)
+        {
+            if ((rawValue & LegacyMaxMovesBeforeExitFlag) != 0)
+            {
+                return BlockFeature.MaxMovesBeforeExit;
+            }
+
+            if ((rawValue & LegacyMinClearedBlocksBeforeExitFlag) != 0)
+            {
+                return BlockFeature.MinClearedBlocksBeforeExit;
+            }
+
+            if ((rawValue & LegacyHorizontalFlag) != 0)
+            {
+                return BlockFeature.Horizontal;
+            }
+
+            if ((rawValue & LegacyVerticalFlag) != 0)
+            {
+                return BlockFeature.Vertical;
+            }
+
+            return BlockFeature.Default;
         }
     }
 }

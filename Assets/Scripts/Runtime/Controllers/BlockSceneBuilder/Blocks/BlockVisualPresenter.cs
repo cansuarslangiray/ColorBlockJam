@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Runtime.Controllers.BlockSceneBuilder.Board;
 using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Domain.Models;
@@ -62,14 +61,13 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
             var cellSize = request.Layout.CellSize;
             var resolvedMaterial = request.ResolveMaterial(blockState.ColorType);
+            var useLockedAppearance = request.IsBlockLocked?.Invoke(blockState.Id) == true;
             blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(resolvedMaterial, out var cachedBlockColor);
             blockView.CachedBlockColor = cachedBlockColor;
 
             blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
 
             var cells = blockView.Cells;
-            var cellRenderers = blockView.CellRenderers;
-            var cellNestedRenderers = blockView.CellNestedRenderers;
             var pooledCellCount = cells.Count;
             var activeCellCount = Mathf.Min(localCells.Length, pooledCellCount);
 
@@ -85,32 +83,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                     cellObject.transform.localPosition = localPosition;
                 }
 
-                if (i < cellRenderers.Count)
-                {
-                    var cellRenderer = cellRenderers[i];
-                    if (cellRenderer && resolvedMaterial && cellRenderer.sharedMaterial != resolvedMaterial)
-                    {
-                        cellRenderer.sharedMaterial = resolvedMaterial;
-                    }
-                }
-
-                if (resolvedMaterial && i < cellNestedRenderers.Count)
-                {
-                    var nestedRenderers = cellNestedRenderers[i];
-                    if (nestedRenderers == null)
-                    {
-                        continue;
-                    }
-
-                    for (var nestedIndex = 0; nestedIndex < nestedRenderers.Length; nestedIndex++)
-                    {
-                        var nestedRenderer = nestedRenderers[nestedIndex];
-                        if (nestedRenderer && nestedRenderer.sharedMaterial != resolvedMaterial)
-                        {
-                            nestedRenderer.sharedMaterial = resolvedMaterial;
-                        }
-                    }
-                }
             }
 
             for (var i = activeCellCount; i < pooledCellCount; i++)
@@ -118,7 +90,113 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 request.SetActiveIfChanged(cells[i], false);
             }
 
-            ApplyConditionIndicatorPlacement(blockView, localCells, cellSize);
+            ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
+        }
+
+        public void ApplyBlockAppearance(BlockRootView blockView, RuntimeBlockState blockState, Material resolvedMaterial,
+            bool useLockedAppearance)
+        {
+            if (blockView == null)
+            {
+                return;
+            }
+
+            var localCells = blockState.LocalCells ?? Array.Empty<Vector2Int>();
+            var activeCellCount = Mathf.Min(localCells.Length, blockView.Cells.Count);
+            ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
+        }
+
+        private static void ApplyBlockAppearance(BlockRootView blockView, Material resolvedMaterial,
+            bool useLockedAppearance, int activeCellCount)
+        {
+            if (blockView == null)
+            {
+                return;
+            }
+
+            var cellRenderers = blockView.CellRenderers;
+            var nestedRenderers = blockView.CellNestedRenderers;
+            var rendererCount = Mathf.Min(activeCellCount, cellRenderers.Count);
+            for (var i = 0; i < rendererCount; i++)
+            {
+                if (!useLockedAppearance && !resolvedMaterial)
+                {
+                    continue;
+                }
+
+                var cellRenderer = cellRenderers[i];
+                var targetMaterial = ResolvePrimaryMaterial(blockView, i, resolvedMaterial, useLockedAppearance);
+                if (cellRenderer && cellRenderer.sharedMaterial != targetMaterial)
+                {
+                    cellRenderer.sharedMaterial = targetMaterial;
+                }
+            }
+
+            var nestedCount = Mathf.Min(activeCellCount, nestedRenderers.Count);
+            for (var i = 0; i < nestedCount; i++)
+            {
+                var nestedRendererSet = nestedRenderers[i];
+                if (nestedRendererSet == null)
+                {
+                    continue;
+                }
+
+                for (var nestedIndex = 0; nestedIndex < nestedRendererSet.Length; nestedIndex++)
+                {
+                    if (!useLockedAppearance && !resolvedMaterial)
+                    {
+                        continue;
+                    }
+
+                    var nestedRenderer = nestedRendererSet[nestedIndex];
+                    var targetMaterial = ResolveNestedMaterial(blockView, i, nestedIndex, resolvedMaterial,
+                        useLockedAppearance);
+                    if (nestedRenderer && nestedRenderer.sharedMaterial != targetMaterial)
+                    {
+                        nestedRenderer.sharedMaterial = targetMaterial;
+                    }
+                }
+            }
+
+            blockView.IsUsingLockedAppearance = useLockedAppearance;
+        }
+
+        private static Material ResolvePrimaryMaterial(BlockRootView blockView, int cellIndex, Material blockMaterial,
+            bool useLockedAppearance)
+        {
+            if (!useLockedAppearance)
+            {
+                return blockMaterial;
+            }
+
+            if (cellIndex < 0 || cellIndex >= blockView.CellDefaultMaterials.Count)
+            {
+                return null;
+            }
+
+            return blockView.CellDefaultMaterials[cellIndex];
+        }
+
+        private static Material ResolveNestedMaterial(BlockRootView blockView, int cellIndex, int nestedIndex,
+            Material blockMaterial, bool useLockedAppearance)
+        {
+            if (!useLockedAppearance)
+            {
+                return blockMaterial;
+            }
+
+            if (cellIndex < 0 || cellIndex >= blockView.CellNestedDefaultMaterials.Count)
+            {
+                return null;
+            }
+
+            var nestedDefaults = blockView.CellNestedDefaultMaterials[cellIndex];
+            if (nestedDefaults == null || nestedIndex < 0 || nestedIndex >= nestedDefaults.Length)
+            {
+                return null;
+            }
+
+            return nestedDefaults[nestedIndex];
         }
 
         private static bool TryResolvePrimaryMaterialColor(Material sourceMaterial, out Color color)
@@ -169,111 +247,5 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 ((minX + maxX + 1) * 0.5f) * cellSize,
                 ((minY + maxY + 1) * 0.5f) * cellSize);
         }
-
-        private static void ApplyConditionIndicatorPlacement(BlockRootView blockView, Vector2Int[] localCells,
-            float cellSize)
-        {
-            if (blockView?.ConditionIndicatorObject == null)
-            {
-                return;
-            }
-
-            var indicatorTransform = blockView.ConditionIndicatorObject.transform;
-            var existingLocalPosition = indicatorTransform.localPosition;
-            var denseAnchor = ResolveDenseIndicatorAnchor(localCells, cellSize);
-            indicatorTransform.localPosition =
-                new Vector3(denseAnchor.x, denseAnchor.y, existingLocalPosition.z);
-        }
-
-        private static Vector2 ResolveDenseIndicatorAnchor(Vector2Int[] localCells, float cellSize)
-        {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return Vector2.zero;
-            }
-
-            var denseCell = ResolveDensestLocalCell(localCells);
-            return new Vector2((denseCell.x + 0.5f) * cellSize, (denseCell.y + 0.5f) * cellSize);
-        }
-
-        private static Vector2Int ResolveDensestLocalCell(Vector2Int[] localCells)
-        {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return Vector2Int.zero;
-            }
-
-            var occupiedCells = new HashSet<Vector2Int>(localCells);
-            var weightedCenter = Vector2.zero;
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var localCell = localCells[i];
-                weightedCenter += new Vector2(localCell.x + 0.5f, localCell.y + 0.5f);
-            }
-
-            weightedCenter /= localCells.Length;
-
-            var bestCell = localCells[0];
-            var bestDensityScore = int.MinValue;
-            var bestDistanceToCenter = float.PositiveInfinity;
-
-            for (var i = 0; i < localCells.Length; i++)
-            {
-                var localCell = localCells[i];
-                var densityScore = ResolveDensityScore(localCell, occupiedCells);
-                var localCellCenter = new Vector2(localCell.x + 0.5f, localCell.y + 0.5f);
-                var distanceToCenter = (localCellCenter - weightedCenter).sqrMagnitude;
-
-                if (densityScore > bestDensityScore ||
-                    (densityScore == bestDensityScore && distanceToCenter < bestDistanceToCenter) ||
-                    (densityScore == bestDensityScore &&
-                     Mathf.Approximately(distanceToCenter, bestDistanceToCenter) &&
-                     IsDeterministicallyPreferred(localCell, bestCell)))
-                {
-                    bestCell = localCell;
-                    bestDensityScore = densityScore;
-                    bestDistanceToCenter = distanceToCenter;
-                }
-            }
-
-            return bestCell;
-        }
-
-        private static int ResolveDensityScore(Vector2Int origin, HashSet<Vector2Int> occupiedCells)
-        {
-            var score = 0;
-            for (var deltaY = -1; deltaY <= 1; deltaY++)
-            {
-                for (var deltaX = -1; deltaX <= 1; deltaX++)
-                {
-                    var sampleCell = new Vector2Int(origin.x + deltaX, origin.y + deltaY);
-                    if (!occupiedCells.Contains(sampleCell))
-                    {
-                        continue;
-                    }
-
-                    if (deltaX == 0 && deltaY == 0)
-                    {
-                        score += 6;
-                        continue;
-                    }
-
-                    score += deltaX == 0 || deltaY == 0 ? 3 : 1;
-                }
-            }
-
-            return score;
-        }
-
-        private static bool IsDeterministicallyPreferred(Vector2Int candidate, Vector2Int currentBest)
-        {
-            if (candidate.y != currentBest.y)
-            {
-                return candidate.y < currentBest.y;
-            }
-
-            return candidate.x < currentBest.x;
-        }
-
     }
 }

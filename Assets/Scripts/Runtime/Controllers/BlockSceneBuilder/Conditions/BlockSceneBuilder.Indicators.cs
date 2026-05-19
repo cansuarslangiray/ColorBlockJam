@@ -11,6 +11,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 BoardController = boardController,
                 BlockViewPool = _blockViewPool,
                 ShowBlockConditionIndicators = showBlockConditionIndicators,
+                VerticalMovementRotationDegrees = conditionIndicatorVerticalMovementRotationDegrees,
                 SetActiveIfChanged = SetActiveIfChanged
             };
             _conditionIndicatorPresenter.RefreshAll(indicatorRefreshRequest);

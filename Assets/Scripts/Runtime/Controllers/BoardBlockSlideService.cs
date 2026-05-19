@@ -29,8 +29,7 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            var movementConstraint = block.BlockFeatures.ResolveMovementConstraint();
-            if (!IsDirectionAllowed(movementConstraint, direction))
+            if (!block.BlockFeatures.IsDirectionAllowed(direction))
             {
                 return false;
             }
@@ -189,19 +188,6 @@ namespace Runtime.Controllers
             }
             doorExit = resolvedDoor;
             return true;
-        }
-
-        private static bool IsDirectionAllowed(BlockMovementConstraint movementConstraint, Direction direction)
-        {
-            switch (movementConstraint)
-            {
-                case BlockMovementConstraint.Horizontal:
-                    return direction is Direction.Left or Direction.Right;
-                case BlockMovementConstraint.Vertical:
-                    return direction is Direction.Up or Direction.Down;
-                default:
-                    return true;
-            }
         }
     }
 }

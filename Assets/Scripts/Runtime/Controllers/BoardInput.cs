@@ -61,31 +61,6 @@ namespace Runtime.Controllers
             return true;
         }
 
-        public bool TryResolveDragAxis(Vector2 delta, BlockMovementConstraint movementConstraint, out GestureAxis axis)
-        {
-            axis = movementConstraint switch
-            {
-                BlockMovementConstraint.Horizontal => GestureAxis.Horizontal,
-                BlockMovementConstraint.Vertical => GestureAxis.Vertical,
-                _ => GestureAxis.None
-            };
-
-            if (axis != GestureAxis.None)
-            {
-                return true;
-            }
-
-            var absX = Mathf.Abs(delta.x);
-            var absY = Mathf.Abs(delta.y);
-            if (IsBelowDirectionDeadZone(absX, absY))
-            {
-                return false;
-            }
-
-            axis = absX >= absY ? GestureAxis.Horizontal : GestureAxis.Vertical;
-            return true;
-        }
-
         public bool TryResolveDominantDirection(Vector2 delta, out Direction direction)
         {
             direction = default;

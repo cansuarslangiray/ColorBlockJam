@@ -1,5 +1,4 @@
 using Runtime.Domain.Enums;
-using Runtime.Domain.Models;
 using Runtime.Helpers;
 using UnityEngine;
 
@@ -63,14 +62,13 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            var movementConstraint =
-                activeBlock.BlockFeatures.ResolveMovementConstraint();
-            if (movementConstraint == BlockMovementConstraint.Default)
+            var constrainedAxis = ResolveConstrainedAxis(activeBlock.BlockFeatures);
+            if (constrainedAxis == GestureAxis.None)
             {
                 return TryUpdateFreePointerGesture(boardWorldPoint);
             }
 
-            return TryUpdateConstrainedPointerGesture(activeBlock, movementConstraint, boardWorldPoint);
+            return TryUpdateConstrainedPointerGesture(constrainedAxis, boardWorldPoint);
         }
 
         public void EndPointerGesture()
@@ -82,18 +80,17 @@ namespace Runtime.Controllers
             _activeGestureHasMoved = false;
         }
 
-        private bool TryUpdateConstrainedPointerGesture(RuntimeBlockState activeBlock,
-            BlockMovementConstraint movementConstraint, Vector2 boardWorldPoint)
+        private bool TryUpdateConstrainedPointerGesture(GestureAxis constrainedAxis, Vector2 boardWorldPoint)
         {
             var deltaFromGestureStart = boardWorldPoint - _activeGestureStartBoardPoint;
             if (_activeGestureAxis == GestureAxis.None)
             {
-                if (deltaFromGestureStart.sqrMagnitude < _input.DragActivationDistanceSqr ||
-                    !_input.TryResolveDragAxis(deltaFromGestureStart, movementConstraint,
-                        out _activeGestureAxis))
+                if (deltaFromGestureStart.sqrMagnitude < _input.DragActivationDistanceSqr)
                 {
                     return false;
                 }
+
+                _activeGestureAxis = constrainedAxis;
             }
 
             var axisDelta = _activeGestureAxis == GestureAxis.Horizontal ? deltaFromGestureStart.x : deltaFromGestureStart.y;
@@ -115,6 +112,21 @@ namespace Runtime.Controllers
             _activeGestureHasMoved = true;
             _activeGestureAppliedStepCount += movedCellCount * stepSign;
             return true;
+        }
+
+        private static GestureAxis ResolveConstrainedAxis(BlockFeature feature)
+        {
+            if (feature.IsMovementHorizontal())
+            {
+                return GestureAxis.Horizontal;
+            }
+
+            if (feature.IsMovementVertical())
+            {
+                return GestureAxis.Vertical;
+            }
+
+            return GestureAxis.None;
         }
 
         private bool TryUpdateFreePointerGesture(Vector2 boardWorldPoint)

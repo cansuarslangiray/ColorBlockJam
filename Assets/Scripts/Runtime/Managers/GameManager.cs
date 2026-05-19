@@ -29,6 +29,9 @@ namespace Runtime.Managers
         private int closeCameraLevelCount = 2;
 
         [SerializeField] [Range(0.6f, 1f)] private float closeCameraDistanceMultiplier = 0.9f;
+        [SerializeField, Min(0f)] private float cameraBoundsPaddingInCells = 0.36f;
+        [SerializeField, Range(0f, 0.4f)] private float cameraSafeViewportMargin = 0.08f;
+        [SerializeField, Min(0f)] private float cameraTransitionDuration = 0.22f;
 
         private bool _transitionInProgress;
         private LevelProgression _levelProgression;
@@ -93,7 +96,8 @@ namespace Runtime.Managers
             _localDataManager = LocalDataManager.Instance;
             _levelProgression = new LevelProgression(levelCollection);
             _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera, closeCameraLevelCount,
-                closeCameraDistanceMultiplier);
+                closeCameraDistanceMultiplier, this, cameraBoundsPaddingInCells, cameraSafeViewportMargin,
+                cameraTransitionDuration);
         }
 
         private void RegisterEvents()
@@ -101,6 +105,7 @@ namespace Runtime.Managers
             if (!_boardEventsRegistered)
             {
                 boardController.LevelCompleted += OnLevelCompleted;
+                boardController.ConditionFailed += HandleConditionFailed;
                 _boardEventsRegistered = true;
             }
 
@@ -125,6 +130,7 @@ namespace Runtime.Managers
             if (_boardEventsRegistered)
             {
                 boardController.LevelCompleted -= OnLevelCompleted;
+                boardController.ConditionFailed -= HandleConditionFailed;
             }
 
             _boardEventsRegistered = false;
@@ -169,8 +175,8 @@ namespace Runtime.Managers
             _completionHandledForCurrentLevel = false;
 
             boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
+            _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber, true);
             blockSceneBuilder.BuildForLevel(levelData);
-            _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber);
             PersistCurrentLevelProgress(levelData);
 
             stateManager.ChangeState(GameState.Playing);
@@ -194,6 +200,16 @@ namespace Runtime.Managers
         {
             if (_transitionInProgress || _completionHandledForCurrentLevel)
                 return;
+
+            FailRun();
+        }
+
+        private void HandleConditionFailed()
+        {
+            if (_transitionInProgress || _completionHandledForCurrentLevel || !IsCurrentState(GameState.Playing))
+            {
+                return;
+            }
 
             FailRun();
         }
@@ -402,6 +418,7 @@ namespace Runtime.Managers
         private void StopRuntimeRoutines()
         {
             StopLevelCompletionWatchdog();
+            _cameraFramer?.StopTransition();
 
             if (_transitionRoutine != null)
             {

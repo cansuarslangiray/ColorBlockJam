@@ -86,7 +86,9 @@ namespace Runtime.Controllers
 
                 var localCells = resolvedShape.GetLocalCells();
                 var runtimeBlock = new RuntimeBlockState(i, blockData.position, localCells,
-                    blockData.blockFeatures, blockData.colorType);
+                    blockData.blockFeatures, blockData.colorType,
+                    blockData.ResolveMaxMovesBeforeExitLimit(),
+                    blockData.ResolveMinClearedBlocksBeforeExitRequirement());
 
                 if (!_occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
                 {

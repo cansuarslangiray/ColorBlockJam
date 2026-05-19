@@ -19,14 +19,17 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public List<GameObject> Cells { get; } = new();
         public List<Renderer> CellRenderers { get; } = new();
         public List<Renderer[]> CellNestedRenderers { get; } = new();
+        public List<Material> CellDefaultMaterials { get; } = new();
+        public List<Material[]> CellNestedDefaultMaterials { get; } = new();
         public bool HasCachedBlockColor { get; set; }
         public Color CachedBlockColor { get; set; }
+        public bool IsUsingLockedAppearance { get; set; }
         public Vector2 LocalCenter { get; set; }
         public GameObject PooledConditionIndicatorObject { get; set; }
         public TextMesh PooledConditionIndicatorText { get; set; }
         public GameObject ConditionIndicatorObject { get; set; }
         public TextMesh ConditionIndicatorText { get; set; }
-        public float ConditionIndicatorBaseCharacterSize { get; set; }
+        public Quaternion ConditionIndicatorDefaultLocalRotation { get; set; } = Quaternion.identity;
         public LineRenderer PooledDragOutlineRenderer { get; set; }
         public LineRenderer DragOutlineRenderer { get; set; }
         public ParticleSystem PooledDoorExitBurstParticle { get; set; }

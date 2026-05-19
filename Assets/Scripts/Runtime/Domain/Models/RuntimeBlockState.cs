@@ -10,15 +10,19 @@ namespace Runtime.Domain.Models
         public readonly Vector2Int[] LocalCells;
         public readonly BlockFeature BlockFeatures;
         public readonly BlockColor ColorType;
+        public readonly int MaxMovesBeforeExit;
+        public readonly int MinClearedBlocksBeforeExit;
 
         public RuntimeBlockState(int id, Vector2Int position, Vector2Int[] localCells,
-            BlockFeature blockFeatures, BlockColor colorType)
+            BlockFeature blockFeatures, BlockColor colorType, int maxMovesBeforeExit, int minClearedBlocksBeforeExit)
         {
             Id = id;
             Position = position;
             LocalCells = localCells;
             BlockFeatures = blockFeatures;
             ColorType = colorType;
+            MaxMovesBeforeExit = maxMovesBeforeExit;
+            MinClearedBlocksBeforeExit = minClearedBlocksBeforeExit;
         }
     }
 }

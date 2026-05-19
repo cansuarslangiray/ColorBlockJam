@@ -51,8 +51,103 @@ MonoBehaviour:
     shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
     blockFeatures: 0
     colorType: 5
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 1, y: 3}
     shapeKey: Shape_1x1
     shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
     blockFeatures: 0
     colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 5}
+    shapeKey: Shape_1x1
+    shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
+    blockFeatures: 2
+    colorType: 4
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 6}
+    shapeKey: Shape_1x1
+    shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
+    blockFeatures: 0
+    colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 1, y: 5}
+    shapeKey: Shape_1x2
+    shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
+    blockFeatures: 0
+    colorType: 5
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 3, y: 7}
+    shapeKey: Shape_1x1
+    shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
+    blockFeatures: 0
+    colorType: 4
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 3, y: 5}
+    shapeKey: Shape_T_SE_3x2
+    shapeDefinition: {fileID: 11400000, guid: da05010a793324ec9ba37694fcfb7ea7, type: 2}
+    blockFeatures: 0
+    colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 3, y: 4}
+    shapeKey: Shape_1x1
+    shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
+    blockFeatures: 1
+    colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 1, y: 4}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    blockFeatures: 0
+    colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 3}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    blockFeatures: 1
+    colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 1}
+    shapeKey: Shape_L_NE_1x1
+    shapeDefinition: {fileID: 11400000, guid: 119a164523a2eecdb283d2e0befcaab4, type: 2}
+    blockFeatures: 2
+    colorType: 4
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 3, y: 2}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    blockFeatures: 0
+    colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 1}
+    shapeKey: Shape_L_SW_3x2
+    shapeDefinition: {fileID: 11400000, guid: 66cd8cd1f87c209b0f12fcec10eebef4, type: 2}
+    blockFeatures: 0
+    colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 3}
+    shapeKey: Shape_1x1
+    shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
+    blockFeatures: 0
+    colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 7}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    blockFeatures: 0
+    colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0

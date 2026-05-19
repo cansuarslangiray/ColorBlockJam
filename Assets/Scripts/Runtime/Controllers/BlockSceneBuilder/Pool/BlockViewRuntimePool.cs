@@ -8,6 +8,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
     {
         private const string ConditionIndicatorObjectName = "ConditionIndicator";
         private static readonly Renderer[] EmptyRendererArray = Array.Empty<Renderer>();
+        private static readonly Material[] EmptyMaterialArray = Array.Empty<Material>();
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
             new(StringComparer.Ordinal);
         private readonly Dictionary<int, BlockRootView> _activeBlockRootById = new();
@@ -165,6 +166,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             blockView.Cells.Clear();
             blockView.CellRenderers.Clear();
             blockView.CellNestedRenderers.Clear();
+            blockView.CellDefaultMaterials.Clear();
+            blockView.CellNestedDefaultMaterials.Clear();
+            blockView.IsUsingLockedAppearance = false;
             blockView.ConditionIndicatorObject = null;
             blockView.ConditionIndicatorText = null;
             blockView.PooledConditionIndicatorObject = null;
@@ -192,15 +196,18 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
                 blockView.Cells.Add(cellObject);
                 var nestedRenderers = cellBinding.nestedRenderers;
-                blockView.CellNestedRenderers.Add(nestedRenderers == null || nestedRenderers.Length == 0
+                var resolvedNestedRenderers = nestedRenderers == null || nestedRenderers.Length == 0
                     ? EmptyRendererArray
-                    : nestedRenderers);
-                blockView.CellRenderers.Add(
-                    cellBinding.primaryRenderer
-                        ? cellBinding.primaryRenderer
-                        : nestedRenderers != null && nestedRenderers.Length > 0
-                            ? nestedRenderers[0]
-                            : null);
+                    : nestedRenderers;
+                var resolvedPrimaryRenderer = cellBinding.primaryRenderer
+                    ? cellBinding.primaryRenderer
+                    : resolvedNestedRenderers.Length > 0
+                        ? resolvedNestedRenderers[0]
+                        : null;
+                blockView.CellNestedRenderers.Add(resolvedNestedRenderers);
+                blockView.CellRenderers.Add(resolvedPrimaryRenderer);
+                blockView.CellDefaultMaterials.Add(resolvedPrimaryRenderer ? resolvedPrimaryRenderer.sharedMaterial : null);
+                blockView.CellNestedDefaultMaterials.Add(ResolveNestedDefaultMaterials(resolvedNestedRenderers));
                 setActiveIfChanged?.Invoke(cellObject, false);
             }
 
@@ -212,9 +219,9 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 : null;
             blockView.ConditionIndicatorText = blockView.PooledConditionIndicatorText;
             blockView.ConditionIndicatorObject = blockView.PooledConditionIndicatorObject;
-            blockView.ConditionIndicatorBaseCharacterSize = blockView.ConditionIndicatorText != null
-                ? blockView.ConditionIndicatorText.characterSize
-                : 0.16f;
+            blockView.ConditionIndicatorDefaultLocalRotation = blockView.PooledConditionIndicatorObject
+                ? blockView.PooledConditionIndicatorObject.transform.localRotation
+                : Quaternion.identity;
             if (blockView.PooledConditionIndicatorObject)
             {
                 setActiveIfChanged?.Invoke(blockView.PooledConditionIndicatorObject, false);
@@ -233,6 +240,23 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             {
                 setActiveIfChanged?.Invoke(blockView.PooledDoorExitBurstParticle.gameObject, false);
             }
+        }
+
+        private static Material[] ResolveNestedDefaultMaterials(Renderer[] nestedRenderers)
+        {
+            if (nestedRenderers == null || nestedRenderers.Length == 0)
+            {
+                return EmptyMaterialArray;
+            }
+
+            var defaultMaterials = new Material[nestedRenderers.Length];
+            for (var i = 0; i < nestedRenderers.Length; i++)
+            {
+                var renderer = nestedRenderers[i];
+                defaultMaterials[i] = renderer ? renderer.sharedMaterial : null;
+            }
+
+            return defaultMaterials;
         }
 
         private static TextMesh ResolveConditionIndicatorText(TextMesh boundConditionIndicatorText,

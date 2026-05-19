@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   levelKey: Level10
   levelNumber: 10
-  timeLimit: 80
+  timeLimit: 100
   gridDimensions: {x: 9, y: 12}
   blockedCells:
   - {x: 3, y: 8}
@@ -73,73 +73,103 @@ MonoBehaviour:
     shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
     blockFeatures: 0
     colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 4, y: 5}
     shapeKey: Shape_1x1
     shapeDefinition: {fileID: 11400000, guid: 9de3c363d9818030dc5f6fb5504608d0, type: 2}
     blockFeatures: 0
     colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 2, y: 5}
     shapeKey: Shape_2x2
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
     colorType: 5
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 5, y: 5}
     shapeKey: Shape_2x2
     shapeDefinition: {fileID: 11400000, guid: 5f857ce6d1b83035af5cc590344f2e8c, type: 2}
     blockFeatures: 0
     colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 7, y: 6}
     shapeKey: Shape_1x2
     shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
     blockFeatures: 0
     colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 1, y: 4}
     shapeKey: Shape_1x2
     shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
     blockFeatures: 0
     colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 1, y: 6}
     shapeKey: Shape_1x2
     shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
     blockFeatures: 0
     colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 7, y: 4}
     shapeKey: Shape_1x2
     shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
     blockFeatures: 0
     colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 6, y: 9}
     shapeKey: Shape_L_NE_1x1
     shapeDefinition: {fileID: 11400000, guid: 119a164523a2eecdb283d2e0befcaab4, type: 2}
     blockFeatures: 0
     colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 1, y: 9}
     shapeKey: Shape_L_SW_2x2
     shapeDefinition: {fileID: 11400000, guid: 24dc5f5c3b6ac45e9ad7a90cd7031b74, type: 2}
     blockFeatures: 0
     colorType: 9
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 1, y: 1}
     shapeKey: Shape_L_SE_2x2
     shapeDefinition: {fileID: 11400000, guid: 70b8116f0f76ee9f559ac36284df2ec9, type: 2}
     blockFeatures: 0
     colorType: 9
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 6, y: 1}
     shapeKey: Shape_L_NW_1x1
     shapeDefinition: {fileID: 11400000, guid: 12f92f3f26e9bc26846910e738e8181b, type: 2}
     blockFeatures: 0
     colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 4, y: 9}
     shapeKey: Shape_2x1
     shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
     blockFeatures: 1
     colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 3, y: 10}
     shapeKey: Shape_2x1
     shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
     blockFeatures: 1
     colorType: 7
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
   - position: {x: 3, y: 1}
     shapeKey: Shape_T_NE_3x2
     shapeDefinition: {fileID: 11400000, guid: cdf71110b085d43e297fab16e557c3e5, type: 2}
     blockFeatures: 1
     colorType: 5
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0

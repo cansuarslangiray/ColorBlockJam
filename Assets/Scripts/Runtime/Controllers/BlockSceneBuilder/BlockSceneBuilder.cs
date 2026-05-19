@@ -42,6 +42,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         [Header("Block Indicators")] [SerializeField]
         private bool showBlockConditionIndicators = true;
+        [SerializeField] private float conditionIndicatorVerticalMovementRotationDegrees = 90f;
 
         [Header("Door Exit UX")] [SerializeField, Min(0f)]
         private float doorEntryAdvanceInCells = 0.2f;
