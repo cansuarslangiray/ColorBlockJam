@@ -93,8 +93,10 @@ namespace Runtime.Controllers
                 _activeGestureAxis = constrainedAxis;
             }
 
-            var axisDelta = _activeGestureAxis == GestureAxis.Horizontal ? deltaFromGestureStart.x : deltaFromGestureStart.y;
-            var desiredStepCount = Mathf.RoundToInt(axisDelta * _input.InverseCellSize);
+            var axisDelta = _activeGestureAxis == GestureAxis.Horizontal
+                ? deltaFromGestureStart.x
+                : deltaFromGestureStart.y;
+            var desiredStepCount = ResolveSignedStepCount(axisDelta, _input.InverseCellSize);
             var stepDelta = desiredStepCount - _activeGestureAppliedStepCount;
             if (stepDelta == 0)
             {
@@ -141,7 +143,7 @@ namespace Runtime.Controllers
             while (_input.TryResolveDominantDirection(deltaFromAnchor, out var direction))
             {
                 var axisDelta = direction.IsHorizontal() ? deltaFromAnchor.x : deltaFromAnchor.y;
-                var requestedCellCount = Mathf.Abs(Mathf.RoundToInt(axisDelta * _input.InverseCellSize));
+                var requestedCellCount = Mathf.Abs(ResolveSignedStepCount(axisDelta, _input.InverseCellSize));
                 if (requestedCellCount <= 0)
                 {
                     break;
@@ -190,6 +192,17 @@ namespace Runtime.Controllers
             }
 
             return true;
+        }
+
+        private static int ResolveSignedStepCount(float axisDelta, float inverseCellSize)
+        {
+            var absoluteStepCount = Mathf.FloorToInt((Mathf.Abs(axisDelta) * inverseCellSize) + 0.0001f);
+            if (absoluteStepCount <= 0)
+            {
+                return 0;
+            }
+
+            return axisDelta >= 0f ? absoluteStepCount : -absoluteStepCount;
         }
     }
 }

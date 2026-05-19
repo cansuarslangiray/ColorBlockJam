@@ -58,28 +58,12 @@ namespace Runtime.Core
 
         public bool CanPlace(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)
         {
-            if (localCells == null || localCells.Length == 0)
-            {
-                return false;
-            }
+            return CanOccupyCells(anchorPosition, localCells, blockId);
+        }
 
-            foreach (var cell in localCells)
-            {
-                var worldCell = anchorPosition + cell;
-                if (!IsInside(worldCell))
-                {
-                    return false;
-                }
-
-                var index = GetIndex(worldCell.x, worldCell.y);
-                var cellValue = _cells[index];
-                if (cellValue != EmptyCell && cellValue != blockId)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+        public bool CanOccupy(Vector2Int anchorPosition, Vector2Int[] localCells)
+        {
+            return CanOccupyCells(anchorPosition, localCells, EmptyCell);
         }
 
         public void FillBlock(int blockId, Vector2Int anchorPosition, Vector2Int[] localCells)
@@ -221,5 +205,32 @@ namespace Runtime.Core
         {
             return y * _width + x;
         }
+
+        private bool CanOccupyCells(Vector2Int anchorPosition, Vector2Int[] localCells, int allowedOccupantId)
+        {
+            if (localCells == null || localCells.Length == 0)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < localCells.Length; i++)
+            {
+                var worldCell = anchorPosition + localCells[i];
+                if (!IsInside(worldCell))
+                {
+                    return false;
+                }
+
+                var index = GetIndex(worldCell.x, worldCell.y);
+                var cellValue = _cells[index];
+                if (cellValue != EmptyCell && cellValue != allowedOccupantId)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
     }
 }

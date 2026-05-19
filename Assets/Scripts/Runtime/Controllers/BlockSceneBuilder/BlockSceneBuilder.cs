@@ -39,9 +39,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private float outlineIdleDarkenFactor = 0.74f;
         
         [Header("Block Movement")] [SerializeField, Min(2f)]
-        private float blockMoveSpeedInCellsPerSecond = 16f;
-
-        [SerializeField, Min(0.001f)] private float blockMoveSnapDistanceInCells = 0.02f;
+        private float blockMoveSpeedInCellsPerSecond = 24f;
 
         [Header("Block Indicators")] [SerializeField]
         private bool showBlockConditionIndicators = true;
@@ -70,6 +68,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly Dictionary<int, Coroutine> _blockExitRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockMoveRoutineById = new();
         private readonly Dictionary<int, Coroutine> _blockConditionUnlockTransitionRoutineById = new();
+        private readonly Dictionary<int, Queue<Vector3>> _blockMoveWaypointQueueById = new();
         private readonly Dictionary<int, Vector3> _blockMoveTargetWorldById = new();
         private IReadOnlyList<GameObject> _borderObjects = System.Array.Empty<GameObject>();
         private GameObject _backdropObject;

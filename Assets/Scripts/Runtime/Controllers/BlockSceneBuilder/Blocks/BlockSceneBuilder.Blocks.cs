@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Runtime.Controllers.BlockSceneBuilder.Animations;
 using Runtime.Controllers.BlockSceneBuilder.Blocks;
 using Runtime.Controllers.BlockSceneBuilder.Board;
@@ -12,6 +13,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public partial class BlockSceneBuilder
     {
+        private const float BlockMoveArrivalEpsilon = 0.0001f;
+
         private void ApplyBlockVisuals(LevelDefinition levelData, in LayoutMetrics layout)
         {
             ReleaseActiveBlockViewsToPool();
@@ -84,7 +87,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            QueueBlockMove(blockId, blockView, toPosition);
+            QueueBlockMove(blockId, blockView, fromPosition, toPosition);
         }
 
         private void HandleBlockCleared(int blockId, Vector2Int clearedPosition, Vector2Int exitDirection,
@@ -138,14 +141,34 @@ namespace Runtime.Controllers.BlockSceneBuilder
             placementTransform.position = ToWorldPosition(targetGridPosition, GetCurrentLayout());
         }
 
-        private void QueueBlockMove(int blockId, BlockRootView blockView, Vector2Int targetGridPosition)
+        private void QueueBlockMove(int blockId, BlockRootView blockView, Vector2Int fromGridPosition,
+            Vector2Int toGridPosition)
         {
             if (!TryResolvePlacementTransform(blockView, out _))
             {
                 return;
             }
 
-            _blockMoveTargetWorldById[blockId] = ToWorldPosition(targetGridPosition, GetCurrentLayout());
+            if (!TryResolveLinearMoveSegment(fromGridPosition, toGridPosition, out var stepDirection, out var stepCount))
+            {
+                return;
+            }
+
+            if (!_blockMoveWaypointQueueById.TryGetValue(blockId, out var waypointQueue))
+            {
+                waypointQueue = new Queue<Vector3>(stepCount);
+                _blockMoveWaypointQueueById[blockId] = waypointQueue;
+            }
+
+            var layout = GetCurrentLayout();
+            for (var stepIndex = 1; stepIndex <= stepCount; stepIndex++)
+            {
+                var stepGridPosition = fromGridPosition + (stepDirection * stepIndex);
+                var stepWorldPosition = ToWorldPosition(stepGridPosition, layout);
+                waypointQueue.Enqueue(stepWorldPosition);
+                _blockMoveTargetWorldById[blockId] = stepWorldPosition;
+            }
+
             if (_blockMoveRoutineById.ContainsKey(blockId))
             {
                 return;
@@ -158,30 +181,52 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             if (!TryResolvePlacementTransform(blockView, out var placementTransform))
             {
-                _blockMoveRoutineById.Remove(blockId);
-                _blockMoveTargetWorldById.Remove(blockId);
+                ClearBlockMoveRuntimeState(blockId);
                 yield break;
             }
 
-            var moveSpeed = ResolveBlockMoveSpeedWorldUnitsPerSecond();
-            var snapDistanceWorldSqr = ResolveBlockMoveSnapDistanceWorldSqr();
-            while (placementTransform && _blockMoveTargetWorldById.TryGetValue(blockId, out var targetWorldPosition))
+            while (placementTransform &&
+                   _blockMoveWaypointQueueById.TryGetValue(blockId, out var waypointQueue) &&
+                   waypointQueue.Count > 0)
             {
-                var currentPosition = placementTransform.position;
-                var remainingDelta = targetWorldPosition - currentPosition;
-                if (remainingDelta.sqrMagnitude <= snapDistanceWorldSqr)
+                var moveSpeedMultiplier = ResolveMoveSpeedMultiplierForQueueDepth(waypointQueue.Count);
+                var remainingFrameTravel =
+                    ResolveBlockMoveSpeedWorldUnitsPerSecond() * moveSpeedMultiplier * Time.deltaTime;
+                while (remainingFrameTravel > 0f && waypointQueue.Count > 0)
                 {
-                    placementTransform.position = targetWorldPosition;
+                    var currentPosition = placementTransform.position;
+                    var targetWorldPosition = waypointQueue.Peek();
+                    var remainingDelta = targetWorldPosition - currentPosition;
+                    var remainingDistance = remainingDelta.magnitude;
+                    if (remainingDistance <= BlockMoveArrivalEpsilon)
+                    {
+                        placementTransform.position = targetWorldPosition;
+                        waypointQueue.Dequeue();
+                        continue;
+                    }
+
+                    if (remainingFrameTravel >= remainingDistance)
+                    {
+                        placementTransform.position = targetWorldPosition;
+                        waypointQueue.Dequeue();
+                        remainingFrameTravel -= remainingDistance;
+                        continue;
+                    }
+
+                    placementTransform.position =
+                        currentPosition + ((remainingDelta / remainingDistance) * remainingFrameTravel);
+                    remainingFrameTravel = 0f;
+                }
+
+                if (waypointQueue.Count == 0)
+                {
                     break;
                 }
 
-                placementTransform.position =
-                    Vector3.MoveTowards(currentPosition, targetWorldPosition, moveSpeed * Time.deltaTime);
                 yield return null;
             }
 
-            _blockMoveRoutineById.Remove(blockId);
-            _blockMoveTargetWorldById.Remove(blockId);
+            ClearBlockMoveRuntimeState(blockId);
         }
 
         private float ResolveBlockMoveSpeedWorldUnitsPerSecond()
@@ -189,10 +234,14 @@ namespace Runtime.Controllers.BlockSceneBuilder
             return Mathf.Max(0.01f, blockMoveSpeedInCellsPerSecond * CellSize);
         }
 
-        private float ResolveBlockMoveSnapDistanceWorldSqr()
+        private static float ResolveMoveSpeedMultiplierForQueueDepth(int queueDepth)
         {
-            var snapDistanceWorld = Mathf.Max(0.001f, blockMoveSnapDistanceInCells * CellSize);
-            return snapDistanceWorld * snapDistanceWorld;
+            if (queueDepth <= 1)
+            {
+                return 1f;
+            }
+
+            return Mathf.Min(2.5f, 1f + ((queueDepth - 1) * 0.35f));
         }
 
         private static bool TryResolvePlacementTransform(BlockRootView blockView, out Transform placementTransform)
@@ -220,10 +269,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
             if (_blockMoveRoutineById.TryGetValue(blockId, out var routine))
             {
                 StopCoroutine(routine);
-                _blockMoveRoutineById.Remove(blockId);
             }
 
-            _blockMoveTargetWorldById.Remove(blockId);
+            ClearBlockMoveRuntimeState(blockId);
         }
 
         private void StopAllBlockMoveRoutines(bool snapToTargets = false)
@@ -251,7 +299,39 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             _blockMoveRoutineById.Clear();
+            _blockMoveWaypointQueueById.Clear();
             _blockMoveTargetWorldById.Clear();
+        }
+
+        private void ClearBlockMoveRuntimeState(int blockId)
+        {
+            _blockMoveRoutineById.Remove(blockId);
+            _blockMoveWaypointQueueById.Remove(blockId);
+            _blockMoveTargetWorldById.Remove(blockId);
+        }
+
+        private static bool TryResolveLinearMoveSegment(Vector2Int fromGridPosition, Vector2Int toGridPosition,
+            out Vector2Int stepDirection, out int stepCount)
+        {
+            stepDirection = Vector2Int.zero;
+            stepCount = 0;
+
+            var delta = toGridPosition - fromGridPosition;
+            if (delta == Vector2Int.zero || (delta.x != 0 && delta.y != 0))
+            {
+                return false;
+            }
+
+            if (delta.x != 0)
+            {
+                stepDirection = delta.x > 0 ? Vector2Int.right : Vector2Int.left;
+                stepCount = Mathf.Abs(delta.x);
+                return stepCount > 0;
+            }
+
+            stepDirection = delta.y > 0 ? Vector2Int.up : Vector2Int.down;
+            stepCount = Mathf.Abs(delta.y);
+            return stepCount > 0;
         }
 
         private void StopBlockExit(int blockId)

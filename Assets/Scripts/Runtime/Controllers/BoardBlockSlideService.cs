@@ -43,6 +43,7 @@ namespace Runtime.Controllers
             var reachedDoor = false;
             var matchedDoor = default(DoorOpeningData);
             var currentlyOverlappingDoor = _occupancyMap.IsDoorOverlapping(block, currentPosition);
+            _occupancyMap.ClearBlock(blockId, startPosition, block.LocalCells);
 
             while (requestedCells > 0)
             {
@@ -53,7 +54,7 @@ namespace Runtime.Controllers
 
                 if (nextOverlapsDoor && !currentlyOverlappingDoor)
                 {
-                    if (!canExitThroughDoor || !_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
+                    if (!canExitThroughDoor || !_occupancyMap.CanOccupy(nextPosition, block.LocalCells))
                     {
                         break;
                     }
@@ -64,7 +65,7 @@ namespace Runtime.Controllers
                     break;
                 }
 
-                if (!_occupancyMap.CanPlace(block.Id, nextPosition, block.LocalCells))
+                if (!_occupancyMap.CanOccupy(nextPosition, block.LocalCells))
                 {
                     break;
                 }
@@ -95,7 +96,7 @@ namespace Runtime.Controllers
             {
                 var frontCellPosition = currentPosition + directionVector;
                 if (TryResolveDoorExit(block, frontCellPosition, direction, out var frontDoor) &&
-                    _occupancyMap.CanPlace(block.Id, frontCellPosition, block.LocalCells) &&
+                    _occupancyMap.CanOccupy(frontCellPosition, block.LocalCells) &&
                     !_occupancyMap.IsDoorOverlapping(block, currentPosition))
                 {
                     matchedDoor = frontDoor;
@@ -113,10 +114,10 @@ namespace Runtime.Controllers
 
             if (!hasMoved)
             {
+                _occupancyMap.FillBlock(blockId, startPosition, block.LocalCells);
                 return false;
             }
 
-            _occupancyMap.ClearBlock(blockId, startPosition, block.LocalCells);
             block.Position = currentPosition;
 
             if (reachedDoor)
@@ -189,7 +190,7 @@ namespace Runtime.Controllers
             }
 
             var frontCellPosition = blockPosition + resolvedDoor.EdgeDirection.ToVector();
-            if (!_occupancyMap.CanPlace(block.Id, frontCellPosition, block.LocalCells))
+            if (!_occupancyMap.CanOccupy(frontCellPosition, block.LocalCells))
             {
                 return false;
             }
