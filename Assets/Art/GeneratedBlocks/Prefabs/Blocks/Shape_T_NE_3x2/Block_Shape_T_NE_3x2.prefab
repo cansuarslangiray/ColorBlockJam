@@ -1271,9 +1271,8 @@ MonoBehaviour:
     - {fileID: 6379330209683480659}
     - {fileID: 8735100325580540105}
   conditionIndicatorText: {fileID: 6872562524627744308}
-  dragOutlineRenderer: {fileID: 638348544235556957}
+  outlineRenderer: {fileID: 638348544235556957}
   doorExitParticle: {fileID: 7003772929086698232}
-  doorExitParticleRenderer: {fileID: 7012092377108007320}
 --- !u!1 &5037335509584968457
 GameObject:
   m_ObjectHideFlags: 0
@@ -1627,12 +1626,12 @@ GameObject:
   - component: {fileID: 2919746555333131703}
   - component: {fileID: 638348544235556957}
   m_Layer: 0
-  m_Name: BlockDragOutline
+  m_Name: BlockOutline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &2919746555333131703
 Transform:
   m_ObjectHideFlags: 0
@@ -1642,7 +1641,7 @@ Transform:
   m_GameObject: {fileID: 5922880696984149622}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.306}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1689,21 +1688,21 @@ LineRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 12000
+  m_SortingOrder: 0
   m_Positions:
-  - {x: 1, y: 0.03, z: -0.01}
-  - {x: 2, y: 0.03, z: -0.01}
-  - {x: 2, y: 1.03, z: -0.01}
-  - {x: 3, y: 1.03, z: -0.01}
-  - {x: 3, y: 2.03, z: -0.01}
-  - {x: 2, y: 2.03, z: -0.01}
-  - {x: 1, y: 2.03, z: -0.01}
-  - {x: 0, y: 2.03, z: -0.01}
-  - {x: 0, y: 1.03, z: -0.01}
-  - {x: 1, y: 1.03, z: -0.01}
+  - {x: 1, y: 0.066, z: 0}
+  - {x: 2, y: 0.066, z: 0}
+  - {x: 2, y: 1.03, z: 0}
+  - {x: 2.964, y: 1.03, z: 0}
+  - {x: 2.964, y: 1.994, z: 0}
+  - {x: 2, y: 1.994, z: 0}
+  - {x: 1, y: 1.994, z: 0}
+  - {x: 0.036, y: 1.994, z: 0}
+  - {x: 0.036, y: 1.03, z: 0}
+  - {x: 1, y: 1.03, z: 0}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.095
+    widthMultiplier: 0.072
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -1751,7 +1750,7 @@ LineRenderer:
       m_NumAlphaKeys: 2
     numCornerVertices: 4
     numCapVertices: 2
-    alignment: 0
+    alignment: 1
     textureMode: 0
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
@@ -2422,11 +2421,6 @@ PrefabInstance:
 --- !u!198 &7003772929086698232 stripped
 ParticleSystem:
   m_CorrespondingSourceObject: {fileID: 198000011337858710, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
-  m_PrefabInstance: {fileID: 7173400402940218478}
-  m_PrefabAsset: {fileID: 0}
---- !u!199 &7012092377108007320 stripped
-ParticleSystemRenderer:
-  m_CorrespondingSourceObject: {fileID: 199000010453026294, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
   m_PrefabInstance: {fileID: 7173400402940218478}
   m_PrefabAsset: {fileID: 0}
 --- !u!4 &7170641371360853264 stripped

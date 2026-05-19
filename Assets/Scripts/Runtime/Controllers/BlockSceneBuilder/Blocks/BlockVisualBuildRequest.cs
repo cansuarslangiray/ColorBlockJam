@@ -17,6 +17,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
         public Func<int, bool> IsBlockLocked;
         public Action<GameObject, bool> SetActiveIfChanged;
         public Action<Transform, Vector3> ApplyWorldPosition;
-        public Action<BlockRootView, bool> SetDragHighlightActive;
+        public Action<BlockRootView, bool> SetOutlineDragActive;
     }
 }

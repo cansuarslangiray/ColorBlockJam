@@ -11,23 +11,21 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
     public sealed class BlockPoolBindings : MonoBehaviour
     {
         private const string ConditionIndicatorObjectName = "ConditionIndicator";
-        private const string DragOutlineObjectName = "BlockDragOutline";
+        private const string OutlineObjectName = "BlockOutline";
         private const string DoorExitParticleObjectName = "DoorExitParticle";
 
         [SerializeField] private Transform placementTransform;
         [SerializeField] private List<BlockPoolCellBinding> cellBindings = new();
         [SerializeField] private TextMesh conditionIndicatorText;
-        [SerializeField] private LineRenderer dragOutlineRenderer;
+        [SerializeField] private LineRenderer outlineRenderer;
         [SerializeField] private ParticleSystem doorExitParticle;
-        [SerializeField] private ParticleSystemRenderer doorExitParticleRenderer;
         
         public GameObject RootObject => gameObject;
         public Transform PlacementTransform => placementTransform;
         public IReadOnlyList<BlockPoolCellBinding> CellBindings => cellBindings;
         public TextMesh ConditionIndicatorText => conditionIndicatorText;
-        public LineRenderer DragOutlineRenderer => dragOutlineRenderer;
+        public LineRenderer OutlineRenderer => outlineRenderer;
         public ParticleSystem DoorExitParticle => doorExitParticle;
-        public ParticleSystemRenderer DoorExitParticleRenderer => doorExitParticleRenderer;
 
 #if UNITY_EDITOR
         [ContextMenu("Rebuild Pool Bindings")]
@@ -80,20 +78,21 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 break;
             }
 
-            dragOutlineRenderer = null;
+            outlineRenderer = null;
             var lineRenderers = rootTransform.GetComponentsInChildren<LineRenderer>(true);
             for (var i = 0; i < lineRenderers.Length; i++)
             {
                 var lineRenderer = lineRenderers[i];
-                if (!lineRenderer ||
-                    !lineRenderer.gameObject ||
-                    !string.Equals(lineRenderer.gameObject.name, DragOutlineObjectName, StringComparison.Ordinal))
+                if (!lineRenderer || !lineRenderer.gameObject)
                 {
                     continue;
                 }
 
-                dragOutlineRenderer = lineRenderer;
-                break;
+                if (string.Equals(lineRenderer.gameObject.name, OutlineObjectName, StringComparison.Ordinal))
+                {
+                    outlineRenderer = lineRenderer;
+                    break;
+                }
             }
 
             doorExitParticle = null;
@@ -111,10 +110,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 doorExitParticle = particle;
                 break;
             }
-
-            doorExitParticleRenderer = doorExitParticle
-                ? doorExitParticle.GetComponent<ParticleSystemRenderer>()
-                : null;
 
             EditorUtility.SetDirty(this);
         }

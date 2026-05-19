@@ -60,7 +60,6 @@ namespace Runtime.Controllers
                 _occupancyMap.MarkBlockedCells(BlockedCellBuffer);
             }
 
-            // Keep the outer frame non-walkable for blocks so they stay inside the bordered play area.
             BoardFrameMap.CollectFrameCellsExceptDoorOpenings(levelData.gridDimensions, openings, BlockedCellBuffer);
             if (BlockedCellBuffer.Count > 0)
             {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -25,14 +26,16 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
         public Color CachedBlockColor { get; set; }
         public bool IsUsingLockedAppearance { get; set; }
         public Vector2 LocalCenter { get; set; }
-        public GameObject PooledConditionIndicatorObject { get; set; }
-        public TextMesh PooledConditionIndicatorText { get; set; }
         public GameObject ConditionIndicatorObject { get; set; }
         public TextMesh ConditionIndicatorText { get; set; }
         public Quaternion ConditionIndicatorDefaultLocalRotation { get; set; } = Quaternion.identity;
-        public LineRenderer PooledDragOutlineRenderer { get; set; }
-        public LineRenderer DragOutlineRenderer { get; set; }
-        public ParticleSystem PooledDoorExitBurstParticle { get; set; }
-        public ParticleSystemRenderer PooledDoorExitBurstRenderer { get; set; }
+        public LineRenderer OutlineRenderer { get; set; }
+        public bool HasCachedOutlineActiveColor { get; set; }
+        public Color CachedOutlineActiveColor { get; set; }
+        public bool HasAppliedOutlineColor { get; set; }
+        public Color AppliedOutlineColor { get; set; }
+        public ParticleSystem DoorExitBurstParticle { get; set; }
+        public ParticleSystem[] DoorExitBurstParticles { get; set; } = Array.Empty<ParticleSystem>();
+        public Renderer[] DoorExitBurstRenderers { get; set; } = Array.Empty<Renderer>();
     }
 }

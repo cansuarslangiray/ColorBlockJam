@@ -21,7 +21,7 @@ namespace Runtime.Controllers
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
-        public event Action<int, bool> BlockDragHighlightChanged;
+        public event Action<int, bool> BlockOutlineDragStateChanged;
         public event Action ConditionStatesChanged;
         public event Action ConditionFailed;
 
@@ -37,7 +37,7 @@ namespace Runtime.Controllers
         private BoardBlockSlideService _blockSlideService;
         private BoardBlockConditionService _blockConditionService;
         private bool _levelCompletedRaised;
-        private int _highlightedGestureBlockId = -1;
+        private int _draggingBlockId = -1;
 
         private void Awake()
         {
@@ -48,7 +48,7 @@ namespace Runtime.Controllers
         private void OnDisable()
         {
             _pointerGestureController.EndPointerGesture();
-            ClearGestureHighlight();
+            ClearDraggingBlock();
         }
 
 
@@ -56,7 +56,7 @@ namespace Runtime.Controllers
         {
             _levelCompletedRaised = false;
             _pointerGestureController.EndPointerGesture();
-            ClearGestureHighlight();
+            ClearDraggingBlock();
 
             _runtimeState.Setup(levelData, shapeCatalog);
             _blockConditionService.Setup(_runtimeState.RuntimeBlocks);
@@ -77,7 +77,7 @@ namespace Runtime.Controllers
                 return false;
             }
 
-            SetGestureHighlight(blockId);
+            SetDraggingBlock(blockId);
             audioManager.PlayBlockSelect();
             return true;
         }
@@ -90,7 +90,7 @@ namespace Runtime.Controllers
         public void EndPointerGesture()
         {
             _pointerGestureController?.EndPointerGesture();
-            ClearGestureHighlight();
+            ClearDraggingBlock();
         }
 
         public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
@@ -132,9 +132,9 @@ namespace Runtime.Controllers
 
             if (slideResult.ClearedThroughDoor)
             {
-                if (_highlightedGestureBlockId == slideResult.BlockId)
+                if (_draggingBlockId == slideResult.BlockId)
                 {
-                    ClearGestureHighlight();
+                    ClearDraggingBlock();
                 }
 
                 var exitDirection = slideResult.MatchedDoor.ResolveExitDirection(GridDimensions);
@@ -187,33 +187,33 @@ namespace Runtime.Controllers
                 transform.position.z);
         }
 
-        private void SetGestureHighlight(int blockId)
+        private void SetDraggingBlock(int blockId)
         {
             if (blockId < 0)
             {
                 return;
             }
 
-            if (_highlightedGestureBlockId == blockId)
+            if (_draggingBlockId == blockId)
             {
                 return;
             }
 
-            ClearGestureHighlight();
-            _highlightedGestureBlockId = blockId;
-            BlockDragHighlightChanged?.Invoke(blockId, true);
+            ClearDraggingBlock();
+            _draggingBlockId = blockId;
+            BlockOutlineDragStateChanged?.Invoke(blockId, true);
         }
 
-        private void ClearGestureHighlight()
+        private void ClearDraggingBlock()
         {
-            if (_highlightedGestureBlockId < 0)
+            if (_draggingBlockId < 0)
             {
                 return;
             }
 
-            var releasedBlockId = _highlightedGestureBlockId;
-            _highlightedGestureBlockId = -1;
-            BlockDragHighlightChanged?.Invoke(releasedBlockId, false);
+            var releasedBlockId = _draggingBlockId;
+            _draggingBlockId = -1;
+            BlockOutlineDragStateChanged?.Invoke(releasedBlockId, false);
         }
     }
 }

@@ -25,7 +25,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 IsBlockLocked = boardController.IsBlockLocked,
                 SetActiveIfChanged = SetActiveIfChanged,
                 ApplyWorldPosition = ApplyWorldPosition,
-                SetDragHighlightActive = SetDragHighlightActive
+                SetOutlineDragActive = ApplyOutlineDragState
             };
             _blockVisualPresenter.ApplyLevelBlockVisuals(blockVisualRequest);
 
@@ -56,8 +56,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockMoved += HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockCleared += HandleBlockCleared;
-            boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
-            boardController.BlockDragHighlightChanged += HandleBlockDragHighlightChanged;
+            boardController.BlockOutlineDragStateChanged -= HandleBlockOutlineDragStateChanged;
+            boardController.BlockOutlineDragStateChanged += HandleBlockOutlineDragStateChanged;
             boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
             boardController.ConditionStatesChanged += HandleConditionStatesChanged;
         }
@@ -66,7 +66,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
-            boardController.BlockDragHighlightChanged -= HandleBlockDragHighlightChanged;
+            boardController.BlockOutlineDragStateChanged -= HandleBlockOutlineDragStateChanged;
             boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
         }
 
@@ -94,7 +94,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             StopBlockExit(blockId);
-            SetDragHighlightActive(blockView, false);
+            ApplyOutlineDragState(blockView, false);
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
         }
@@ -107,7 +107,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private IEnumerator ClearAndExitRoutine(int blockId, BlockRootView blockView, Vector2Int clearedPosition,
             Vector2Int exitDirection, DoorOpeningData matchedDoor)
         {
-            SetDragHighlightActive(blockView, false);
+            ApplyOutlineDragState(blockView, false);
             SyncBlockToGridPosition(blockView, clearedPosition);
 
             var resolvedExitDirection = matchedDoor.ResolveExitDirection(boardController.GridDimensions, exitDirection);
@@ -298,7 +298,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private void ResetBlockTransientFx(BlockRootView blockView)
         {
             SetBlockCellsActive(blockView, true);
-            SetDragHighlightActive(blockView, false);
+            ApplyOutlineDragState(blockView, false);
             StopDoorExitBurstParticle(blockView);
         }
 
@@ -327,7 +327,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     isLocked);
                 if (isLocked)
                 {
-                    SetDragHighlightActive(blockView, false);
+                    ApplyOutlineDragState(blockView, false);
                 }
             });
         }

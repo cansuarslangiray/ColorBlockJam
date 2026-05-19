@@ -519,12 +519,12 @@ GameObject:
   - component: {fileID: 748826573244568810}
   - component: {fileID: 6695555525112443616}
   m_Layer: 0
-  m_Name: BlockDragOutline
+  m_Name: BlockOutline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &748826573244568810
 Transform:
   m_ObjectHideFlags: 0
@@ -534,7 +534,7 @@ Transform:
   m_GameObject: {fileID: 4412740298838071794}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.306}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -581,19 +581,19 @@ LineRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 12000
+  m_SortingOrder: 0
   m_Positions:
-  - {x: 0, y: 0.03, z: -0.01}
-  - {x: 1, y: 0.03, z: -0.01}
-  - {x: 2, y: 0.03, z: -0.01}
-  - {x: 2, y: 1.03, z: -0.01}
-  - {x: 1, y: 1.03, z: -0.01}
-  - {x: 1, y: 2.03, z: -0.01}
-  - {x: 0, y: 2.03, z: -0.01}
-  - {x: 0, y: 1.03, z: -0.01}
+  - {x: 0.036, y: 0.066, z: 0}
+  - {x: 1, y: 0.066, z: 0}
+  - {x: 1.964, y: 0.066, z: 0}
+  - {x: 1.964, y: 1.03, z: 0}
+  - {x: 1, y: 1.03, z: 0}
+  - {x: 1, y: 1.994, z: 0}
+  - {x: 0.036, y: 1.994, z: 0}
+  - {x: 0.036, y: 1.03, z: 0}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.095
+    widthMultiplier: 0.072
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -641,7 +641,7 @@ LineRenderer:
       m_NumAlphaKeys: 2
     numCornerVertices: 4
     numCapVertices: 2
-    alignment: 0
+    alignment: 1
     textureMode: 0
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
@@ -1247,9 +1247,8 @@ MonoBehaviour:
     - {fileID: 3884523262335866913}
     - {fileID: 6451362852750409424}
   conditionIndicatorText: {fileID: 7736602346597249880}
-  dragOutlineRenderer: {fileID: 6695555525112443616}
+  outlineRenderer: {fileID: 6695555525112443616}
   doorExitParticle: {fileID: 436790031889997860}
-  doorExitParticleRenderer: {fileID: 464531271020108612}
 --- !u!1 &7196135829165736823
 GameObject:
   m_ObjectHideFlags: 0
@@ -1912,10 +1911,5 @@ Transform:
 --- !u!198 &436790031889997860 stripped
 ParticleSystem:
   m_CorrespondingSourceObject: {fileID: 198000011337858710, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
-  m_PrefabInstance: {fileID: 337952277600722610}
-  m_PrefabAsset: {fileID: 0}
---- !u!199 &464531271020108612 stripped
-ParticleSystemRenderer:
-  m_CorrespondingSourceObject: {fileID: 199000010453026294, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
   m_PrefabInstance: {fileID: 337952277600722610}
   m_PrefabAsset: {fileID: 0}

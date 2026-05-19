@@ -42,7 +42,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                     ? blockView.PlacementTransform
                     : blockView.RootTransform;
                 request.ApplyWorldPosition(placementTransform, ToWorldPosition(runtimeBlock.Position, request.Layout));
-                request.SetDragHighlightActive(blockView, false);
+                request.SetOutlineDragActive(blockView, false);
 
                 blockViewPool.MarkActive(i, blockView);
                 request.SetActiveIfChanged(blockView.RootObject, true);
@@ -91,6 +91,12 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             }
 
             ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
+            if (!blockView.HasCachedBlockColor &&
+                TryResolveBlockColorFromRenderers(blockView, activeCellCount, out var cachedRendererColor))
+            {
+                blockView.HasCachedBlockColor = true;
+                blockView.CachedBlockColor = cachedRendererColor;
+            }
         }
 
         public void ApplyBlockAppearance(BlockRootView blockView, RuntimeBlockState blockState, Material resolvedMaterial,
@@ -201,7 +207,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 
         private static bool TryResolvePrimaryMaterialColor(Material sourceMaterial, out Color color)
         {
-            color = Color.white;
+            color = default;
             if (!sourceMaterial)
             {
                 return false;
@@ -217,6 +223,41 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             {
                 color = sourceMaterial.GetColor("_Color");
                 return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveBlockColorFromRenderers(BlockRootView blockView, int activeCellCount, out Color color)
+        {
+            color = default;
+            if (blockView == null)
+            {
+                return false;
+            }
+
+            var renderers = blockView.CellRenderers;
+            var rendererCount = Mathf.Min(activeCellCount, renderers.Count);
+            for (var i = 0; i < rendererCount; i++)
+            {
+                var renderer = renderers[i];
+                var material = renderer ? renderer.sharedMaterial : null;
+                if (!material)
+                {
+                    continue;
+                }
+
+                if (material.HasProperty("_BaseColor"))
+                {
+                    color = material.GetColor("_BaseColor");
+                    return true;
+                }
+
+                if (material.HasProperty("_Color"))
+                {
+                    color = material.GetColor("_Color");
+                    return true;
+                }
             }
 
             return false;

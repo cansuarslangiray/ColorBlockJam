@@ -73,7 +73,12 @@ namespace Runtime.Controllers
                         continue;
                     }
 
-                    state.RemainingClearedBlocksBeforeExit--;
+                    state.RemainingClearedBlocksBeforeExit =
+                        Mathf.Max(0, state.RemainingClearedBlocksBeforeExit - 1);
+                    if (state.RemainingClearedBlocksBeforeExit == 0)
+                    {
+                        state.HasMinClearedBlocksBeforeExit = false;
+                    }
                 }
             }
 
@@ -109,7 +114,7 @@ namespace Runtime.Controllers
             }
 
             var showMaxMoves = state.HasMaxMovesBeforeExit;
-            var showMinCleared = state.HasMinClearedBlocksBeforeExit;
+            var showMinCleared = state.HasMinClearedBlocksBeforeExit && state.RemainingClearedBlocksBeforeExit > 0;
             if (!showMaxMoves && !showMinCleared)
             {
                 indicatorState = default;

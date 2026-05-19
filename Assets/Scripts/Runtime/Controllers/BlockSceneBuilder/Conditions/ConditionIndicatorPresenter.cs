@@ -69,11 +69,11 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
         private static string ResolveIndicatorText(BoardController boardController, int blockId,
             RuntimeBlockState runtimeBlock)
         {
-            if (boardController.TryGetConditionIndicatorState(blockId, out var indicatorState) &&
-                indicatorState.IsVisible &&
-                !string.IsNullOrWhiteSpace(indicatorState.Text))
+            if (boardController.TryGetConditionIndicatorState(blockId, out var indicatorState))
             {
-                return indicatorState.Text;
+                return indicatorState.IsVisible && !string.IsNullOrWhiteSpace(indicatorState.Text)
+                    ? indicatorState.Text
+                    : string.Empty;
             }
 
             var feature = runtimeBlock.BlockFeatures.Sanitize();
@@ -81,16 +81,8 @@ namespace Runtime.Controllers.BlockSceneBuilder.Conditions
             {
                 BlockFeature.Horizontal => MovementIndicatorText,
                 BlockFeature.Vertical => MovementIndicatorText,
-                BlockFeature.MaxMovesBeforeExit => ResolveFallbackCounterText(runtimeBlock.MaxMovesBeforeExit),
-                BlockFeature.MinClearedBlocksBeforeExit =>
-                    ResolveFallbackCounterText(runtimeBlock.MinClearedBlocksBeforeExit),
                 _ => string.Empty
             };
-        }
-
-        private static string ResolveFallbackCounterText(int value)
-        {
-            return value > 0 ? value.ToString() : string.Empty;
         }
 
         private static bool TryResolveIndicatorRotation(RuntimeBlockState runtimeBlock, Quaternion defaultRotation,

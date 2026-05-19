@@ -485,9 +485,8 @@ MonoBehaviour:
     - {fileID: 6189309777229041225}
     - {fileID: 7567779979630617418}
   conditionIndicatorText: {fileID: 3699709415248649546}
-  dragOutlineRenderer: {fileID: 2349450104326490733}
+  outlineRenderer: {fileID: 2349450104326490733}
   doorExitParticle: {fileID: 3742752600034379207}
-  doorExitParticleRenderer: {fileID: 3714765088015711911}
 --- !u!1 &2681634633649275077
 GameObject:
   m_ObjectHideFlags: 0
@@ -1021,12 +1020,12 @@ GameObject:
   - component: {fileID: 6114755518538912867}
   - component: {fileID: 2349450104326490733}
   m_Layer: 0
-  m_Name: BlockDragOutline
+  m_Name: BlockOutline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &6114755518538912867
 Transform:
   m_ObjectHideFlags: 0
@@ -1036,7 +1035,7 @@ Transform:
   m_GameObject: {fileID: 7700032102823118781}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.306}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1083,17 +1082,17 @@ LineRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 12000
+  m_SortingOrder: 0
   m_Positions:
-  - {x: 0, y: 0.03, z: -0.01}
-  - {x: 1, y: 0.03, z: -0.01}
-  - {x: 2, y: 0.03, z: -0.01}
-  - {x: 2, y: 1.03, z: -0.01}
-  - {x: 1, y: 1.03, z: -0.01}
-  - {x: 0, y: 1.03, z: -0.01}
+  - {x: 0.036, y: 0.066, z: 0}
+  - {x: 1, y: 0.066, z: 0}
+  - {x: 1.964, y: 0.066, z: 0}
+  - {x: 1.964, y: 0.994, z: 0}
+  - {x: 1, y: 0.994, z: 0}
+  - {x: 0.036, y: 0.994, z: 0}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.095
+    widthMultiplier: 0.072
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -1141,7 +1140,7 @@ LineRenderer:
       m_NumAlphaKeys: 2
     numCornerVertices: 4
     numCapVertices: 2
-    alignment: 0
+    alignment: 1
     textureMode: 0
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
@@ -1392,11 +1391,6 @@ PrefabInstance:
 --- !u!4 &3549319888111880751 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4000010002477438, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
-  m_PrefabInstance: {fileID: 3553201975324113745}
-  m_PrefabAsset: {fileID: 0}
---- !u!199 &3714765088015711911 stripped
-ParticleSystemRenderer:
-  m_CorrespondingSourceObject: {fileID: 199000010453026294, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
   m_PrefabInstance: {fileID: 3553201975324113745}
   m_PrefabAsset: {fileID: 0}
 --- !u!198 &3742752600034379207 stripped

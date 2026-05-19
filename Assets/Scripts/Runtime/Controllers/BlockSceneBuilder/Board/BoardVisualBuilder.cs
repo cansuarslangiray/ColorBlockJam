@@ -10,8 +10,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
 {
     public sealed class BoardVisualBuilder
     {
-        // BlockedCell prefab uses a stylized inner Rim child (0.93 xy, 0.42 z).
-        // We compensate at runtime so blocked tiles fill the grid and match border depth.
         private const float BlockedOuterRimScaleXY = 0.93f;
         private const float BlockedOuterRimScaleZ = 0.42f;
         private const float BlockedNeighborOverlapInCells = 0.02f;

@@ -6,7 +6,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 {
     public sealed class BlockViewRuntimePool
     {
-        private const string ConditionIndicatorObjectName = "ConditionIndicator";
         private static readonly Renderer[] EmptyRendererArray = Array.Empty<Renderer>();
         private static readonly Material[] EmptyMaterialArray = Array.Empty<Material>();
         private readonly Dictionary<string, List<BlockRootView>> _inactiveBlockRootsByKey =
@@ -171,12 +170,14 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             blockView.IsUsingLockedAppearance = false;
             blockView.ConditionIndicatorObject = null;
             blockView.ConditionIndicatorText = null;
-            blockView.PooledConditionIndicatorObject = null;
-            blockView.PooledConditionIndicatorText = null;
-            blockView.DragOutlineRenderer = null;
-            blockView.PooledDragOutlineRenderer = null;
-            blockView.PooledDoorExitBurstParticle = null;
-            blockView.PooledDoorExitBurstRenderer = null;
+            blockView.OutlineRenderer = null;
+            blockView.HasCachedOutlineActiveColor = false;
+            blockView.CachedOutlineActiveColor = default;
+            blockView.HasAppliedOutlineColor = false;
+            blockView.AppliedOutlineColor = default;
+            blockView.DoorExitBurstParticle = null;
+            blockView.DoorExitBurstParticles = Array.Empty<ParticleSystem>();
+            blockView.DoorExitBurstRenderers = Array.Empty<Renderer>();
             if (blockView.RootTransform == null || rootBinding == null)
             {
                 return;
@@ -211,35 +212,51 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 setActiveIfChanged?.Invoke(cellObject, false);
             }
 
-            var resolvedIndicatorText =
-                ResolveConditionIndicatorText(rootBinding.ConditionIndicatorText, blockView.RootTransform);
-            blockView.PooledConditionIndicatorText = resolvedIndicatorText;
-            blockView.PooledConditionIndicatorObject = resolvedIndicatorText
-                ? resolvedIndicatorText.gameObject
+            blockView.ConditionIndicatorText = rootBinding.ConditionIndicatorText;
+            blockView.ConditionIndicatorObject = blockView.ConditionIndicatorText
+                ? blockView.ConditionIndicatorText.gameObject
                 : null;
-            blockView.ConditionIndicatorText = blockView.PooledConditionIndicatorText;
-            blockView.ConditionIndicatorObject = blockView.PooledConditionIndicatorObject;
-            blockView.ConditionIndicatorDefaultLocalRotation = blockView.PooledConditionIndicatorObject
-                ? blockView.PooledConditionIndicatorObject.transform.localRotation
+            blockView.ConditionIndicatorDefaultLocalRotation = blockView.ConditionIndicatorObject
+                ? blockView.ConditionIndicatorObject.transform.localRotation
                 : Quaternion.identity;
-            if (blockView.PooledConditionIndicatorObject)
+            if (blockView.ConditionIndicatorObject)
             {
-                setActiveIfChanged?.Invoke(blockView.PooledConditionIndicatorObject, false);
+                setActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
             }
 
-            blockView.PooledDragOutlineRenderer = rootBinding.DragOutlineRenderer;
-            blockView.DragOutlineRenderer = blockView.PooledDragOutlineRenderer;
-            if (blockView.PooledDragOutlineRenderer && blockView.PooledDragOutlineRenderer.gameObject)
+            blockView.OutlineRenderer = rootBinding.OutlineRenderer;
+            if (blockView.OutlineRenderer && blockView.OutlineRenderer.gameObject)
             {
-                setActiveIfChanged?.Invoke(blockView.PooledDragOutlineRenderer.gameObject, false);
+                setActiveIfChanged?.Invoke(blockView.OutlineRenderer.gameObject, true);
             }
 
-            blockView.PooledDoorExitBurstParticle = rootBinding.DoorExitParticle;
-            blockView.PooledDoorExitBurstRenderer = rootBinding.DoorExitParticleRenderer;
-            if (blockView.PooledDoorExitBurstParticle && blockView.PooledDoorExitBurstParticle.gameObject)
+            blockView.DoorExitBurstParticle = rootBinding.DoorExitParticle;
+            blockView.DoorExitBurstParticles = ResolveDoorExitBurstParticles(blockView.DoorExitBurstParticle);
+            blockView.DoorExitBurstRenderers = ResolveDoorExitBurstRenderers(blockView.DoorExitBurstParticle);
+            if (blockView.DoorExitBurstParticle && blockView.DoorExitBurstParticle.gameObject)
             {
-                setActiveIfChanged?.Invoke(blockView.PooledDoorExitBurstParticle.gameObject, false);
+                setActiveIfChanged?.Invoke(blockView.DoorExitBurstParticle.gameObject, false);
             }
+        }
+
+        private static ParticleSystem[] ResolveDoorExitBurstParticles(ParticleSystem doorExitBurstRoot)
+        {
+            if (!doorExitBurstRoot)
+            {
+                return Array.Empty<ParticleSystem>();
+            }
+
+            return doorExitBurstRoot.GetComponentsInChildren<ParticleSystem>(true);
+        }
+
+        private static Renderer[] ResolveDoorExitBurstRenderers(ParticleSystem doorExitBurstRoot)
+        {
+            if (doorExitBurstRoot)
+            {
+                return doorExitBurstRoot.GetComponentsInChildren<Renderer>(true);
+            }
+            
+            return Array.Empty<Renderer>();
         }
 
         private static Material[] ResolveNestedDefaultMaterials(Renderer[] nestedRenderers)
@@ -257,36 +274,6 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
 
             return defaultMaterials;
-        }
-
-        private static TextMesh ResolveConditionIndicatorText(TextMesh boundConditionIndicatorText,
-            Transform rootTransform)
-        {
-            if (boundConditionIndicatorText)
-            {
-                return boundConditionIndicatorText;
-            }
-
-            if (rootTransform == null)
-            {
-                return null;
-            }
-
-            var textMeshes = rootTransform.GetComponentsInChildren<TextMesh>(true);
-            for (var i = 0; i < textMeshes.Length; i++)
-            {
-                var textMesh = textMeshes[i];
-                if (!textMesh ||
-                    !textMesh.gameObject ||
-                    !string.Equals(textMesh.gameObject.name, ConditionIndicatorObjectName, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                return textMesh;
-            }
-
-            return null;
         }
 
         private void Release(
@@ -320,14 +307,19 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
                 setActiveIfChanged?.Invoke(blockView.ConditionIndicatorObject, false);
             }
 
-            if (blockView.DragOutlineRenderer && blockView.DragOutlineRenderer.gameObject)
+            if (blockView.OutlineRenderer && blockView.OutlineRenderer.enabled)
             {
-                setActiveIfChanged?.Invoke(blockView.DragOutlineRenderer.gameObject, false);
+                blockView.OutlineRenderer.enabled = false;
             }
 
-            if (blockView.PooledDoorExitBurstParticle && blockView.PooledDoorExitBurstParticle.gameObject)
+            if (blockView.OutlineRenderer && blockView.OutlineRenderer.gameObject)
             {
-                setActiveIfChanged?.Invoke(blockView.PooledDoorExitBurstParticle.gameObject, false);
+                setActiveIfChanged?.Invoke(blockView.OutlineRenderer.gameObject, false);
+            }
+
+            if (blockView.DoorExitBurstParticle && blockView.DoorExitBurstParticle.gameObject)
+            {
+                setActiveIfChanged?.Invoke(blockView.DoorExitBurstParticle.gameObject, false);
             }
 
             setActiveIfChanged?.Invoke(blockView.RootObject, false);

@@ -21,7 +21,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 return;
             }
 
-            var burstParticle = blockView.PooledDoorExitBurstParticle;
+            var burstParticle = blockView.DoorExitBurstParticle;
             if (burstParticle == null)
             {
                 return;
@@ -37,19 +37,19 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private void HandleBlockDragHighlightChanged(int blockId, bool isActive)
+        private void HandleBlockOutlineDragStateChanged(int blockId, bool isActive)
         {
             if (!_blockViewPool.TryGetActive(blockId, out var blockView))
             {
                 return;
             }
 
-            SetDragHighlightActive(blockView, isActive);
+            ApplyOutlineDragState(blockView, isActive);
         }
 
-        private void SetDragHighlightActive(BlockRootView blockView, bool isActive)
+        private void ApplyOutlineDragState(BlockRootView blockView, bool isActive)
         {
-            _dragHighlightPresenter.SetDragHighlightActive(blockView, isActive, SetActiveIfChanged);
+            _blockOutlinePresenter.ApplyOutlineState(blockView, isActive, outlineIdleDarkenFactor);
         }
 
         private void SetBlockCellsActive(BlockRootView blockView, bool isActive)
@@ -68,6 +68,16 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     SetActiveIfChanged(cellObject, isActive);
                 }
             }
+
+            var outlineRenderer = blockView.OutlineRenderer;
+            if (outlineRenderer && outlineRenderer.gameObject)
+            {
+                SetActiveIfChanged(outlineRenderer.gameObject, isActive);
+                if (outlineRenderer.enabled != isActive)
+                {
+                    outlineRenderer.enabled = isActive;
+                }
+            }
         }
 
         private void PlayBlockExitDisintegrateFx(BlockRootView blockView, Vector2Int _ = default)
@@ -82,7 +92,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void PlayDoorExitBurstParticleFx(BlockRootView blockView)
         {
-            var burstParticle = blockView?.PooledDoorExitBurstParticle;
+            var burstParticle = blockView?.DoorExitBurstParticle;
             if (burstParticle == null)
             {
                 return;
@@ -95,7 +105,12 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
 
             SetActiveIfChanged(burstObject, true);
-            var burstColor = ResolveBlockBurstColor(blockView);
+            if (!TryResolveBlockBurstColor(blockView, out var burstColor))
+            {
+                return;
+            }
+
+            ApplyDoorExitBurstParticlesColor(blockView, burstColor);
             ApplyDoorExitBurstRenderersTint(blockView, burstColor);
             SetDoorExitBurstRenderersEnabled(blockView, true);
 
@@ -105,8 +120,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private void ApplyDoorExitBurstRenderersTint(BlockRootView blockView, Color burstColor)
         {
-            var burstRenderers = ResolveDoorExitBurstRenderers(blockView);
-            if (burstRenderers == null || burstRenderers.Length == 0)
+            var burstRenderers = GetDoorExitBurstRenderers(blockView);
+            if (burstRenderers.Length == 0)
             {
                 return;
             }
@@ -119,8 +134,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
         private static void SetDoorExitBurstRenderersEnabled(BlockRootView blockView, bool isEnabled)
         {
-            var burstRenderers = ResolveDoorExitBurstRenderers(blockView);
-            if (burstRenderers == null || burstRenderers.Length == 0)
+            var burstRenderers = GetDoorExitBurstRenderers(blockView);
+            if (burstRenderers.Length == 0)
             {
                 return;
             }
@@ -135,24 +150,70 @@ namespace Runtime.Controllers.BlockSceneBuilder
             }
         }
 
-        private static ParticleSystemRenderer[] ResolveDoorExitBurstRenderers(BlockRootView blockView)
+        private static ParticleSystem[] GetDoorExitBurstParticles(BlockRootView blockView)
         {
-            var burstParticle = blockView?.PooledDoorExitBurstParticle;
-            if (burstParticle)
+            if (blockView == null)
             {
-                return burstParticle.GetComponentsInChildren<ParticleSystemRenderer>(true);
+                return System.Array.Empty<ParticleSystem>();
             }
 
-            var fallbackRenderer = blockView?.PooledDoorExitBurstRenderer;
-            if (fallbackRenderer)
-            {
-                return new[] { fallbackRenderer };
-            }
-
-            return null;
+            return blockView.DoorExitBurstParticles ?? System.Array.Empty<ParticleSystem>();
         }
 
-        private void ApplyDoorExitBurstRendererTint(ParticleSystemRenderer particleRenderer, Color burstColor)
+        private static Renderer[] GetDoorExitBurstRenderers(BlockRootView blockView)
+        {
+            if (blockView == null)
+            {
+                return System.Array.Empty<Renderer>();
+            }
+
+            return blockView.DoorExitBurstRenderers ?? System.Array.Empty<Renderer>();
+        }
+
+        private static void ApplyDoorExitBurstParticlesColor(BlockRootView blockView, Color burstColor)
+        {
+            var burstParticles = GetDoorExitBurstParticles(blockView);
+            if (burstParticles.Length == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < burstParticles.Length; i++)
+            {
+                ApplyDoorExitBurstParticleColor(burstParticles[i], burstColor);
+            }
+        }
+
+        private static void ApplyDoorExitBurstParticleColor(ParticleSystem particleSystem, Color burstColor)
+        {
+            if (!particleSystem)
+            {
+                return;
+            }
+
+            var main = particleSystem.main;
+            main.startColor = TintGradientNoAlloc(main.startColor, burstColor);
+
+            var colorOverLifetime = particleSystem.colorOverLifetime;
+            if (colorOverLifetime.enabled)
+            {
+                colorOverLifetime.color = TintGradientNoAlloc(colorOverLifetime.color, burstColor);
+            }
+
+            var colorBySpeed = particleSystem.colorBySpeed;
+            if (colorBySpeed.enabled)
+            {
+                colorBySpeed.color = TintGradientNoAlloc(colorBySpeed.color, burstColor);
+            }
+
+            var trails = particleSystem.trails;
+            if (trails.enabled)
+            {
+                trails.colorOverLifetime = TintGradientNoAlloc(trails.colorOverLifetime, burstColor);
+            }
+        }
+
+        private void ApplyDoorExitBurstRendererTint(Renderer particleRenderer, Color burstColor)
         {
             if (!particleRenderer)
             {
@@ -179,20 +240,27 @@ namespace Runtime.Controllers.BlockSceneBuilder
             particleRenderer.SetPropertyBlock(_fxRendererPropertyBlock);
         }
 
-        private static Color ResolveBlockBurstColor(BlockRootView blockView)
+        private static bool TryResolveBlockBurstColor(BlockRootView blockView, out Color color)
         {
-            if (TryResolveBlockCellMaterialColor(blockView, out var color))
+            if (TryResolveBlockCellMaterialColor(blockView, out color))
             {
                 color.a = 1f;
-                return color;
+                return true;
             }
 
-            return Color.white;
+            if (TryResolveBlockCellRendererColor(blockView, out color))
+            {
+                color.a = 1f;
+                return true;
+            }
+
+            color = default;
+            return false;
         }
 
         private static bool TryResolveBlockCellMaterialColor(BlockRootView blockView, out Color color)
         {
-            color = Color.white;
+            color = default;
             if (blockView == null || !blockView.HasCachedBlockColor)
             {
                 return false;
@@ -200,6 +268,78 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
             color = blockView.CachedBlockColor;
             return true;
+        }
+
+        private static bool TryResolveBlockCellRendererColor(BlockRootView blockView, out Color color)
+        {
+            color = default;
+            if (blockView == null)
+            {
+                return false;
+            }
+
+            var renderers = blockView.CellRenderers;
+            for (var i = 0; i < renderers.Count; i++)
+            {
+                var renderer = renderers[i];
+                if (!renderer || !renderer.sharedMaterial)
+                {
+                    continue;
+                }
+
+                if (!TryResolveMaterialColor(renderer.sharedMaterial, out color))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveMaterialColor(Material material, out Color color)
+        {
+            color = default;
+            if (!material)
+            {
+                return false;
+            }
+
+            if (material.HasProperty(BaseColorPropertyId))
+            {
+                color = material.GetColor(BaseColorPropertyId);
+                return true;
+            }
+
+            if (material.HasProperty(ColorPropertyId))
+            {
+                color = material.GetColor(ColorPropertyId);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static ParticleSystem.MinMaxGradient TintGradientNoAlloc(ParticleSystem.MinMaxGradient source,
+            Color burstColor)
+        {
+            switch (source.mode)
+            {
+                case ParticleSystemGradientMode.Color:
+                    return new ParticleSystem.MinMaxGradient(ApplyRgbWithAlpha(burstColor, source.color.a));
+                case ParticleSystemGradientMode.TwoColors:
+                    return new ParticleSystem.MinMaxGradient(
+                        ApplyRgbWithAlpha(burstColor, source.colorMin.a),
+                        ApplyRgbWithAlpha(burstColor, source.colorMax.a));
+                default:
+                    return source;
+            }
+        }
+
+        private static Color ApplyRgbWithAlpha(Color burstColor, float alpha)
+        {
+            return new Color(burstColor.r, burstColor.g, burstColor.b, alpha);
         }
 
         private IEnumerator AnimateBlockDoorExitSequence(BlockRootView blockView, DoorOpeningData matchedDoor,

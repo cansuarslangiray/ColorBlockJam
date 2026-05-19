@@ -1017,9 +1017,8 @@ MonoBehaviour:
     - {fileID: 1944501252524538498}
     - {fileID: 2781694663317117859}
   conditionIndicatorText: {fileID: 8736586421020894650}
-  dragOutlineRenderer: {fileID: 1641628124063756737}
+  outlineRenderer: {fileID: 1641628124063756737}
   doorExitParticle: {fileID: 3310553123786070627}
-  doorExitParticleRenderer: {fileID: 3282244537193259267}
 --- !u!1 &6236781968272001929
 GameObject:
   m_ObjectHideFlags: 0
@@ -1529,12 +1528,12 @@ GameObject:
   - component: {fileID: 4361488319100101339}
   - component: {fileID: 1641628124063756737}
   m_Layer: 0
-  m_Name: BlockDragOutline
+  m_Name: BlockOutline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &4361488319100101339
 Transform:
   m_ObjectHideFlags: 0
@@ -1544,7 +1543,7 @@ Transform:
   m_GameObject: {fileID: 8471137337161310533}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: -0.306}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1591,19 +1590,19 @@ LineRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 12000
+  m_SortingOrder: 0
   m_Positions:
-  - {x: 0, y: 0.03, z: -0.01}
-  - {x: 1, y: 0.03, z: -0.01}
-  - {x: 1, y: 1.03, z: -0.01}
-  - {x: 1, y: 2.03, z: -0.01}
-  - {x: 1, y: 3.03, z: -0.01}
-  - {x: 0, y: 3.03, z: -0.01}
-  - {x: 0, y: 2.03, z: -0.01}
-  - {x: 0, y: 1.03, z: -0.01}
+  - {x: 0.036, y: 0.066, z: 0}
+  - {x: 0.964, y: 0.066, z: 0}
+  - {x: 0.964, y: 1.03, z: 0}
+  - {x: 0.964, y: 2.03, z: 0}
+  - {x: 0.964, y: 2.994, z: 0}
+  - {x: 0.036, y: 2.994, z: 0}
+  - {x: 0.036, y: 2.03, z: 0}
+  - {x: 0.036, y: 1.03, z: 0}
   m_Parameters:
     serializedVersion: 3
-    widthMultiplier: 0.095
+    widthMultiplier: 0.072
     widthCurve:
       serializedVersion: 2
       m_Curve:
@@ -1651,7 +1650,7 @@ LineRenderer:
       m_NumAlphaKeys: 2
     numCornerVertices: 4
     numCapVertices: 2
-    alignment: 0
+    alignment: 1
     textureMode: 0
     textureScale: {x: 1, y: 1}
     shadowBias: 0.5
@@ -1904,11 +1903,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
---- !u!199 &3282244537193259267 stripped
-ParticleSystemRenderer:
-  m_CorrespondingSourceObject: {fileID: 199000010453026294, guid: fe0a70e320b5485788bb7681665e415e, type: 3}
-  m_PrefabInstance: {fileID: 3408694337994024181}
-  m_PrefabAsset: {fileID: 0}
 --- !u!198 &3310553123786070627 stripped
 ParticleSystem:
   m_CorrespondingSourceObject: {fileID: 198000011337858710, guid: fe0a70e320b5485788bb7681665e415e, type: 3}

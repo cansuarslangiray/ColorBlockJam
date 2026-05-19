@@ -34,6 +34,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
         [SerializeField, Min(0f)] private float blockedCellZOffsetFromGrid = 0.03f;
         
         [SerializeField, Min(0.01f)] private float blockLayerForwardOffsetFromGrid = 0.24f;
+
+        [Header("Block Outline")] [SerializeField, Range(0.2f, 1f)]
+        private float outlineIdleDarkenFactor = 0.74f;
         
         [Header("Block Movement")] [SerializeField, Min(2f)]
         private float blockMoveSpeedInCellsPerSecond = 16f;
@@ -58,7 +61,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private readonly List<GameObject> _doorPool = new();
         private readonly Dictionary<string, int> _requiredBlockRootCountByKey = new(System.StringComparer.Ordinal);
         private readonly ConditionIndicatorPresenter _conditionIndicatorPresenter = new();
-        private readonly DragHighlightPresenter _dragHighlightPresenter = new();
+        private readonly BlockOutlinePresenter _blockOutlinePresenter = new();
         private readonly BlockExitFxController _blockExitFxController = new();
         private readonly BoardVisualBuilder _boardVisualBuilder = new();
         private readonly BlockVisualPresenter _blockVisualPresenter = new();
