@@ -74,30 +74,36 @@ namespace Runtime.Managers.GameFlow
 
             for (var i = 0; i < blocks.Count; i++)
             {
-                var sanitizedFeature = blocks[i].blockFeatures.Sanitize();
-                if (sanitizedFeature == BlockFeature.Default)
-                {
-                    continue;
-                }
-
-                if (!_seenInLevelBuffer.Add(sanitizedFeature))
-                {
-                    continue;
-                }
-
-                if (_playerFeatureProgress.HasSeenFeature(sanitizedFeature))
-                {
-                    continue;
-                }
-
-                _unseenFeaturesBuffer.Add(sanitizedFeature);
-                if (_unseenFeaturesBuffer.Count >= MaxFeaturesPerPanel)
+                var block = blocks[i];
+                if (!TryAddUnseenFeature(block.blockFeatures.Sanitize()) ||
+                    _unseenFeaturesBuffer.Count >= MaxFeaturesPerPanel)
                 {
                     break;
                 }
             }
 
             return _unseenFeaturesBuffer.Count > 0;
+        }
+
+        private bool TryAddUnseenFeature(BlockFeature featureType)
+        {
+            if (featureType == BlockFeature.Default)
+            {
+                return true;
+            }
+
+            if (!_seenInLevelBuffer.Add(featureType))
+            {
+                return true;
+            }
+
+            if (_playerFeatureProgress.HasSeenFeature(featureType))
+            {
+                return true;
+            }
+
+            _unseenFeaturesBuffer.Add(featureType);
+            return _unseenFeaturesBuffer.Count < MaxFeaturesPerPanel;
         }
     }
 }

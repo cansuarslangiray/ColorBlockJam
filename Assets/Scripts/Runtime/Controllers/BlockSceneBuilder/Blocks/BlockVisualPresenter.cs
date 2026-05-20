@@ -1,7 +1,9 @@
 using System;
 using Runtime.Controllers.BlockSceneBuilder.Board;
 using Runtime.Controllers.BlockSceneBuilder.Pool;
+using Runtime.Domain.Enums;
 using Runtime.Domain.Models;
+using Runtime.Helpers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder.Blocks
@@ -22,12 +24,14 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 
             for (var i = 0; i < sourceBlocks.Count; i++)
             {
-                if (!boardController.TryGetRuntimeBlock(i, out var runtimeBlock))
+                if (!boardController.TryGetRuntimeBlock(i, out var runtimeBlock) || runtimeBlock == null)
                 {
                     continue;
                 }
 
-                var poolKey = sourceBlocks[i].ResolvePoolKey();
+                var poolKey = string.IsNullOrWhiteSpace(runtimeBlock.PoolKey)
+                    ? sourceBlocks[i].ResolvePoolKey()
+                    : runtimeBlock.PoolKey;
 
                 var blockView = blockViewPool.Acquire(poolKey);
                 if (blockView == null)
@@ -36,17 +40,28 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 }
 
                 blockView.PoolKey = poolKey;
-                ApplyBlockCells(blockView, runtimeBlock, request);
-
-                var placementTransform = blockView.PlacementTransform
-                    ? blockView.PlacementTransform
-                    : blockView.RootTransform;
-                request.ApplyWorldPosition(placementTransform, ToWorldPosition(runtimeBlock.Position, request.Layout));
-                request.SetOutlineDragActive(blockView, false);
+                ApplyRuntimeBlockVisualState(i, blockView, runtimeBlock, request);
 
                 blockViewPool.MarkActive(i, blockView);
                 request.SetActiveIfChanged(blockView.RootObject, true);
             }
+        }
+
+        public void ApplyRuntimeBlockVisualState(int blockId, BlockRootView blockView, RuntimeBlockState blockState,
+            in BlockVisualBuildRequest request)
+        {
+            if (blockView == null || blockState == null)
+            {
+                return;
+            }
+
+            ApplyBlockCells(blockId, blockView, blockState, request);
+
+            var placementTransform = blockView.PlacementTransform
+                ? blockView.PlacementTransform
+                : blockView.RootTransform;
+            request.ApplyWorldPosition(placementTransform, ToWorldPosition(blockState.Position, request.Layout));
+            request.SetOutlineDragActive(blockView, false);
         }
 
         private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)
@@ -55,22 +70,25 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 layout.BoardOrigin.y + (gridPosition.y * layout.CellSize), layout.BlockZ);
         }
 
-        private static void ApplyBlockCells(BlockRootView blockView, RuntimeBlockState blockState,
+        private static void ApplyBlockCells(int blockId, BlockRootView blockView, RuntimeBlockState blockState,
             in BlockVisualBuildRequest request)
         {
-            var localCells = ResolveVisualLocalCells(blockView, blockState.LocalCells);
+            var localCells = ResolveVisualLocalCells(blockView, blockState.RenderableLocalCells);
             var cellSize = request.Layout.CellSize;
-            var resolvedMaterial = request.ResolveMaterial(blockState.ColorType);
-            var useLockedAppearance = request.IsBlockLocked?.Invoke(blockState.Id) == true;
-            blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(resolvedMaterial, out var cachedBlockColor);
-            blockView.CachedBlockColor = cachedBlockColor;
+            var useLockedAppearance = request.IsBlockLocked?.Invoke(blockId) == true;
 
+            var representativeColorType = ResolveRepresentativeColorType(blockState, localCells);
+            var representativeMaterial = request.ResolveMaterial(representativeColorType);
+            blockView.HasCachedBlockColor = TryResolvePrimaryMaterialColor(representativeMaterial, out var cachedBlockColor);
+            blockView.CachedBlockColor = cachedBlockColor;
             blockView.LocalCenter = ResolveLocalCenter(localCells, cellSize);
 
             var cells = blockView.Cells;
             var pooledCellCount = cells.Count;
             var activeCellCount = Mathf.Min(localCells.Length, pooledCellCount);
             blockView.ActiveCellCount = activeCellCount;
+            var useNestedDualMaterial = ResolveNestedDualMaterials(blockState, request, out var nestedPrimaryMaterial,
+                out var nestedInnerMaterial);
 
             for (var i = 0; i < activeCellCount; i++)
             {
@@ -84,6 +102,14 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                     cellObject.transform.localPosition = localPosition;
                 }
 
+                var resolvedMaterial = ResolveCellMaterial(blockState, request, localCell);
+                var resolvedPrimaryMaterial = useNestedDualMaterial && !useLockedAppearance
+                    ? nestedPrimaryMaterial
+                    : resolvedMaterial;
+                var resolvedNestedMaterial = useNestedDualMaterial && !useLockedAppearance
+                    ? nestedInnerMaterial
+                    : resolvedMaterial;
+                ApplyCellAppearance(blockView, i, resolvedPrimaryMaterial, resolvedNestedMaterial, useLockedAppearance);
             }
 
             for (var i = activeCellCount; i < pooledCellCount; i++)
@@ -91,7 +117,7 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
                 request.SetActiveIfChanged(cells[i], false);
             }
 
-            ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
+            blockView.IsUsingLockedAppearance = useLockedAppearance;
             if (!blockView.HasCachedBlockColor &&
                 TryResolveBlockColorFromRenderers(blockView, activeCellCount, out var cachedRendererColor))
             {
@@ -100,73 +126,79 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             }
         }
 
-        public void ApplyBlockAppearance(BlockRootView blockView, RuntimeBlockState blockState, Material resolvedMaterial,
-            bool useLockedAppearance)
+        private static Material ResolveCellMaterial(RuntimeBlockState blockState, in BlockVisualBuildRequest request,
+            Vector2Int localCell)
         {
-            if (blockView == null)
+            if (blockState.TryResolveVisibleColor(localCell, out var colorType))
             {
-                return;
+                return request.ResolveMaterial(colorType);
             }
 
-            var localCells = ResolveVisualLocalCells(blockView, blockState.LocalCells);
-            var activeCellCount = Mathf.Min(localCells.Length, blockView.Cells.Count);
-            blockView.ActiveCellCount = activeCellCount;
-            ApplyBlockAppearance(blockView, resolvedMaterial, useLockedAppearance, activeCellCount);
+            return request.ResolveMaterial(blockState.ColorType);
         }
 
-        private static void ApplyBlockAppearance(BlockRootView blockView, Material resolvedMaterial,
-            bool useLockedAppearance, int activeCellCount)
+        private static bool ResolveNestedDualMaterials(RuntimeBlockState blockState, in BlockVisualBuildRequest request,
+            out Material outerMaterial, out Material innerMaterial)
         {
-            if (blockView == null)
+            outerMaterial = null;
+            innerMaterial = null;
+
+            if (blockState == null || !blockState.BlockFeatures.HasFeature(BlockFeature.NestedShape))
+            {
+                return false;
+            }
+
+            if (!blockState.TryResolveRemainingLayerColor(ShapeLayerRole.Outer, out var outerColorType) ||
+                !blockState.TryResolveRemainingLayerColor(ShapeLayerRole.Inner, out var innerColorType))
+            {
+                return false;
+            }
+
+            outerMaterial = request.ResolveMaterial(outerColorType);
+            innerMaterial = request.ResolveMaterial(innerColorType);
+            return outerMaterial != null && innerMaterial != null;
+        }
+
+        private static void ApplyCellAppearance(BlockRootView blockView, int cellIndex, Material primaryMaterial,
+            Material nestedMaterial, bool useLockedAppearance)
+        {
+            if (blockView == null || cellIndex < 0)
             {
                 return;
             }
 
-            var cellRenderers = blockView.CellRenderers;
-            var nestedRenderers = blockView.CellNestedRenderers;
-            var rendererCount = Mathf.Min(activeCellCount, cellRenderers.Count);
-            for (var i = 0; i < rendererCount; i++)
+            if (cellIndex < blockView.CellRenderers.Count)
             {
-                if (!useLockedAppearance && !resolvedMaterial)
+                var primaryRenderer = blockView.CellRenderers[cellIndex];
+                var targetPrimaryMaterial = ResolvePrimaryMaterial(blockView, cellIndex, primaryMaterial,
+                    useLockedAppearance);
+                if (primaryRenderer && primaryRenderer.sharedMaterial != targetPrimaryMaterial)
                 {
-                    continue;
-                }
-
-                var cellRenderer = cellRenderers[i];
-                var targetMaterial = ResolvePrimaryMaterial(blockView, i, resolvedMaterial, useLockedAppearance);
-                if (cellRenderer && cellRenderer.sharedMaterial != targetMaterial)
-                {
-                    cellRenderer.sharedMaterial = targetMaterial;
+                    primaryRenderer.sharedMaterial = targetPrimaryMaterial;
                 }
             }
 
-            var nestedCount = Mathf.Min(activeCellCount, nestedRenderers.Count);
-            for (var i = 0; i < nestedCount; i++)
+            if (cellIndex >= blockView.CellNestedRenderers.Count)
             {
-                var nestedRendererSet = nestedRenderers[i];
-                if (nestedRendererSet == null)
-                {
-                    continue;
-                }
-
-                for (var nestedIndex = 0; nestedIndex < nestedRendererSet.Length; nestedIndex++)
-                {
-                    if (!useLockedAppearance && !resolvedMaterial)
-                    {
-                        continue;
-                    }
-
-                    var nestedRenderer = nestedRendererSet[nestedIndex];
-                    var targetMaterial = ResolveNestedMaterial(blockView, i, nestedIndex, resolvedMaterial,
-                        useLockedAppearance);
-                    if (nestedRenderer && nestedRenderer.sharedMaterial != targetMaterial)
-                    {
-                        nestedRenderer.sharedMaterial = targetMaterial;
-                    }
-                }
+                return;
             }
 
-            blockView.IsUsingLockedAppearance = useLockedAppearance;
+            var nestedRenderers = blockView.CellNestedRenderers[cellIndex];
+            if (nestedRenderers == null)
+            {
+                return;
+            }
+
+            for (var nestedIndex = 0; nestedIndex < nestedRenderers.Length; nestedIndex++)
+            {
+                var nestedRenderer = nestedRenderers[nestedIndex];
+                var targetNestedMaterial = ResolveNestedMaterial(blockView, cellIndex, nestedIndex, nestedMaterial,
+                    useLockedAppearance);
+                if (nestedRenderer && nestedRenderer.sharedMaterial != targetNestedMaterial)
+                {
+                    nestedRenderer.sharedMaterial = targetNestedMaterial;
+                }
+            }
         }
 
         private static Material ResolvePrimaryMaterial(BlockRootView blockView, int cellIndex, Material blockMaterial,
@@ -265,6 +297,27 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
             return false;
         }
 
+        private static BlockColor ResolveRepresentativeColorType(RuntimeBlockState blockState, Vector2Int[] localCells)
+        {
+            if (blockState == null)
+            {
+                return BlockColor.Red;
+            }
+
+            if (localCells != null)
+            {
+                for (var i = 0; i < localCells.Length; i++)
+                {
+                    if (blockState.TryResolveVisibleColor(localCells[i], out var colorType))
+                    {
+                        return colorType;
+                    }
+                }
+            }
+
+            return blockState.ColorType;
+        }
+
         private static Vector2 ResolveLocalCenter(Vector2Int[] localCells, float cellSize)
         {
             if (localCells == null || localCells.Length == 0)
@@ -293,12 +346,17 @@ namespace Runtime.Controllers.BlockSceneBuilder.Blocks
 
         private static Vector2Int[] ResolveVisualLocalCells(BlockRootView blockView, Vector2Int[] runtimeLocalCells)
         {
+            if (runtimeLocalCells != null && runtimeLocalCells.Length > 0)
+            {
+                return runtimeLocalCells;
+            }
+
             if (blockView?.ShapeLocalCells != null && blockView.ShapeLocalCells.Length > 0)
             {
                 return blockView.ShapeLocalCells;
             }
 
-            return runtimeLocalCells ?? Array.Empty<Vector2Int>();
+            return Array.Empty<Vector2Int>();
         }
     }
 }

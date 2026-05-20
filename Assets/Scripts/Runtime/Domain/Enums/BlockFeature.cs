@@ -6,6 +6,7 @@ namespace Runtime.Domain.Enums
         Horizontal = 1,
         Vertical = 2,
         MaxMovesBeforeExit = 8,
-        MinClearedBlocksBeforeExit = 16
+        MinClearedBlocksBeforeExit = 16,
+        NestedShape = 32
     }
 }

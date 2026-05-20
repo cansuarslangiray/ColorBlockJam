@@ -42,7 +42,8 @@ namespace Editor.LevelAuthoring
             new(BlockFeature.Horizontal, "↔", "Horizontal"),
             new(BlockFeature.Vertical, "↕", "Vertical"),
             new(BlockFeature.MaxMovesBeforeExit, "M", "MaxMovesBeforeExit"),
-            new(BlockFeature.MinClearedBlocksBeforeExit, "C", "MinClearedBlocksBeforeExit")
+            new(BlockFeature.MinClearedBlocksBeforeExit, "C", "MinClearedBlocksBeforeExit"),
+            new(BlockFeature.NestedShape, "N", "NestedShape")
         };
 
         private static readonly BlockFeature[] BlockFeatureOptions =
@@ -51,7 +52,8 @@ namespace Editor.LevelAuthoring
             BlockFeature.Horizontal,
             BlockFeature.Vertical,
             BlockFeature.MaxMovesBeforeExit,
-            BlockFeature.MinClearedBlocksBeforeExit
+            BlockFeature.MinClearedBlocksBeforeExit,
+            BlockFeature.NestedShape
         };
 
         private static readonly string[] BlockFeatureLabels =
@@ -60,7 +62,8 @@ namespace Editor.LevelAuthoring
             "Horizontal",
             "Vertical",
             "MaxMovesBeforeExit",
-            "MinClearedBlocksBeforeExit"
+            "MinClearedBlocksBeforeExit",
+            "NestedShape"
         };
 
         private static readonly Color BlockedCellColor = new(0.22f, 0.22f, 0.22f);
@@ -83,6 +86,7 @@ namespace Editor.LevelAuthoring
         private EditMode _editMode;
         private BlockColor _selectedDoorColor = BlockColor.Red;
         private BlockColor _selectedBlockColor = BlockColor.Red;
+        private BlockColor _selectedInnerBlockColor = BlockColor.Blue;
         private BlockFeature _selectedBlockFeature = BlockFeature.Default;
         private int _selectedBlockMaxMovesBeforeExit = 3;
         private int _selectedBlockMinClearedBlocksBeforeExit = 1;
@@ -172,6 +176,7 @@ namespace Editor.LevelAuthoring
         private bool DrawToolbar()
         {
             var shouldExitGui = false;
+            var hasPendingLevelChanges = HasPendingLevelChanges();
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
             if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(64f)))
@@ -187,13 +192,29 @@ namespace Editor.LevelAuthoring
 
             if (GUILayout.Button("Sync Collection", EditorStyles.toolbarButton, GUILayout.Width(112f)))
             {
-                SaveActiveLevel();
-                LevelContentPipelineTool.SyncCollectionFromAssets();
-                RefreshCaches(selectFirstIfEmpty: false);
+                if (hasPendingLevelChanges)
+                {
+                    ShowNotification(new GUIContent("Önce Save Level ile değişiklikleri kaydet."));
+                }
+                else
+                {
+                    LevelContentPipelineTool.SyncCollectionFromAssets();
+                    RefreshCaches(selectFirstIfEmpty: false);
+                }
+
                 shouldExitGui = true;
             }
 
+            using (new EditorGUI.DisabledScope(!hasPendingLevelChanges))
+            {
+                if (GUILayout.Button("Save Level", EditorStyles.toolbarButton, GUILayout.Width(84f)))
+                {
+                    SaveActiveLevel();
+                }
+            }
+
             GUILayout.FlexibleSpace();
+            GUILayout.Label(hasPendingLevelChanges ? "Unsaved" : "Saved", EditorStyles.miniLabel, GUILayout.Width(56f));
             EditorGUILayout.EndHorizontal();
             return shouldExitGui;
         }
@@ -372,18 +393,24 @@ namespace Editor.LevelAuthoring
                 case EditMode.Blocks:
                     _selectedShapeIndex = Mathf.Clamp(_selectedShapeIndex, -1, _shapes.Count - 1);
                     var selectedShapeOption = _selectedShapeIndex + 1;
-                    var nextShapeOption = EditorGUILayout.Popup("Shape", selectedShapeOption, _shapeOptions);
+                    var nextShapeOption = EditorGUILayout.Popup("Outer Shape", selectedShapeOption, _shapeOptions);
                     if (nextShapeOption != selectedShapeOption)
                     {
                         _selectedShapeIndex = nextShapeOption - 1;
                     }
 
-                    _selectedBlockColor = DrawAvailableColorPopup(level, "Block Color", _selectedBlockColor);
+                    _selectedBlockColor = DrawAvailableColorPopup(level, "Outer Color", _selectedBlockColor);
                     DrawBlockFeatureEditor(ref _selectedBlockFeature, ref _selectedBlockMaxMovesBeforeExit,
                         ref _selectedBlockMinClearedBlocksBeforeExit);
 
+                    if (_selectedBlockFeature == BlockFeature.NestedShape)
+                    {
+                        _selectedInnerBlockColor = DrawAvailableColorPopup(level, "Inner Color", _selectedInnerBlockColor);
+                        EditorGUILayout.LabelField("Inner Shape", "Outer Shape ile ayni (otomatik)");
+                    }
+
                     EditorGUILayout.HelpBox(
-                        "Grid'e tıklayınca seçili shape anchor pozisyonuna yerleşir. Border hücrelerine block yerleşmez.",
+                        "Grid'e tıklanınca seçili block setup anchor pozisyonuna yerleşir. Border hücrelerine block yerleşmez.",
                         MessageType.None);
                     break;
             }
@@ -498,13 +525,24 @@ namespace Editor.LevelAuthoring
 
                 EditorGUI.BeginChangeCheck();
                 var position = EditorGUILayout.Vector2IntField("Anchor", block.position);
-                var shape = EditorGUILayout.ObjectField("Shape", block.shapeDefinition, typeof(BlockShapeDefinition),
+                var shape = EditorGUILayout.ObjectField("Outer Shape", block.shapeDefinition, typeof(BlockShapeDefinition),
                     false) as BlockShapeDefinition;
-                var color = DrawAvailableColorPopup(level, "Color", block.colorType);
+                var color = DrawAvailableColorPopup(level, "Outer Color", block.colorType);
+
                 var features = block.blockFeatures;
                 var maxMovesBeforeExit = block.maxMovesBeforeExit;
                 var minClearedBlocksBeforeExit = block.minClearedBlocksBeforeExit;
                 DrawBlockFeatureEditor(ref features, ref maxMovesBeforeExit, ref minClearedBlocksBeforeExit);
+                features = features.Sanitize();
+
+                var innerShape = block.innerShapeDefinition;
+                var innerColor = block.innerColorType;
+                if (features == BlockFeature.NestedShape)
+                {
+                    innerColor = DrawAvailableColorPopup(level, "Inner Color", innerColor);
+                    EditorGUILayout.LabelField("Inner Shape", "Outer Shape ile ayni (otomatik)");
+                    innerShape = shape;
+                }
 
                 if (EditorGUI.EndChangeCheck())
                 {
@@ -513,9 +551,14 @@ namespace Editor.LevelAuthoring
                     block.shapeDefinition = shape;
                     block.shapeKey = shape ? shape.ShapeKey : block.shapeKey;
                     block.colorType = color;
-                    block.blockFeatures = features.Sanitize();
+                    block.blockFeatures = features;
                     block.maxMovesBeforeExit = maxMovesBeforeExit;
                     block.minClearedBlocksBeforeExit = minClearedBlocksBeforeExit;
+                    block.innerShapeDefinition = innerShape;
+                    block.innerShapeKey = innerShape ? innerShape.ShapeKey : string.Empty;
+                    block.innerColorType = innerColor;
+                    block.nestedExitOrder = NestedShapeExitOrder.OuterFirst;
+                    block.nestedContainmentRule = NestedShapeContainmentRule.AllowInnerOutsideOuter;
                     level.blocks[i] = block;
                     SaveLevelChange(level);
                 }
@@ -633,27 +676,36 @@ namespace Editor.LevelAuthoring
             var shape = SelectedShape;
             if (!shape)
             {
-                ShowNotification(new GUIContent("Önce bir shape seçmelisin."));
+                ShowNotification(new GUIContent("Önce bir outer shape seçmelisin."));
                 return;
             }
 
-            if (!CanPlaceShape(level, anchorCell, shape, ignoredBlockIndex: -1))
+            var sanitizedFeature = _selectedBlockFeature.Sanitize();
+            var innerShape = sanitizedFeature == BlockFeature.NestedShape ? shape : null;
+
+            var block = new LevelBlockEntry
+            {
+                position = anchorCell,
+                shapeKey = shape.ShapeKey,
+                shapeDefinition = shape,
+                innerShapeKey = innerShape ? innerShape.ShapeKey : string.Empty,
+                innerShapeDefinition = innerShape,
+                innerColorType = _selectedInnerBlockColor,
+                nestedExitOrder = NestedShapeExitOrder.OuterFirst,
+                nestedContainmentRule = NestedShapeContainmentRule.AllowInnerOutsideOuter,
+                blockFeatures = sanitizedFeature,
+                colorType = _selectedBlockColor,
+                maxMovesBeforeExit = _selectedBlockMaxMovesBeforeExit,
+                minClearedBlocksBeforeExit = _selectedBlockMinClearedBlocksBeforeExit
+            };
+
+            if (!CanPlaceBlock(level, anchorCell, block, ignoredBlockIndex: -1))
             {
                 ShowNotification(new GUIContent("Shape bu hücreye yerleşmiyor."));
                 return;
             }
 
             Undo.RecordObject(level, "Add Block");
-            var block = new LevelBlockEntry
-            {
-                position = anchorCell,
-                shapeKey = shape.ShapeKey,
-                shapeDefinition = shape,
-                blockFeatures = _selectedBlockFeature.Sanitize(),
-                colorType = _selectedBlockColor,
-                maxMovesBeforeExit = _selectedBlockMaxMovesBeforeExit,
-                minClearedBlocksBeforeExit = _selectedBlockMinClearedBlocksBeforeExit
-            };
             block.Normalize();
             level.blocks.Add(block);
             SaveLevelChange(level);
@@ -668,22 +720,41 @@ namespace Editor.LevelAuthoring
 
             level.Sanitize();
             EditorUtility.SetDirty(level);
-            AssetDatabase.SaveAssets();
             MarkLookupDirty();
             Repaint();
+        }
+
+        private bool HasPendingLevelChanges()
+        {
+            for (var i = 0; i < _levels.Count; i++)
+            {
+                var level = _levels[i];
+                if (level && EditorUtility.IsDirty(level))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void SaveActiveLevel()
         {
             var level = ActiveLevel;
-            if (!level)
+            if (level)
+            {
+                level.Sanitize();
+                EditorUtility.SetDirty(level);
+            }
+
+            if (!HasPendingLevelChanges())
             {
                 return;
             }
 
-            level.Sanitize();
-            EditorUtility.SetDirty(level);
             AssetDatabase.SaveAssets();
+            MarkLookupDirty();
+            Repaint();
         }
 
         private void EnsureLookupCache(LevelDefinition level)
@@ -758,15 +829,17 @@ namespace Editor.LevelAuthoring
                 blockIndex < level.blocks.Count)
             {
                 var block = level.blocks[blockIndex];
-                color = ResolvePaletteColor(block.colorType);
-                color.a = 0.9f;
-                if (block.position == cell)
+                var localCell = cell - block.position;
+                var resolvedColorType = block.colorType;
+                if (block.TryResolveCellColor(ShapeCatalog, localCell, out var layeredColor))
                 {
-                    var featureSuffix = ResolveFeatureBadgeSuffix(block.blockFeatures);
-                    return string.Concat(blockIndex.ToString(), featureSuffix);
+                    resolvedColorType = layeredColor;
                 }
 
-                return blockIndex.ToString();
+                color = ResolvePaletteColor(resolvedColorType);
+                color.a = 0.9f;
+                var featureSuffix = ResolveFeatureBadgeSuffix(block.blockFeatures);
+                return string.Concat(blockIndex.ToString(), featureSuffix);
             }
 
             if (_blockedCellLookup.Contains(cell))
@@ -803,10 +876,15 @@ namespace Editor.LevelAuthoring
             return _blockIndexByCell.TryGetValue(cell, out var index) ? index : -1;
         }
 
-        private bool CanPlaceShape(LevelDefinition level, Vector2Int anchor, BlockShapeDefinition shape,
+        private bool CanPlaceBlock(LevelDefinition level, Vector2Int anchor, LevelBlockEntry blockData,
             int ignoredBlockIndex)
         {
-            var localCells = shape.GetLocalCells();
+            var localCells = blockData.GetLocalCells(ShapeCatalog);
+            if (localCells == null || localCells.Length == 0)
+            {
+                return false;
+            }
+
             for (var i = 0; i < localCells.Length; i++)
             {
                 var worldCell = anchor + localCells[i];
@@ -859,7 +937,7 @@ namespace Editor.LevelAuthoring
 
             for (var i = level.blocks.Count - 1; i >= 0; i--)
             {
-                if (level.blocks[i].colorType == color)
+                if (level.blocks[i].UsesColor(ShapeCatalog, color))
                 {
                     level.blocks.RemoveAt(i);
                 }
@@ -1007,14 +1085,13 @@ namespace Editor.LevelAuthoring
                 for (var i = level.blocks.Count - 1; i >= 0; i--)
                 {
                     var block = level.blocks[i];
-                    var shape = block.shapeDefinition;
-                    if (!shape)
+                    if (!block.TryResolveLayers(ShapeCatalog, new List<RuntimeBlockLayerState>(4), out _))
                     {
                         level.blocks.RemoveAt(i);
                         continue;
                     }
 
-                    if (!CanPlaceShape(level, block.position, shape, i))
+                    if (!CanPlaceBlock(level, block.position, block, i))
                     {
                         level.blocks.RemoveAt(i);
                     }
@@ -1044,9 +1121,11 @@ namespace Editor.LevelAuthoring
                 for (var i = 0; i < level.blocks.Count; i++)
                 {
                     var block = level.blocks[i];
-                    if (block.shapeDefinition == null)
+                    if (!block.TryResolveLayers(AssetDatabase.LoadAssetAtPath<BlockShapeCatalog>(
+                                LevelContentPipelineTool.ShapeCatalogAssetPath), new List<RuntimeBlockLayerState>(4),
+                            out _))
                     {
-                        issues.Add($"Block #{i + 1}: Shape referansı eksik.");
+                        issues.Add($"Block #{i + 1}: Shape/Nested setup hatalı.");
                     }
                 }
             }
@@ -1067,6 +1146,10 @@ namespace Editor.LevelAuthoring
                     minClearedBlocksBeforeExit =
                         Mathf.Max(1, EditorGUILayout.IntField("Required Cleared Blocks", minClearedBlocksBeforeExit));
                     maxMovesBeforeExit = 0;
+                    break;
+                case BlockFeature.NestedShape:
+                    maxMovesBeforeExit = 0;
+                    minClearedBlocksBeforeExit = 0;
                     break;
                 default:
                     maxMovesBeforeExit = 0;
@@ -1159,6 +1242,11 @@ namespace Editor.LevelAuthoring
             if (Array.IndexOf(colorOptions, _selectedBlockColor) < 0)
             {
                 _selectedBlockColor = colorOptions[0];
+            }
+
+            if (Array.IndexOf(colorOptions, _selectedInnerBlockColor) < 0)
+            {
+                _selectedInnerBlockColor = colorOptions[0];
             }
         }
 
@@ -1254,7 +1342,6 @@ namespace Editor.LevelAuthoring
 
             if (refreshAssetDatabase)
             {
-                SaveActiveLevel();
                 AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             }
 

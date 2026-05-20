@@ -272,7 +272,9 @@ namespace Runtime.Controllers.BlockSceneBuilder
                     continue;
                 }
 
-                var poolKey = sourceBlocks[i].ResolvePoolKey();
+                var poolKey = string.IsNullOrWhiteSpace(runtimeBlock.PoolKey)
+                    ? sourceBlocks[i].ResolvePoolKey()
+                    : runtimeBlock.PoolKey;
 
                 _requiredBlockRootCountByKey.TryGetValue(poolKey, out var existingCount);
                 _requiredBlockRootCountByKey[poolKey] = existingCount + 1;

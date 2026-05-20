@@ -127,14 +127,19 @@ namespace Runtime.Core
 
         public bool IsDoorOverlapping(RuntimeBlockState block, Vector2Int anchorPosition)
         {
-            if (_width == 0 || _height == 0 || block.LocalCells == null || block.LocalCells.Length == 0)
+            return block != null && IsDoorOverlapping(block.ActiveExitLocalCells, anchorPosition);
+        }
+
+        public bool IsDoorOverlapping(Vector2Int[] localCells, Vector2Int anchorPosition)
+        {
+            if (_width == 0 || _height == 0 || localCells == null || localCells.Length == 0)
             {
                 return false;
             }
 
-            for (var cellIndex = 0; cellIndex < block.LocalCells.Length; cellIndex++)
+            for (var cellIndex = 0; cellIndex < localCells.Length; cellIndex++)
             {
-                var worldCell = anchorPosition + block.LocalCells[cellIndex];
+                var worldCell = anchorPosition + localCells[cellIndex];
                 if (!IsInside(worldCell.x, worldCell.y))
                 {
                     continue;

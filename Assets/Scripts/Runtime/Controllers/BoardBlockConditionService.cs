@@ -40,8 +40,6 @@ namespace Runtime.Controllers
                 _conditionByBlockId[pair.Key] = new RuntimeConditionState
                 {
                     HasMaxMovesBeforeExit = hasMaxMovesFeature,
-                    MaxMovesBeforeExitLimit = maxMovesLimit,
-                    SpawnMoveCount = TotalMoveCount,
                     RemainingMovesBeforeExit = maxMovesLimit,
                     HasMinClearedBlocksBeforeExit = hasMinClearedFeature,
                     RemainingClearedBlocksBeforeExit = minClearedRequirement
@@ -95,8 +93,7 @@ namespace Runtime.Controllers
                     continue;
                 }
 
-                var nextRemaining = state.MaxMovesBeforeExitLimit - (TotalMoveCount - state.SpawnMoveCount);
-                state.RemainingMovesBeforeExit = nextRemaining;
+                state.RemainingMovesBeforeExit = Mathf.Max(0, state.RemainingMovesBeforeExit - 1);
 
                 if (state.RemainingMovesBeforeExit <= 0)
                 {
@@ -132,8 +129,6 @@ namespace Runtime.Controllers
         private sealed class RuntimeConditionState
         {
             public bool HasMaxMovesBeforeExit;
-            public int MaxMovesBeforeExitLimit;
-            public int SpawnMoveCount;
             public int RemainingMovesBeforeExit;
             public bool HasMinClearedBlocksBeforeExit;
             public int RemainingClearedBlocksBeforeExit;

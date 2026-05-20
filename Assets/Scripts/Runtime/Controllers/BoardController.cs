@@ -21,6 +21,7 @@ namespace Runtime.Controllers
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
         public event Action<int, Vector2Int, Vector2Int, DoorOpeningData> BlockCleared;
+        public event Action<int, Vector2Int> BlockLayerExited;
         public event Action<int, bool> BlockOutlineDragStateChanged;
         public event Action ConditionStatesChanged;
         public event Action ConditionFailed;
@@ -38,6 +39,10 @@ namespace Runtime.Controllers
         private BoardBlockConditionService _blockConditionService;
         private bool _levelCompletedRaised;
         private int _draggingBlockId = -1;
+        private bool _hasActiveGestureMoveTracking;
+        private bool _activeGestureMovedAnyBlock;
+        private int _activeGestureMovedBlockId = -1;
+        private bool _activeGestureMovedBlockRemoved;
 
         private void Awake()
         {
@@ -49,6 +54,7 @@ namespace Runtime.Controllers
         {
             _pointerGestureController.EndPointerGesture();
             ClearDraggingBlock();
+            ResetActiveGestureMoveTracking();
         }
 
 
@@ -57,6 +63,7 @@ namespace Runtime.Controllers
             _levelCompletedRaised = false;
             _pointerGestureController.EndPointerGesture();
             ClearDraggingBlock();
+            ResetActiveGestureMoveTracking();
 
             _runtimeState.Setup(levelData, shapeCatalog);
             _blockConditionService.Setup(_runtimeState.RuntimeBlocks);
@@ -77,6 +84,7 @@ namespace Runtime.Controllers
                 return false;
             }
 
+            BeginActiveGestureMoveTracking(blockId);
             SetDraggingBlock(blockId);
             audioManager.PlayBlockSelect();
             return true;
@@ -89,8 +97,10 @@ namespace Runtime.Controllers
 
         public void EndPointerGesture()
         {
+            CommitActiveGestureMoveIfAny();
             _pointerGestureController?.EndPointerGesture();
             ClearDraggingBlock();
+            ResetActiveGestureMoveTracking();
         }
 
         public bool TryGetRuntimeBlock(int blockId, out RuntimeBlockState block)
@@ -126,35 +136,78 @@ namespace Runtime.Controllers
             }
 
             movedCellCount = slideResult.MovedCellCount;
-            blockCleared = slideResult.ClearedThroughDoor;
-            _blockConditionService.ConsumeSuccessfulMove(slideResult.BlockId, slideResult.ClearedThroughDoor,
-                out var conditionFailed);
+            blockCleared = slideResult.BlockRemovedFromBoard || slideResult.LayerExitedWithRemainingBlock;
+            RegisterActiveGestureMove(slideResult.BlockId, slideResult.BlockRemovedFromBoard);
 
             if (slideResult.ClearedThroughDoor)
             {
-                if (_draggingBlockId == slideResult.BlockId)
+                if (slideResult.BlockRemovedFromBoard && _draggingBlockId == slideResult.BlockId)
                 {
                     ClearDraggingBlock();
                 }
 
                 var exitDirection = slideResult.MatchedDoor.ResolveExitDirection(GridDimensions);
-                BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection,
-                    slideResult.MatchedDoor);
-                EvaluateCompletionState();
+                if (slideResult.BlockRemovedFromBoard)
+                {
+                    BlockCleared?.Invoke(slideResult.BlockId, slideResult.EndPosition, exitDirection,
+                        slideResult.MatchedDoor);
+                    EvaluateCompletionState();
+                }
+                else if (slideResult.LayerExitedWithRemainingBlock)
+                {
+                    BlockLayerExited?.Invoke(slideResult.BlockId, slideResult.EndPosition);
+                }
             }
             else
             {
                 BlockMoved?.Invoke(slideResult.BlockId, slideResult.StartPosition, slideResult.EndPosition);
             }
 
-            ConditionStatesChanged?.Invoke();
+            return true;
+        }
 
+        private void BeginActiveGestureMoveTracking(int blockId)
+        {
+            _hasActiveGestureMoveTracking = true;
+            _activeGestureMovedAnyBlock = false;
+            _activeGestureMovedBlockId = blockId;
+            _activeGestureMovedBlockRemoved = false;
+        }
+
+        private void RegisterActiveGestureMove(int blockId, bool blockRemovedFromBoard)
+        {
+            if (!_hasActiveGestureMoveTracking)
+            {
+                return;
+            }
+
+            _activeGestureMovedAnyBlock = true;
+            _activeGestureMovedBlockId = blockId;
+            _activeGestureMovedBlockRemoved = _activeGestureMovedBlockRemoved || blockRemovedFromBoard;
+        }
+
+        private void CommitActiveGestureMoveIfAny()
+        {
+            if (!_hasActiveGestureMoveTracking || !_activeGestureMovedAnyBlock)
+            {
+                return;
+            }
+
+            _blockConditionService.ConsumeSuccessfulMove(_activeGestureMovedBlockId, _activeGestureMovedBlockRemoved,
+                out var conditionFailed);
+            ConditionStatesChanged?.Invoke();
             if (conditionFailed)
             {
                 ConditionFailed?.Invoke();
             }
+        }
 
-            return true;
+        private void ResetActiveGestureMoveTracking()
+        {
+            _hasActiveGestureMoveTracking = false;
+            _activeGestureMovedAnyBlock = false;
+            _activeGestureMovedBlockId = -1;
+            _activeGestureMovedBlockRemoved = false;
         }
 
         private void EvaluateCompletionState()

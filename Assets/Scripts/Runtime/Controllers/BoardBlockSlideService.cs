@@ -42,19 +42,19 @@ namespace Runtime.Controllers
             var hasMoved = false;
             var reachedDoor = false;
             var matchedDoor = default(DoorOpeningData);
-            var currentlyOverlappingDoor = _occupancyMap.IsDoorOverlapping(block, currentPosition);
-            _occupancyMap.ClearBlock(blockId, startPosition, block.LocalCells);
+            var currentlyOverlappingDoor = _occupancyMap.IsDoorOverlapping(block.ActiveExitLocalCells, currentPosition);
+            _occupancyMap.ClearBlock(blockId, startPosition, block.RenderableLocalCells);
 
             while (requestedCells > 0)
             {
                 requestedCells--;
                 var nextPosition = currentPosition + directionVector;
                 var canExitThroughDoor = TryResolveDoorExit(block, nextPosition, direction, out var resolvedDoor);
-                var nextOverlapsDoor = _occupancyMap.IsDoorOverlapping(block, nextPosition);
+                var nextOverlapsDoor = _occupancyMap.IsDoorOverlapping(block.ActiveExitLocalCells, nextPosition);
 
                 if (nextOverlapsDoor && !currentlyOverlappingDoor)
                 {
-                    if (!canExitThroughDoor || !_occupancyMap.CanOccupy(nextPosition, block.LocalCells))
+                    if (!canExitThroughDoor || !_occupancyMap.CanOccupy(nextPosition, block.RenderableLocalCells))
                     {
                         break;
                     }
@@ -65,7 +65,7 @@ namespace Runtime.Controllers
                     break;
                 }
 
-                if (!_occupancyMap.CanOccupy(nextPosition, block.LocalCells))
+                if (!_occupancyMap.CanOccupy(nextPosition, block.RenderableLocalCells))
                 {
                     break;
                 }
@@ -96,8 +96,8 @@ namespace Runtime.Controllers
             {
                 var frontCellPosition = currentPosition + directionVector;
                 if (TryResolveDoorExit(block, frontCellPosition, direction, out var frontDoor) &&
-                    _occupancyMap.CanOccupy(frontCellPosition, block.LocalCells) &&
-                    !_occupancyMap.IsDoorOverlapping(block, currentPosition))
+                    _occupancyMap.CanOccupy(frontCellPosition, block.RenderableLocalCells) &&
+                    !_occupancyMap.IsDoorOverlapping(block.ActiveExitLocalCells, currentPosition))
                 {
                     matchedDoor = frontDoor;
                     reachedDoor = true;
@@ -114,24 +114,36 @@ namespace Runtime.Controllers
 
             if (!hasMoved)
             {
-                _occupancyMap.FillBlock(blockId, startPosition, block.LocalCells);
+                _occupancyMap.FillBlock(blockId, startPosition, block.RenderableLocalCells);
                 return false;
             }
 
             block.Position = currentPosition;
+            var blockRemovedFromBoard = false;
+            var layerExitedWithRemainingBlock = false;
 
             if (reachedDoor)
             {
-                _runtimeBlocks.Remove(blockId);
+                if (block.ExitActiveLayer())
+                {
+                    _runtimeBlocks[blockId] = block;
+                    _occupancyMap.FillBlock(blockId, currentPosition, block.RenderableLocalCells);
+                    layerExitedWithRemainingBlock = true;
+                }
+                else
+                {
+                    _runtimeBlocks.Remove(blockId);
+                    blockRemovedFromBoard = true;
+                }
             }
             else
             {
                 _runtimeBlocks[blockId] = block;
-                _occupancyMap.FillBlock(blockId, currentPosition, block.LocalCells);
+                _occupancyMap.FillBlock(blockId, currentPosition, block.RenderableLocalCells);
             }
 
             slideResult = new BoardBlockSlideResult(blockId, startPosition, currentPosition, movedCellCount, reachedDoor,
-                matchedDoor);
+                blockRemovedFromBoard, layerExitedWithRemainingBlock, matchedDoor);
             return true;
         }
 
@@ -143,7 +155,7 @@ namespace Runtime.Controllers
                 return true;
             }
 
-            if (_occupancyMap.IsDoorOverlapping(block, blockPosition))
+            if (_occupancyMap.IsDoorOverlapping(block.ActiveExitLocalCells, blockPosition))
             {
                 return false;
             }
@@ -190,7 +202,7 @@ namespace Runtime.Controllers
             }
 
             var frontCellPosition = blockPosition + resolvedDoor.EdgeDirection.ToVector();
-            if (!_occupancyMap.CanOccupy(frontCellPosition, block.LocalCells))
+            if (!_occupancyMap.CanOccupy(frontCellPosition, block.RenderableLocalCells))
             {
                 return false;
             }

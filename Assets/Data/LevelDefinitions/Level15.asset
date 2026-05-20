@@ -1,0 +1,238 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9e52aedbcc7c440d9f7322097d900c1, type: 3}
+  m_Name: Level15
+  m_EditorClassIdentifier: 
+  levelKey: Level15
+  levelNumber: 15
+  timeLimit: 200
+  gridDimensions: {x: 8, y: 11}
+  blockedCells: []
+  availableColors: 0000000001000000020000000300000004000000050000000700000008000000
+  doors:
+  - position: {x: 6, y: 10}
+    colorType: 0
+  - position: {x: 5, y: 10}
+    colorType: 0
+  - position: {x: 4, y: 10}
+    colorType: 0
+  - position: {x: 3, y: 10}
+    colorType: 3
+  - position: {x: 2, y: 10}
+    colorType: 3
+  - position: {x: 1, y: 10}
+    colorType: 3
+  - position: {x: 7, y: 9}
+    colorType: 2
+  - position: {x: 7, y: 8}
+    colorType: 2
+  - position: {x: 7, y: 7}
+    colorType: 2
+  - position: {x: 0, y: 9}
+    colorType: 8
+  - position: {x: 0, y: 8}
+    colorType: 8
+  - position: {x: 0, y: 7}
+    colorType: 8
+  - position: {x: 0, y: 6}
+    colorType: 1
+  - position: {x: 0, y: 5}
+    colorType: 1
+  - position: {x: 0, y: 4}
+    colorType: 1
+  - position: {x: 0, y: 3}
+    colorType: 4
+  - position: {x: 0, y: 2}
+    colorType: 4
+  - position: {x: 0, y: 1}
+    colorType: 4
+  - position: {x: 1, y: 0}
+    colorType: 3
+  - position: {x: 2, y: 0}
+    colorType: 3
+  - position: {x: 3, y: 0}
+    colorType: 3
+  - position: {x: 4, y: 0}
+    colorType: 5
+  - position: {x: 5, y: 0}
+    colorType: 5
+  - position: {x: 6, y: 0}
+    colorType: 5
+  - position: {x: 7, y: 1}
+    colorType: 1
+  - position: {x: 7, y: 2}
+    colorType: 1
+  - position: {x: 7, y: 3}
+    colorType: 1
+  - position: {x: 7, y: 6}
+    colorType: 7
+  - position: {x: 7, y: 5}
+    colorType: 7
+  - position: {x: 7, y: 4}
+    colorType: 7
+  blocks:
+  - position: {x: 3, y: 9}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 7}
+    shapeKey: Shape_1x2
+    shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 8
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 6, y: 5}
+    shapeKey: Shape_1x2
+    shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 0
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 1, y: 4}
+    shapeKey: Shape_1x2
+    shapeDefinition: {fileID: 11400000, guid: 03b230dea25ec897f41946e93f3d16a3, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 4
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 2}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 5
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 3}
+    shapeKey: Shape_2x1
+    shapeDefinition: {fileID: 11400000, guid: 5bdff1718231c16ee49859438a358bcd, type: 2}
+    innerShapeKey: 
+    innerShapeDefinition: {fileID: 0}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 0
+    colorType: 8
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 1, y: 6}
+    shapeKey: Shape_Cross_3x3
+    shapeDefinition: {fileID: 11400000, guid: bde3181fc6aeb45fcb4698f66cbf55ab, type: 2}
+    innerShapeKey: Shape_Cross_3x3
+    innerShapeDefinition: {fileID: 11400000, guid: bde3181fc6aeb45fcb4698f66cbf55ab, type: 2}
+    innerColorType: 5
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 3, y: 5}
+    shapeKey: Shape_T_NE_3x2
+    shapeDefinition: {fileID: 11400000, guid: cdf71110b085d43e297fab16e557c3e5, type: 2}
+    innerShapeKey: Shape_T_NE_3x2
+    innerShapeDefinition: {fileID: 11400000, guid: cdf71110b085d43e297fab16e557c3e5, type: 2}
+    innerColorType: 1
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 7
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 2}
+    shapeKey: Shape_Cross_3x3
+    shapeDefinition: {fileID: 11400000, guid: bde3181fc6aeb45fcb4698f66cbf55ab, type: 2}
+    innerShapeKey: Shape_Cross_3x3
+    innerShapeDefinition: {fileID: 11400000, guid: bde3181fc6aeb45fcb4698f66cbf55ab, type: 2}
+    innerColorType: 7
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 2, y: 4}
+    shapeKey: Shape_T_SE_3x2
+    shapeDefinition: {fileID: 11400000, guid: da05010a793324ec9ba37694fcfb7ea7, type: 2}
+    innerShapeKey: Shape_T_SE_3x2
+    innerShapeDefinition: {fileID: 11400000, guid: da05010a793324ec9ba37694fcfb7ea7, type: 2}
+    innerColorType: 7
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 1
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 4, y: 1}
+    shapeKey: Shape_L_NE_1x1
+    shapeDefinition: {fileID: 11400000, guid: 119a164523a2eecdb283d2e0befcaab4, type: 2}
+    innerShapeKey: Shape_L_NE_1x1
+    innerShapeDefinition: {fileID: 11400000, guid: 119a164523a2eecdb283d2e0befcaab4, type: 2}
+    innerColorType: 5
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 4
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 1, y: 1}
+    shapeKey: Shape_L_NE_2x3
+    shapeDefinition: {fileID: 11400000, guid: 004bf1544ea4942afa266a57071f02d1, type: 2}
+    innerShapeKey: Shape_L_NE_2x3
+    innerShapeDefinition: {fileID: 11400000, guid: 004bf1544ea4942afa266a57071f02d1, type: 2}
+    innerColorType: 4
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 3
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0
+  - position: {x: 5, y: 7}
+    shapeKey: Shape_L_SW_3x2
+    shapeDefinition: {fileID: 11400000, guid: 66cd8cd1f87c209b0f12fcec10eebef4, type: 2}
+    innerShapeKey: Shape_L_SW_3x2
+    innerShapeDefinition: {fileID: 11400000, guid: 66cd8cd1f87c209b0f12fcec10eebef4, type: 2}
+    innerColorType: 0
+    nestedExitOrder: 0
+    nestedContainmentRule: 0
+    blockFeatures: 32
+    colorType: 2
+    maxMovesBeforeExit: 0
+    minClearedBlocksBeforeExit: 0

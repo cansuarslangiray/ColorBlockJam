@@ -127,6 +127,14 @@ MonoBehaviour:
     m_Key: feature.vertical.description
     m_Metadata:
       m_Items: []
+  - m_Id: 376430619
+    m_Key: feature.nested_shape.title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430620
+    m_Key: feature.nested_shape.description
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

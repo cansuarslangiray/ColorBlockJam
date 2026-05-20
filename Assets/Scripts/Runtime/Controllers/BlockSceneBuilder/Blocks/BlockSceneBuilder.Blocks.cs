@@ -61,6 +61,8 @@ namespace Runtime.Controllers.BlockSceneBuilder
             boardController.BlockMoved += HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
             boardController.BlockCleared += HandleBlockCleared;
+            boardController.BlockLayerExited -= HandleBlockLayerExited;
+            boardController.BlockLayerExited += HandleBlockLayerExited;
             boardController.BlockOutlineDragStateChanged -= HandleBlockOutlineDragStateChanged;
             boardController.BlockOutlineDragStateChanged += HandleBlockOutlineDragStateChanged;
             boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
@@ -71,6 +73,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
         {
             boardController.BlockMoved -= HandleBlockMoved;
             boardController.BlockCleared -= HandleBlockCleared;
+            boardController.BlockLayerExited -= HandleBlockLayerExited;
             boardController.BlockOutlineDragStateChanged -= HandleBlockOutlineDragStateChanged;
             boardController.ConditionStatesChanged -= HandleConditionStatesChanged;
         }
@@ -102,6 +105,25 @@ namespace Runtime.Controllers.BlockSceneBuilder
             ApplyOutlineDragState(blockView, false);
             _blockExitRoutineById[blockId] =
                 StartCoroutine(ClearAndExitRoutine(blockId, blockView, clearedPosition, exitDirection, matchedDoor));
+        }
+
+        private void HandleBlockLayerExited(int blockId, Vector2Int blockPosition)
+        {
+            if (!_blockViewPool.TryGetActive(blockId, out var blockView))
+            {
+                return;
+            }
+
+            StopBlockExit(blockId);
+            ApplyOutlineDragState(blockView, false);
+            SyncBlockToGridPosition(blockView, blockPosition);
+
+            if (boardController.TryGetRuntimeBlock(blockId, out var runtimeBlock))
+            {
+                ApplyRuntimeBlockVisualState(blockId, blockView, runtimeBlock);
+            }
+
+            RefreshConditionDrivenVisuals();
         }
 
         private void HandleConditionStatesChanged()
@@ -416,8 +438,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
 
                 var wasLocked = blockView.IsUsingLockedAppearance;
                 StopBlockConditionUnlockTransition(blockId, clearVisualOverrides: true);
-                _blockVisualPresenter.ApplyBlockAppearance(blockView, runtimeBlock, GetMaterial(runtimeBlock.ColorType),
-                    isLocked);
+                ApplyRuntimeBlockVisualState(blockId, blockView, runtimeBlock);
                 if (isLocked)
                 {
                     ClearBlockColorOverrides(blockView);
@@ -434,6 +455,23 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 ClearBlockColorOverrides(blockView);
                 ApplyOutlineDragState(blockView, false);
             });
+        }
+
+        private void ApplyRuntimeBlockVisualState(int blockId, BlockRootView blockView, RuntimeBlockState runtimeBlock)
+        {
+            var blockVisualRequest = new BlockVisualBuildRequest
+            {
+                LevelData = null,
+                BoardController = boardController,
+                BlockViewPool = _blockViewPool,
+                Layout = GetCurrentLayout(),
+                ResolveMaterial = GetMaterial,
+                IsBlockLocked = boardController.IsBlockLocked,
+                SetActiveIfChanged = SetActiveIfChanged,
+                ApplyWorldPosition = ApplyWorldPosition,
+                SetOutlineDragActive = ApplyOutlineDragState
+            };
+            _blockVisualPresenter.ApplyRuntimeBlockVisualState(blockId, blockView, runtimeBlock, blockVisualRequest);
         }
 
         private static Vector3 ToWorldPosition(Vector2Int gridPosition, in LayoutMetrics layout)

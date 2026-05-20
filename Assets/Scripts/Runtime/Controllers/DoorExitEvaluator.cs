@@ -25,7 +25,7 @@ namespace Runtime.Controllers
         {
             doorExit = default;
 
-            var localCells = block.LocalCells;
+            var localCells = block.ActiveExitLocalCells;
             if (localCells == null || localCells.Length == 0 || doorOpenings == null || doorOpenings.Count == 0)
             {
                 return false;
@@ -36,7 +36,7 @@ namespace Runtime.Controllers
             for (var i = 0; i < doorOpenings.Count; i++)
             {
                 var opening = doorOpenings[i];
-                if (opening.ColorType != block.ColorType)
+                if (opening.ColorType != block.ActiveExitColorType)
                 {
                     continue;
                 }
@@ -77,7 +77,7 @@ namespace Runtime.Controllers
         {
             doorExit = default;
 
-            var localCells = block.LocalCells;
+            var localCells = block.ActiveExitLocalCells;
             if (localCells == null || localCells.Length == 0 || doorOpenings == null || doorOpenings.Count == 0)
             {
                 return false;
@@ -89,7 +89,7 @@ namespace Runtime.Controllers
             {
                 var opening = doorOpenings[i];
                 var edgeDirection = opening.EdgeDirection;
-                if (opening.ColorType != block.ColorType)
+                if (opening.ColorType != block.ActiveExitColorType)
                 {
                     continue;
                 }

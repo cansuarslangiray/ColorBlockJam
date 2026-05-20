@@ -13,6 +13,7 @@ namespace Runtime.Helpers
                 BlockFeature.Vertical => BlockFeature.Vertical,
                 BlockFeature.MaxMovesBeforeExit => BlockFeature.MaxMovesBeforeExit,
                 BlockFeature.MinClearedBlocksBeforeExit => BlockFeature.MinClearedBlocksBeforeExit,
+                BlockFeature.NestedShape => BlockFeature.NestedShape,
                 _ => BlockFeature.Default
             };
         }

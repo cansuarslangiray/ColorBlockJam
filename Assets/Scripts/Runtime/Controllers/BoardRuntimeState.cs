@@ -14,6 +14,7 @@ namespace Runtime.Controllers
         private readonly Dictionary<int, RuntimeBlockState> _runtimeBlocks = new();
         private readonly List<DoorOpeningData> _doorOpenings = new();
         private readonly BoardOccupancyMap _occupancyMap = new();
+        private readonly List<RuntimeBlockLayerState> _layerBuffer = new(4);
 
         public bool IsInitialized { get; private set; }
         public Vector2Int GridDimensions { get; private set; }
@@ -75,27 +76,24 @@ namespace Runtime.Controllers
             {
                 var blockData = levelData.blocks[i];
                 blockData.Normalize();
-                var resolvedShapeKey = blockData.ResolvePoolKey();
-                var resolvedShape = shapeCatalog.ResolveShape(resolvedShapeKey);
 
-                if (resolvedShape == null)
+                if (!blockData.TryResolveLayers(shapeCatalog, _layerBuffer, out _))
                 {
                     continue;
                 }
 
-                var localCells = resolvedShape.GetLocalCells();
-                var runtimeBlock = new RuntimeBlockState(i, blockData.position, localCells,
-                    blockData.blockFeatures, blockData.colorType,
+                var runtimeBlock = new RuntimeBlockState(i, blockData.ResolvePoolKey(), blockData.position, _layerBuffer,
+                    blockData.blockFeatures,
                     blockData.ResolveMaxMovesBeforeExitLimit(),
                     blockData.ResolveMinClearedBlocksBeforeExitRequirement());
 
-                if (!_occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells))
+                if (!_occupancyMap.CanPlace(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.RenderableLocalCells))
                 {
                     continue;
                 }
 
                 _runtimeBlocks.Add(runtimeBlock.Id, runtimeBlock);
-                _occupancyMap.FillBlock(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.LocalCells);
+                _occupancyMap.FillBlock(runtimeBlock.Id, runtimeBlock.Position, runtimeBlock.RenderableLocalCells);
             }
         }
 

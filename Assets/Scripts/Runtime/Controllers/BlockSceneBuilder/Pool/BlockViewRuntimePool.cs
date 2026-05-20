@@ -200,14 +200,15 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
 
                 blockView.Cells.Add(cellObject);
                 var nestedRenderers = cellBinding.nestedRenderers;
-                var resolvedNestedRenderers = nestedRenderers == null || nestedRenderers.Length == 0
+                var resolvedAllRenderers = nestedRenderers == null || nestedRenderers.Length == 0
                     ? EmptyRendererArray
                     : nestedRenderers;
                 var resolvedPrimaryRenderer = cellBinding.primaryRenderer
                     ? cellBinding.primaryRenderer
-                    : resolvedNestedRenderers.Length > 0
-                        ? resolvedNestedRenderers[0]
+                    : resolvedAllRenderers.Length > 0
+                        ? resolvedAllRenderers[0]
                         : null;
+                var resolvedNestedRenderers = ResolveNestedRenderers(resolvedAllRenderers, resolvedPrimaryRenderer);
                 blockView.CellNestedRenderers.Add(resolvedNestedRenderers);
                 blockView.CellRenderers.Add(resolvedPrimaryRenderer);
                 blockView.CellDefaultMaterials.Add(resolvedPrimaryRenderer ? resolvedPrimaryRenderer.sharedMaterial : null);
@@ -256,6 +257,46 @@ namespace Runtime.Controllers.BlockSceneBuilder.Pool
             }
 
             return result;
+        }
+
+        private static Renderer[] ResolveNestedRenderers(Renderer[] sourceRenderers, Renderer primaryRenderer)
+        {
+            if (sourceRenderers == null || sourceRenderers.Length == 0)
+            {
+                return EmptyRendererArray;
+            }
+
+            var nestedRendererCount = 0;
+            for (var i = 0; i < sourceRenderers.Length; i++)
+            {
+                var renderer = sourceRenderers[i];
+                if (!renderer || renderer == primaryRenderer)
+                {
+                    continue;
+                }
+
+                nestedRendererCount++;
+            }
+
+            if (nestedRendererCount == 0)
+            {
+                return EmptyRendererArray;
+            }
+
+            var nestedRenderers = new Renderer[nestedRendererCount];
+            var nestedRendererIndex = 0;
+            for (var i = 0; i < sourceRenderers.Length; i++)
+            {
+                var renderer = sourceRenderers[i];
+                if (!renderer || renderer == primaryRenderer)
+                {
+                    continue;
+                }
+
+                nestedRenderers[nestedRendererIndex++] = renderer;
+            }
+
+            return nestedRenderers;
         }
 
         private static ParticleSystem[] ResolveDoorExitBurstParticles(ParticleSystem doorExitBurstRoot)
