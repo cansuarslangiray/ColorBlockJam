@@ -1,5 +1,5 @@
 <UXML xmlns="UnityEngine.UIElements">
-    <VisualElement name="start-root" class="start-root">
+    <VisualElement name="start-root" class="start-root is-hidden">
         <Style src="StartPanel.uss" />
         <VisualElement name="start-content" class="start-content">
             <Label name="start-title" class="start-title" view-data-key="ui.start.title" />

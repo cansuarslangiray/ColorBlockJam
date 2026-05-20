@@ -1,5 +1,5 @@
 <UXML xmlns="UnityEngine.UIElements">
-    <VisualElement name="topbar-root" class="topbar-root">
+    <VisualElement name="topbar-root" class="topbar-root is-hidden">
         <Style src="TopBarPanel.uss" />
         <VisualElement name="topbar-shell" class="topbar-shell">
             <VisualElement name="topbar-main-bar" class="topbar-main-bar">
