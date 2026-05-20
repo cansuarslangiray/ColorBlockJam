@@ -24,7 +24,23 @@ namespace Runtime.Managers
         private SettingsManager _settingsManager;
         private StateManager _stateManager;
 
+
         private void OnEnable()
+        {
+            if (_settingsManager == null)
+            {
+                _settingsManager = SettingsManager.Instance;
+            }
+
+            if (_stateManager == null)
+            {
+                _stateManager = StateManager.Instance;
+            }
+
+            TryRegisterSettingsEvents();
+        }
+
+        private void Start()
         {
             TryRegisterSettingsEvents();
         }

@@ -15,6 +15,9 @@ namespace Runtime.Core
         private int[] _cells = new int[0];
         private bool[] _doorCells = new bool[0];
 
+        public int Width => _width;
+        public int Height => _height;
+
         public void Configure(int boardWidth, int boardHeight)
         {
             _width = Mathf.Max(1, boardWidth);
