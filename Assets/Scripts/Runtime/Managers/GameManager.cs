@@ -7,6 +7,7 @@ using Runtime.Data;
 using Runtime.Domain.Enums;
 using Runtime.Managers.GameFlow;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Runtime.Managers
 {
@@ -22,13 +23,6 @@ namespace Runtime.Managers
 
         [Header("Core References")] [SerializeField]
         private LevelCollection levelCollection;
-
-        [SerializeField] private BoardController boardController;
-        [SerializeField] private BlockSceneBuilder blockSceneBuilder;
-        [SerializeField] private StateManager stateManager;
-        [SerializeField] private UIManager uiManager;
-        [SerializeField] private AudioManager audioManager;
-        [SerializeField] private Camera gameplayCamera;
 
         [Header("Flow Settings")] [SerializeField]
         private float levelCompletePanelDelay = 0.4f;
@@ -54,10 +48,21 @@ namespace Runtime.Managers
         private bool _stateEventsRegistered;
         private bool _uiEventsRegistered;
         private bool _completionHandledForCurrentLevel;
-        private Coroutine _levelCompletionWatchdogRoutine;
         private Coroutine _transitionRoutine;
         private FeatureUnlockContinuation _featureUnlockContinuation = FeatureUnlockContinuation.None;
         private LevelDefinition _pendingPreparedLevelForFeatureUnlock;
+        [SerializeField, FormerlySerializedAs("boardController")]
+        private BoardController _boardController;
+        [SerializeField, FormerlySerializedAs("blockSceneBuilder")]
+        private BlockSceneBuilder _blockSceneBuilder;
+        [SerializeField, FormerlySerializedAs("stateManager")]
+        private StateManager _stateManager;
+        [SerializeField, FormerlySerializedAs("uiManager")]
+        private UIManager _uiManager;
+        [SerializeField, FormerlySerializedAs("audioManager")]
+        private AudioManager _audioManager;
+        [SerializeField, FormerlySerializedAs("gameplayCamera")]
+        private Camera _gameplayCamera;
 
         protected override void Awake()
         {
@@ -77,6 +82,11 @@ namespace Runtime.Managers
                 return;
             }
 
+            if (!HasRequiredCollaborators())
+            {
+                return;
+            }
+
             InitializeRun();
         }
 
@@ -87,87 +97,162 @@ namespace Runtime.Managers
                 return;
             }
 
+            if (!HasRequiredCollaborators())
+            {
+                return;
+            }
+
             RegisterEvents();
         }
 
         private void OnDisable()
         {
+            if (!HasRequiredCollaborators())
+            {
+                return;
+            }
+
             UnregisterEvents();
             StopRuntimeRoutines();
         }
 
         private void OnApplicationPause(bool pauseStatus)
         {
-            if (pauseStatus)
+            if (pauseStatus && _localDataManager != null)
             {
                 _localDataManager.Save();
             }
         }
 
-        private void OnApplicationQuit() => _localDataManager.Save();
+        private void OnApplicationQuit()
+        {
+            if (_localDataManager != null)
+            {
+                _localDataManager.Save();
+            }
+        }
 
         private void InitializeCollaborators()
         {
+            ResolveSerializedReferences();
             _localDataManager = LocalDataManager.Instance;
             _levelProgression = new LevelProgression(levelCollection);
             _playerFeatureProgress = new PlayerFeatureProgress(_localDataManager);
             _blockFeatureDefinitionStore = new BlockFeatureDefinitionStore();
             _featureUnlockFlowController = new FeatureUnlockFlowController(_playerFeatureProgress, _blockFeatureDefinitionStore);
-            _cameraFramer = new GameplayCameraFramer(boardController, gameplayCamera, closeCameraLevelCount,
-                closeCameraDistanceMultiplier, this, cameraBoundsPaddingInCells, cameraSafeViewportMargin,
-                cameraTransitionDuration);
+            if (_boardController == null || _gameplayCamera == null || _blockSceneBuilder == null ||
+                _stateManager == null || _uiManager == null || _audioManager == null)
+            {
+                Debug.LogError(
+                    $"[GameManager] Missing required collaborators. " +
+                    $"boardController={_boardController != null}, gameplayCamera={_gameplayCamera != null}, " +
+                    $"blockSceneBuilder={_blockSceneBuilder != null}, stateManager={_stateManager != null}, " +
+                    $"uiManager={_uiManager != null}, audioManager={_audioManager != null}");
+            }
+
+            if (_boardController != null && _gameplayCamera != null)
+            {
+                _cameraFramer = new GameplayCameraFramer(_boardController, _gameplayCamera, closeCameraLevelCount,
+                    closeCameraDistanceMultiplier, this, cameraBoundsPaddingInCells, cameraSafeViewportMargin,
+                    cameraTransitionDuration);
+            }
+        }
+
+        private void ResolveSerializedReferences()
+        {
+            if (!_boardController)
+            {
+                _boardController = FindFirstObjectByType<BoardController>(FindObjectsInactive.Include);
+            }
+
+            if (!_gameplayCamera)
+            {
+                _gameplayCamera = Camera.main != null
+                    ? Camera.main
+                    : FindFirstObjectByType<Camera>(FindObjectsInactive.Include);
+            }
+
+            if (!_blockSceneBuilder)
+            {
+                _blockSceneBuilder = FindFirstObjectByType<BlockSceneBuilder>(FindObjectsInactive.Include);
+            }
+
+            if (!_stateManager)
+            {
+                _stateManager = StateManager.Instance;
+            }
+
+            if (!_uiManager)
+            {
+                _uiManager = UIManager.Instance;
+            }
+
+            if (!_audioManager)
+            {
+                _audioManager = AudioManager.Instance;
+            }
         }
 
         private void RegisterEvents()
         {
+            if (!HasRequiredCollaborators())
+            {
+                return;
+            }
+
             if (!_boardEventsRegistered)
             {
-                boardController.LevelCompleted += OnLevelCompleted;
-                boardController.ConditionFailed += HandleConditionFailed;
+                _boardController.LevelCompleted += OnLevelCompleted;
+                _boardController.ConditionFailed += HandleConditionFailed;
                 _boardEventsRegistered = true;
             }
 
             if (!_stateEventsRegistered)
             {
-                stateManager.OnStateChanged += HandleStateChanged;
+                _stateManager.OnStateChanged += HandleStateChanged;
                 _stateEventsRegistered = true;
             }
 
             if (!_uiEventsRegistered)
             {
-                uiManager.LevelTimerExpired += HandleTimerExpired;
-                uiManager.StartRequested += HandleStartRequested;
-                uiManager.EndGameActionRequested += HandleEndGameActionRequested;
-                uiManager.ReloadRequested += HandleReloadRequested;
-                uiManager.FeatureUnlockedNextRequested += HandleFeatureUnlockedNextRequested;
+                _uiManager.LevelTimerExpired += HandleTimerExpired;
+                _uiManager.StartRequested += HandleStartRequested;
+                _uiManager.EndGameActionRequested += HandleEndGameActionRequested;
+                _uiManager.ReloadRequested += HandleReloadRequested;
+                _uiManager.FeatureUnlockedNextRequested += HandleFeatureUnlockedNextRequested;
                 _uiEventsRegistered = true;
             }
         }
 
         private void UnregisterEvents()
         {
+            if (!HasRequiredCollaborators())
+            {
+                return;
+            }
+
             if (_boardEventsRegistered)
             {
-                boardController.LevelCompleted -= OnLevelCompleted;
-                boardController.ConditionFailed -= HandleConditionFailed;
+                _boardController.LevelCompleted -= OnLevelCompleted;
+                _boardController.ConditionFailed -= HandleConditionFailed;
             }
 
             _boardEventsRegistered = false;
 
             if (_stateEventsRegistered)
             {
-                stateManager.OnStateChanged -= HandleStateChanged;
+                _stateManager.OnStateChanged -= HandleStateChanged;
             }
 
             _stateEventsRegistered = false;
 
             if (_uiEventsRegistered)
             {
-                uiManager.LevelTimerExpired -= HandleTimerExpired;
-                uiManager.StartRequested -= HandleStartRequested;
-                uiManager.EndGameActionRequested -= HandleEndGameActionRequested;
-                uiManager.ReloadRequested -= HandleReloadRequested;
-                uiManager.FeatureUnlockedNextRequested -= HandleFeatureUnlockedNextRequested;
+                _uiManager.LevelTimerExpired -= HandleTimerExpired;
+                _uiManager.StartRequested -= HandleStartRequested;
+                _uiManager.EndGameActionRequested -= HandleEndGameActionRequested;
+                _uiManager.ReloadRequested -= HandleReloadRequested;
+                _uiManager.FeatureUnlockedNextRequested -= HandleFeatureUnlockedNextRequested;
             }
 
             _uiEventsRegistered = false;
@@ -182,7 +267,7 @@ namespace Runtime.Managers
             ResetFeatureUnlockContinuation();
 
             RefreshStaticUI();
-            stateManager.ChangeState(GameState.StartScreen);
+            _stateManager.ChangeState(GameState.StartScreen);
         }
 
         private void StartCurrentLevel()
@@ -232,9 +317,8 @@ namespace Runtime.Managers
                 return;
 
             _completionHandledForCurrentLevel = true;
-            StopLevelCompletionWatchdog();
             PersistUnlockedLevelProgress();
-            uiManager.StopLevelTimer();
+            _uiManager.StopLevelTimer();
             if (_levelProgression.TryGetNextLevelData(out var nextLevelData))
             {
                 if (TryPrepareFeatureUnlockForLevel(nextLevelData, out var featureDefinitions))
@@ -261,7 +345,7 @@ namespace Runtime.Managers
                 yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
             }
 
-            stateManager.ChangeState(GameState.LevelCompleted);
+            _stateManager.ChangeState(GameState.LevelCompleted);
         }
 
         private IEnumerator ShowFeatureUnlockedRoutine()
@@ -271,7 +355,7 @@ namespace Runtime.Managers
                 yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
             }
 
-            stateManager.ChangeState(GameState.FeatureUnlocked);
+            _stateManager.ChangeState(GameState.FeatureUnlocked);
         }
 
         private IEnumerator ShowRunCompletedRoutine()
@@ -281,35 +365,34 @@ namespace Runtime.Managers
                 yield return new WaitForSecondsRealtime(levelCompletePanelDelay);
             }
 
-            stateManager.ChangeState(GameState.GameCompleted);
+            _stateManager.ChangeState(GameState.GameCompleted);
         }
 
         private void CompleteRun()
         {
             StopRuntimeRoutines();
             _completionHandledForCurrentLevel = true;
-            uiManager.StopLevelTimer();
-            stateManager.ChangeState(GameState.GameCompleted);
+            _uiManager.StopLevelTimer();
+            _stateManager.ChangeState(GameState.GameCompleted);
         }
 
         private void FailRun()
         {
             StopRuntimeRoutines();
             _completionHandledForCurrentLevel = true;
-            uiManager.StopLevelTimer();
-            audioManager.PlayLevelFail();
-            stateManager.ChangeState(GameState.LevelFailed);
+            _uiManager.StopLevelTimer();
+            _audioManager.PlayLevelFail();
+            _stateManager.ChangeState(GameState.LevelFailed);
         }
 
         private void HandleStateChanged(GameState newState)
         {
-            audioManager.SyncMusicToState(newState);
-            uiManager.PublishState(newState);
+            _audioManager.SyncMusicToState(newState);
+            _uiManager.PublishState(newState);
 
             if (newState != GameState.Playing)
             {
-                uiManager.StopLevelTimer();
-                StopLevelCompletionWatchdog();
+                _uiManager.StopLevelTimer();
             }
         }
 
@@ -321,12 +404,12 @@ namespace Runtime.Managers
                 return;
             }
 
-            uiManager.SetLevel(_levelProgression.CurrentLevelDisplayNumber);
+            _uiManager.SetLevel(_levelProgression.CurrentLevelDisplayNumber);
         }
 
         private void RefreshStaticUI(LevelDefinition levelData)
         {
-            uiManager.SetLevel(levelData.levelNumber);
+            _uiManager.SetLevel(levelData.levelNumber);
         }
 
         private void HandleStartRequested()
@@ -392,7 +475,7 @@ namespace Runtime.Managers
                 return;
             }
 
-            uiManager.HideFeatureUnlockedPanel();
+            _uiManager.HideFeatureUnlockedPanel();
             StartTransitionRoutine(AdvanceFromFeatureUnlockedRoutine());
         }
 
@@ -428,7 +511,7 @@ namespace Runtime.Managers
             }
         }
 
-        private bool IsCurrentState(GameState state) => stateManager.CurrentState == state;
+        private bool IsCurrentState(GameState state) => _stateManager.CurrentState == state;
 
         private void StartTransitionRoutine(IEnumerator routine)
         {
@@ -453,44 +536,8 @@ namespace Runtime.Managers
             _transitionInProgress = false;
         }
 
-        private void StartLevelCompletionWatchdog()
-        {
-            StopLevelCompletionWatchdog();
-            _levelCompletionWatchdogRoutine = StartCoroutine(LevelCompletionWatchdogRoutine());
-        }
-
-        private void StopLevelCompletionWatchdog()
-        {
-            if (_levelCompletionWatchdogRoutine == null)
-            {
-                return;
-            }
-
-            StopCoroutine(_levelCompletionWatchdogRoutine);
-            _levelCompletionWatchdogRoutine = null;
-        }
-
-        private IEnumerator LevelCompletionWatchdogRoutine()
-        {
-            while (enabled &&
-                   stateManager.CurrentState == GameState.Playing &&
-                   !_completionHandledForCurrentLevel)
-            {
-                if (!_transitionInProgress && boardController.RemainingBlockCount <= 0)
-                {
-                    TryHandleLevelCompletedFlow();
-                    break;
-                }
-
-                yield return null;
-            }
-
-            _levelCompletionWatchdogRoutine = null;
-        }
-
         private void StopRuntimeRoutines()
         {
-            StopLevelCompletionWatchdog();
             _cameraFramer?.StopTransition();
 
             if (_transitionRoutine != null)
@@ -506,14 +553,14 @@ namespace Runtime.Managers
         {
             if (!TryPrepareCurrentLevel(out var levelData))
             {
-                stateManager.ChangeState(GameState.StartScreen);
+                _stateManager.ChangeState(GameState.StartScreen);
                 return;
             }
 
             if (TryPrepareFeatureUnlockForLevel(levelData, out var featureDefinitions))
             {
                 ConfigureFeatureUnlockPanel(featureDefinitions, FeatureUnlockContinuation.StartPreparedLevel, levelData);
-                stateManager.ChangeState(GameState.FeatureUnlocked);
+                _stateManager.ChangeState(GameState.FeatureUnlocked);
                 return;
             }
 
@@ -531,11 +578,16 @@ namespace Runtime.Managers
             StopRuntimeRoutines();
             _completionHandledForCurrentLevel = false;
             ResetFeatureUnlockContinuation();
-            uiManager.ConfigureFeatureUnlockedPanel(null);
+            if (_boardController == null || _cameraFramer == null || _blockSceneBuilder == null || _uiManager == null)
+            {
+                return false;
+            }
 
-            boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
+            _uiManager.ConfigureFeatureUnlockedPanel(null);
+
+            _boardController.Setup(levelData, _levelProgression.RuntimeShapeCatalog);
             _cameraFramer.CenterToLevel(levelData, _levelProgression.CurrentLevelDisplayNumber, true);
-            blockSceneBuilder.BuildForLevel(levelData);
+            _blockSceneBuilder.BuildForLevel(levelData);
             PersistCurrentLevelProgress(levelData);
             RefreshStaticUI(levelData);
             return true;
@@ -549,9 +601,8 @@ namespace Runtime.Managers
             }
 
             ResetFeatureUnlockContinuation();
-            stateManager.ChangeState(GameState.Playing);
-            uiManager.StartLevelTimer(levelData.timeLimit);
-            StartLevelCompletionWatchdog();
+            _stateManager.ChangeState(GameState.Playing);
+            _uiManager.StartLevelTimer(levelData.timeLimit);
         }
 
         private bool TryPrepareFeatureUnlockForLevel(LevelDefinition levelData,
@@ -584,7 +635,7 @@ namespace Runtime.Managers
 
             _featureUnlockContinuation = continuation;
             _pendingPreparedLevelForFeatureUnlock = preparedLevel;
-            uiManager.ConfigureFeatureUnlockedPanel(featureDefinitions);
+            _uiManager.ConfigureFeatureUnlockedPanel(featureDefinitions);
         }
 
         private void ResetFeatureUnlockContinuation()
@@ -592,6 +643,14 @@ namespace Runtime.Managers
             _featureUnlockContinuation = FeatureUnlockContinuation.None;
             _pendingPreparedLevelForFeatureUnlock = null;
         }
+
+        private bool HasRequiredCollaborators() =>
+            _boardController != null &&
+            _gameplayCamera != null &&
+            _blockSceneBuilder != null &&
+            _stateManager != null &&
+            _uiManager != null &&
+            _audioManager != null;
 
         private int ResolveSavedCurrentLevelNumber()
         {

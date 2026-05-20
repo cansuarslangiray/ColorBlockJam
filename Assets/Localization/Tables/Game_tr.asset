@@ -19,7 +19,7 @@ MonoBehaviour:
     m_Items: []
   m_TableData:
   - m_Id: 372236288
-    m_Localized: "C\xF6zmeye hazir misin?"
+    m_Localized: "\xC7\xF6zmeye haz\u0131r m\u0131s\u0131n?"
     m_Metadata:
       m_Items: []
   - m_Id: 376430592
@@ -48,7 +48,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430598
-    m_Localized: "\xC7ok yak\u0131nd\u0131n. O rotay\u0131 bir kez daha dene."
+    m_Localized: "\xC7ok yak\u0131nd\u0131n. Bir kez daha dene."
     m_Metadata:
       m_Items: []
   - m_Id: 376430599
@@ -112,7 +112,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430613
-    m_Localized: Temizlik Kilidi
+    m_Localized: "Kilit A\xE7\u0131lana Kadar Kilitli"
     m_Metadata:
       m_Items: []
   - m_Id: 376430614
@@ -136,6 +136,16 @@ MonoBehaviour:
   - m_Id: 376430618
     m_Localized: "Bu block yaln\u0131zca yukar\u0131 ve a\u015Fa\u011F\u0131 hareket
       edebilir."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430619
+    m_Localized: "\u0130\xE7 \u0130\xE7e \u015Eekil"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430620
+    m_Localized: "Bu block i\xE7 i\xE7e katmanlar i\xE7erir. D\u0131\u015F katman
+      \xE7\u0131k\u0131\u015F yapt\u0131\u011F\u0131nda bir sonraki i\xE7 katman ayn\u0131
+      konumda ortaya \xE7\u0131kar ve devam eder."
     m_Metadata:
       m_Items: []
   references:

@@ -240,6 +240,11 @@ namespace Runtime.Managers.GameFlow
 
         private float ResolveDistanceToBoardPlane()
         {
+            if (!_boardController || !_gameplayCamera)
+            {
+                return _minimumCameraDistance;
+            }
+
             var cameraTransform = _gameplayCamera.transform;
             var boardPlaneZ = _boardController.transform.position.z;
             var forwardZ = ResolveForwardZ(cameraTransform.forward.z);

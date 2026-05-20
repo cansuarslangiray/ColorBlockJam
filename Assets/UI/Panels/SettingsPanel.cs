@@ -15,9 +15,6 @@ namespace UI.Panels
 
         public event Action<bool> OpenStateChanged;
 
-        [SerializeField] private SettingsManager settingsManager;
-        [SerializeField] private AudioManager audioManager;
-
         private VisualElement _musicToggle;
         private VisualElement _sfxToggle;
         private Label _musicToggleLabel;
@@ -45,8 +42,8 @@ namespace UI.Panels
             _scrim.RegisterCallback<ClickEvent>(HandleScrimClicked);
 
             RegisterSettingsEvents();
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager.IsMusicEnabled);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager.IsSfxEnabled);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, SettingsManager.Instance.IsMusicEnabled);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, SettingsManager.Instance.IsSfxEnabled);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
             Hide();
         }
@@ -116,11 +113,12 @@ namespace UI.Panels
                 return;
             }
 
-            settingsManager.MusicEnabledChanged += HandleMusicEnabledChanged;
-            settingsManager.SfxEnabledChanged += HandleSfxEnabledChanged;
+      
+            SettingsManager.Instance.MusicEnabledChanged += HandleMusicEnabledChanged;
+            SettingsManager.Instance.SfxEnabledChanged += HandleSfxEnabledChanged;
             _settingsEventsRegistered = true;
-            HandleMusicEnabledChanged(settingsManager.IsMusicEnabled);
-            HandleSfxEnabledChanged(settingsManager.IsSfxEnabled);
+            HandleMusicEnabledChanged(SettingsManager.Instance.IsMusicEnabled);
+            HandleSfxEnabledChanged(SettingsManager.Instance.IsSfxEnabled);
         }
 
         private void UnregisterSettingsEvents()
@@ -130,8 +128,10 @@ namespace UI.Panels
                 return;
             }
 
-            settingsManager.MusicEnabledChanged -= HandleMusicEnabledChanged;
-            settingsManager.SfxEnabledChanged -= HandleSfxEnabledChanged;
+            var instance = SettingsManager.Instance;
+            if (instance != null) instance.MusicEnabledChanged -= HandleMusicEnabledChanged;
+            var manager = SettingsManager.Instance;
+            if (manager != null) manager.SfxEnabledChanged -= HandleSfxEnabledChanged;
             _settingsEventsRegistered = false;
         }
 
@@ -151,8 +151,8 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
-            ApplyToggleState(_musicToggle, _musicToggleLabel, settingsManager.IsMusicEnabled);
-            ApplyToggleState(_sfxToggle, _sfxToggleLabel, settingsManager.IsSfxEnabled);
+            ApplyToggleState(_musicToggle, _musicToggleLabel, SettingsManager.Instance.IsMusicEnabled);
+            ApplyToggleState(_sfxToggle, _sfxToggleLabel, SettingsManager.Instance.IsSfxEnabled);
             ApplyLanguageSelection(LocalizationSettings.SelectedLocale);
         }
 
@@ -176,25 +176,25 @@ namespace UI.Panels
                 return;
             }
 
-            audioManager.PlayButtonClick();
+            AudioManager.Instance?.PlayButtonClick();
             Hide();
         }
 
         private void HandleMusicToggleClicked(ClickEvent _)
         {
-            audioManager.PlayButtonClick();
-            settingsManager.SetMusicEnabled(!settingsManager.IsMusicEnabled);
+            AudioManager.Instance.PlayButtonClick();
+            SettingsManager.Instance.SetMusicEnabled(!SettingsManager.Instance.IsMusicEnabled);
         }
 
         private void HandleSfxToggleClicked(ClickEvent _)
         {
-            audioManager.PlayButtonClick();
-            settingsManager.SetSfxEnabled(!settingsManager.IsSfxEnabled);
+            AudioManager.Instance.PlayButtonClick();
+            SettingsManager.Instance.SetSfxEnabled(!SettingsManager.Instance.IsSfxEnabled);
         }
 
         private void HandleLanguageToggleClicked()
         {
-            audioManager.PlayButtonClick();
+            AudioManager.Instance?.PlayButtonClick();
             var currentLocaleCode = LocalizationSettings.SelectedLocale?.Identifier.Code ?? string.Empty;
             var targetLocaleCode = currentLocaleCode.StartsWith(EnglishLocaleCode, StringComparison.OrdinalIgnoreCase)
                 ? TurkishLocaleCode

@@ -62,7 +62,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 6414927431985220870}
-  audioManager: {fileID: 0}
 --- !u!1 &2151674028153536640
 GameObject:
   m_ObjectHideFlags: 0
@@ -161,7 +160,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 7691502111638205315}
-  audioManager: {fileID: 0}
   tickIntervalSeconds: 1
   warningThresholdSeconds: 30
   criticalThresholdSeconds: 10
@@ -227,8 +225,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 5848248257493579649}
-  stateManager: {fileID: 0}
-  audioManager: {fileID: 0}
 --- !u!1 &6266778852782394418
 GameObject:
   m_ObjectHideFlags: 0
@@ -291,8 +287,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 6322052412912370615}
-  settingsManager: {fileID: 0}
-  audioManager: {fileID: 0}
 --- !u!1 &873456789012345678
 GameObject:
   m_ObjectHideFlags: 0
@@ -355,4 +349,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   uiDocument: {fileID: 873456789012345680}
-  audioManager: {fileID: 0}

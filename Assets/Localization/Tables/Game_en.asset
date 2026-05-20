@@ -47,7 +47,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430598
-    m_Localized: You were close. Try that route once more.
+    m_Localized: You were close. Try once more.
     m_Metadata:
       m_Items: []
   - m_Id: 376430599
@@ -103,9 +103,9 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 376430612
-    m_Localized: This block must reach the exit within a limited number of moves. The
-      counter decreases after every move. If the counter reaches zero before the block
-      exits, the level fails.
+    m_Localized: This block must reach the exit within a limited number of moves.
+      The counter decreases after every move. If the counter reaches zero before
+      the block exits, the level fails.
     m_Metadata:
       m_Items: []
   - m_Id: 376430613
@@ -114,7 +114,8 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 376430614
     m_Localized: This block cannot move at the beginning. A required number of other
-      blocks must exit first. Once the condition is completed, the block becomes active.
+      blocks must exit first. Once the condition is completed, the block becomes
+      active.
     m_Metadata:
       m_Items: []
   - m_Id: 376430615
@@ -131,6 +132,15 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 376430618
     m_Localized: This block can only move up and down.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430619
+    m_Localized: Nested Shape
+    m_Metadata:
+      m_Items: []
+  - m_Id: 376430620
+    m_Localized: This block contains nested layers. When the outer layer exits,
+      the next inner layer appears and continues from the same position.
     m_Metadata:
       m_Items: []
   references:

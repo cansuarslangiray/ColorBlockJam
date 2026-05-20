@@ -9,7 +9,6 @@ namespace UI.Panels
 {
     public class TopBarPanel : GamePanel
     {
-        [SerializeField] private AudioManager audioManager;
         [SerializeField, Min(0.2f)] private float tickIntervalSeconds = 1f;
         [SerializeField, Min(1)] private int warningThresholdSeconds = 30;
         [SerializeField, Min(1)] private int criticalThresholdSeconds = 10;
@@ -107,10 +106,23 @@ namespace UI.Panels
             _tickRoutine = StartCoroutine(TickRoutine());
         }
 
-        public void SetLevel(int levelNumber) => _levelLabel.text = Mathf.Max(1, levelNumber).ToString();
+        public void SetLevel(int levelNumber)
+        {
+            if (_levelLabel == null)
+            {
+                return;
+            }
+
+            _levelLabel.text = Mathf.Max(1, levelNumber).ToString();
+        }
 
         public void SetTimer(int remainingSeconds)
         {
+            if (_timerLabel == null)
+            {
+                return;
+            }
+
             var totalSeconds = Mathf.Max(0, remainingSeconds);
             var minutes = totalSeconds / 60;
             var seconds = totalSeconds % 60;
@@ -137,7 +149,7 @@ namespace UI.Panels
         protected override void OnGameStateChanged(GameState state)
         {
             Show();
-            _reloadButton.SetEnabled(state == GameState.Playing);
+            _reloadButton?.SetEnabled(state == GameState.Playing);
 
             switch (state)
             {
@@ -151,27 +163,30 @@ namespace UI.Panels
         private void SetTimerState(int totalSeconds)
         {
             var isCritical = _isTimerRunning && totalSeconds > 0 && totalSeconds <= criticalThresholdSeconds;
-            var isWarning = _isTimerRunning && totalSeconds > criticalThresholdSeconds && totalSeconds <= _resolvedWarningThreshold;
+            var isWarning = _isTimerRunning && totalSeconds > criticalThresholdSeconds &&
+                            totalSeconds <= _resolvedWarningThreshold;
             var shouldPulse = isCritical && totalSeconds % 2 == 0;
+
 
             _timerChip.EnableInClassList("timer-warning", isWarning);
             _timerChip.EnableInClassList("timer-critical", isCritical);
             _timerChip.EnableInClassList("timer-pulse", shouldPulse);
         }
 
-        private void RefreshTimerStyleThreshold() => _resolvedWarningThreshold = Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
+        private void RefreshTimerStyleThreshold() => _resolvedWarningThreshold =
+            Mathf.Max(criticalThresholdSeconds + 1, warningThresholdSeconds);
 
         private void RaiseTimerExpired() => TimerExpired?.Invoke();
 
         private void HandleReloadClicked()
         {
-            audioManager.PlayButtonClick();
+            AudioManager.Instance.PlayButtonClick();
             ReloadRequested?.Invoke();
         }
 
         private void HandleSettingsClicked()
         {
-            audioManager.PlayButtonClick();
+            AudioManager.Instance.PlayButtonClick();
             SettingsRequested?.Invoke();
         }
 

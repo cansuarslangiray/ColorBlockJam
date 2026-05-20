@@ -8,8 +8,6 @@ namespace UI.Panels
 {
     public class StartPanel : GamePanel
     {
-        [SerializeField] private AudioManager audioManager;
-
         private Button _startButton;
         public event Action StartRequested;
         protected override bool UseSafeAreaPadding => false;
@@ -34,7 +32,7 @@ namespace UI.Panels
 
         private void HandleStartClicked()
         {
-            audioManager.PlayButtonClick();
+            AudioManager.Instance?.PlayButtonClick();
             Hide();
             StartRequested?.Invoke();
         }

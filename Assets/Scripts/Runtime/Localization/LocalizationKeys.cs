@@ -15,8 +15,5 @@ namespace Runtime.Localization
         public const string EndGameCompletedTitle = "ui.end.game_completed.title";
         public const string EndGameCompletedSubtitle = "ui.end.game_completed.subtitle";
         public const string EndGameCompletedAction = "ui.end.game_completed.action";
-
-        public const string FeatureNestedShapeTitle = "feature.nested_shape.title";
-        public const string FeatureNestedShapeDescription = "feature.nested_shape.description";
     }
 }

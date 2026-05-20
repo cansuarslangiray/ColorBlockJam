@@ -7,6 +7,7 @@ using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Data;
 using Runtime.Domain.Models;
 using Runtime.Helpers;
+using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -143,7 +144,7 @@ namespace Runtime.Controllers.BlockSceneBuilder
                 BlockView = blockView,
                 MatchedDoor = matchedDoor,
                 ResolvedExitDirection = resolvedExitDirection,
-                PlayBlockMatchSuccessSfx = audioManager.PlayBlockMatchSuccess,
+                PlayBlockMatchSuccessSfx = () => AudioManager.Instance?.PlayBlockMatchSuccess(),
                 PlayDoorMatchFx = PlayDoorMatchFx,
                 AnimateBlockDoorExitSequence = AnimateBlockDoorExitSequence,
                 PlayBlockExitDisintegrateFx = PlayBlockExitDisintegrateFx

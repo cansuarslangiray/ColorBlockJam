@@ -9,9 +9,6 @@ namespace UI.Panels
 {
     public class EndGamePanel : GamePanel
     {
-        [SerializeField] private StateManager stateManager;
-        [SerializeField] private AudioManager audioManager;
-
         private Label _titleLabel;
         private Label _subtitleLabel;
         private Button _actionButton;
@@ -62,6 +59,12 @@ namespace UI.Panels
         public override void RefreshLocalization()
         {
             base.RefreshLocalization();
+            var stateManager = StateManager.Instance;
+            if (stateManager == null)
+            {
+                return;
+            }
+
             var currentState = stateManager.CurrentState;
 
             if (IsEndGameState(currentState))
@@ -102,7 +105,7 @@ namespace UI.Panels
 
         private void HandleActionClicked()
         {
-            audioManager.PlayButtonClick();
+            AudioManager.Instance?.PlayButtonClick();
             ActionRequested?.Invoke();
         }
 

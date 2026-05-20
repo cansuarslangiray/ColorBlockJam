@@ -15,8 +15,6 @@ namespace UI.Panels
         private const string IconRowHiddenClassName = "feature-unlocked-icon-row-hidden";
         private const string FeatureItemHiddenClassName = "feature-unlocked-item-hidden";
 
-        [SerializeField] private AudioManager audioManager;
-
         private Button _nextButton;
         private VisualElement _iconRow;
         private readonly List<BlockFeatureDefinition> _activeFeatureDefinitions = new(MaxVisibleFeatures);
@@ -163,10 +161,7 @@ namespace UI.Panels
 
         private void HandleNextClicked()
         {
-            if (audioManager != null)
-            {
-                audioManager.PlayButtonClick();
-            }
+            AudioManager.Instance.PlayButtonClick();
 
             NextRequested?.Invoke();
         }

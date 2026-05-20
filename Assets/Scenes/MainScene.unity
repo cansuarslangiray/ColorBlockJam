@@ -749,7 +749,15 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1992038231}
     - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+      propertyPath: _startPanel
+      value: 
+      objectReference: {fileID: 1992038231}
+    - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
       propertyPath: topBarPanel
+      value: 
+      objectReference: {fileID: 122926371}
+    - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+      propertyPath: _topBarPanel
       value: 
       objectReference: {fileID: 122926371}
     - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
@@ -757,11 +765,23 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 77914908}
     - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+      propertyPath: _endGamePanel
+      value: 
+      objectReference: {fileID: 77914908}
+    - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
       propertyPath: settingsPanel
       value: 
       objectReference: {fileID: 1651801128}
     - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+      propertyPath: _settingsPanel
+      value: 
+      objectReference: {fileID: 1651801128}
+    - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
       propertyPath: featureUnlockedPanel
+      value: 
+      objectReference: {fileID: 1982365740}
+    - target: {fileID: 450461976091238546, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}
+      propertyPath: _featureUnlockedPanel
       value: 
       objectReference: {fileID: 1982365740}
     - target: {fileID: 1176342954713305579, guid: 0c7f0da8ccedf400aa36767949ca70b4, type: 3}

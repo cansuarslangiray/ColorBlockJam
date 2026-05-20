@@ -5,6 +5,7 @@ using Runtime.Data;
 using Runtime.Domain.Enums;
 using UI.Panels;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Runtime.Managers
 {
@@ -16,7 +17,6 @@ namespace Runtime.Managers
         [SerializeField] private TopBarPanel topBarPanel;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private FeatureUnlockedPanel featureUnlockedPanel;
-        [SerializeField] private StateManager stateManager;
 
         public event Action<GameState> GameStateChanged;
         public event Action LevelTimerExpired;
@@ -31,11 +31,6 @@ namespace Runtime.Managers
             if (Instance != this)
             {
                 return;
-            }
-
-            if (featureUnlockedPanel == null)
-            {
-                featureUnlockedPanel = FindObjectOfType<FeatureUnlockedPanel>(true);
             }
 
             startPanel.SubscribeToState(this);
@@ -58,13 +53,19 @@ namespace Runtime.Managers
 
         protected override void OnDestroy()
         {
-            topBarPanel.TimerExpired -= HandleTimerExpired;
-            topBarPanel.SettingsRequested -= HandleSettingsRequested;
-            topBarPanel.ReloadRequested -= HandleReloadRequested;
-            topBarPanel.UnsubscribeFromState();
+            if (topBarPanel != null)
+            {
+                topBarPanel.TimerExpired -= HandleTimerExpired;
+                topBarPanel.SettingsRequested -= HandleSettingsRequested;
+                topBarPanel.ReloadRequested -= HandleReloadRequested;
+                topBarPanel.UnsubscribeFromState();
+            }
 
-            settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
-            settingsPanel.UnsubscribeFromState();
+            if (settingsPanel != null)
+            {
+                settingsPanel.OpenStateChanged -= HandleSettingsPanelOpenStateChanged;
+                settingsPanel.UnsubscribeFromState();
+            }
 
             if (featureUnlockedPanel != null)
             {
@@ -72,17 +73,23 @@ namespace Runtime.Managers
                 featureUnlockedPanel.UnsubscribeFromState();
             }
 
-            endGamePanel.ActionRequested -= HandleEndGameActionRequested;
-            endGamePanel.UnsubscribeFromState();
+            if (endGamePanel != null)
+            {
+                endGamePanel.ActionRequested -= HandleEndGameActionRequested;
+                endGamePanel.UnsubscribeFromState();
+            }
 
-            startPanel.StartRequested -= HandleStartRequested;
-            startPanel.UnsubscribeFromState();
+            if (startPanel != null)
+            {
+                startPanel.StartRequested -= HandleStartRequested;
+                startPanel.UnsubscribeFromState();
+            }
 
             base.OnDestroy();
         }
 
         public void PublishState(GameState state) => GameStateChanged?.Invoke(state);
-        
+
         public void SetLevel(int levelNumber) => topBarPanel.SetLevel(levelNumber);
 
         public void StartLevelTimer(float durationSeconds) => topBarPanel.StartTimer(durationSeconds);
@@ -101,8 +108,8 @@ namespace Runtime.Managers
         private void HandleStartRequested() => StartRequested?.Invoke();
 
         private void HandleEndGameActionRequested()
-        { 
-            EndGameActionRequested?.Invoke(stateManager.CurrentState);
+        {
+            EndGameActionRequested?.Invoke(StateManager.Instance.CurrentState);
         }
 
         private void HandleReloadRequested() => ReloadRequested?.Invoke();
@@ -123,7 +130,5 @@ namespace Runtime.Managers
 
             ResumeLevelTimer();
         }
-        
-
     }
 }

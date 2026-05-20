@@ -16,7 +16,6 @@ namespace Runtime.Controllers
         [SerializeField, Min(0f)] private float directionDeadZone = 0.0001f;
 
         [SerializeField] private Camera inputCamera;
-        [SerializeField] private AudioManager audioManager;
 
         public event Action LevelCompleted;
         public event Action<int, Vector2Int, Vector2Int> BlockMoved;
@@ -29,9 +28,7 @@ namespace Runtime.Controllers
         public Vector2Int GridDimensions => _runtimeState.GridDimensions;
         public float CellSize => cellSize;
         public Vector2 BoardOrigin => new(transform.position.x, transform.position.y);
-        public int RemainingBlockCount => _runtimeState.ActiveBlockCount;
-        public int TotalMoveCount => _blockConditionService.TotalMoveCount;
-
+        
         private BoardRuntimeState _runtimeState;
         private BoardInput _input;
         private BoardPointerGestureController _pointerGestureController;
@@ -86,7 +83,7 @@ namespace Runtime.Controllers
 
             BeginActiveGestureMoveTracking(blockId);
             SetDraggingBlock(blockId);
-            audioManager.PlayBlockSelect();
+            AudioManager.Instance?.PlayBlockSelect();
             return true;
         }
 

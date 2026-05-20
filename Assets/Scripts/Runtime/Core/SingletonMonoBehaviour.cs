@@ -6,7 +6,18 @@ namespace Runtime.Core
     {
         private static T _instance;
 
-        public static T Instance => _instance;
+        public static T Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = FindFirstObjectByType<T>(FindObjectsInactive.Include);
+                }
+
+                return _instance;
+            }
+        }
 
         protected virtual bool DestroyDuplicateInstances => true;
 

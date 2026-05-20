@@ -46,7 +46,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardController: {fileID: 0}
   poolManager: {fileID: 0}
-  audioManager: {fileID: 0}
   materialsByColor:
   - colorType: 0
     material: {fileID: 2100000, guid: a20ede5f74e784798bf1722925690043, type: 2}

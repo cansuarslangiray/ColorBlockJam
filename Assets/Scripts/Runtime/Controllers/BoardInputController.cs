@@ -12,7 +12,6 @@ namespace Runtime.Controllers
     {
         [SerializeField] private BoardController boardController;
         [SerializeField] private EventSystem uiEventSystem;
-        [SerializeField] private StateManager stateManager;
         [SerializeField] private InputActionReference pointerPressActionReference;
         [SerializeField] private InputActionReference pointerPositionActionReference;
 
@@ -80,9 +79,14 @@ namespace Runtime.Controllers
                 return;
             }
 
-            stateManager.OnStateChanged += HandleGameStateChanged;
+            if (StateManager.Instance == null)
+            {
+                return;
+            }
+
+            StateManager.Instance.OnStateChanged += HandleGameStateChanged;
             _stateEventsRegistered = true;
-            HandleGameStateChanged(stateManager.CurrentState);
+            HandleGameStateChanged(StateManager.Instance.CurrentState);
         }
 
         private void UnregisterStateEvents()
@@ -92,7 +96,11 @@ namespace Runtime.Controllers
                 return;
             }
 
-            stateManager.OnStateChanged -= HandleGameStateChanged;
+            if (StateManager.Instance != null)
+            {
+                StateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+            }
+
             _stateEventsRegistered = false;
         }
 
@@ -155,6 +163,5 @@ namespace Runtime.Controllers
                 _pointerEventData = new PointerEventData(uiEventSystem);
             }
         }
-        
     }
 }

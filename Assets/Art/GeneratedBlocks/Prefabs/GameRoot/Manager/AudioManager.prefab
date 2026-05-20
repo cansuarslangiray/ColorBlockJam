@@ -304,8 +304,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   musicSource: {fileID: 415548249793153372}
   sfxSource: {fileID: 7644817991993955793}
-  settingsManager: {fileID: 0}
-  stateManager: {fileID: 0}
   gameplayAmbientMusic: {fileID: 8300000, guid: 952c454acdbe249ceb3e8662721537c2, type: 3}
   buttonClick: {fileID: 8300000, guid: 0d9b1779a424b411594e6a10a4fc6ce8, type: 3}
   levelFail: {fileID: 8300000, guid: aedb62463703e4187ab61d2a98084d25, type: 3}

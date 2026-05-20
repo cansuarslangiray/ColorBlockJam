@@ -46,6 +46,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   boardController: {fileID: 0}
   uiEventSystem: {fileID: 0}
-  stateManager: {fileID: 0}
   pointerPressActionReference: {fileID: 5854651873412423264, guid: b7a9b9f6bbf8644c89ec7eb327e42871, type: 3}
   pointerPositionActionReference: {fileID: -3963856788485251971, guid: b7a9b9f6bbf8644c89ec7eb327e42871, type: 3}

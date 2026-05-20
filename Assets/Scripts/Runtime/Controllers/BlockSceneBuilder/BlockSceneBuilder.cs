@@ -5,7 +5,6 @@ using Runtime.Controllers.BlockSceneBuilder.Board;
 using Runtime.Controllers.BlockSceneBuilder.Conditions;
 using Runtime.Controllers.BlockSceneBuilder.Pool;
 using Runtime.Data;
-using Runtime.Managers;
 using UnityEngine;
 
 namespace Runtime.Controllers.BlockSceneBuilder
@@ -16,7 +15,6 @@ namespace Runtime.Controllers.BlockSceneBuilder
         private BoardController boardController;
 
         [SerializeField] private BlockScenePoolManager poolManager;
-        [SerializeField] private AudioManager audioManager;
 
         [Header("Material References")] [SerializeField]
         private List<BlockColorMaterialEntry> materialsByColor = new();

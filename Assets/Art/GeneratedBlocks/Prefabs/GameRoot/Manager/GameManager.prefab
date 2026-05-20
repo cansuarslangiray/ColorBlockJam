@@ -45,12 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   levelCollection: {fileID: 11400000, guid: 5d7574c21d132407c8a8714fdc7787a5, type: 2}
-  boardController: {fileID: 0}
-  blockSceneBuilder: {fileID: 0}
-  stateManager: {fileID: 0}
-  uiManager: {fileID: 0}
-  audioManager: {fileID: 0}
-  gameplayCamera: {fileID: 0}
   levelCompletePanelDelay: 0.4
   closeCameraLevelCount: 2
   closeCameraDistanceMultiplier: 0.9
